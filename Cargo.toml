@@ -1,0 +1,3 @@
+[workspace]
+members = ["plain-reference"]
+resolver = "2"
