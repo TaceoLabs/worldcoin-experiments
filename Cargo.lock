@@ -449,6 +449,10 @@ dependencies = [
 [[package]]
 name = "iris-aby3"
 version = "0.1.0"
+dependencies = [
+ "bytes",
+ "thiserror",
+]
 
 [[package]]
 name = "itoa"

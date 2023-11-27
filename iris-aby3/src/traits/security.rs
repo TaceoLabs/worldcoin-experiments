@@ -1,0 +1,2 @@
+trait SemiHonest {}
+trait MaliciousAbort {}
