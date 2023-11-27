@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         Ok(conn)
     }
 
-    let conn = open_database(&database_file)?;
+    let mut conn = open_database(&database_file)?;
 
     // Create the table if it doesn't exist
     conn.execute(
@@ -48,12 +48,13 @@ fn main() -> Result<()> {
     }
 
     // Insert the codes into the database
+    let transaction = conn.transaction()?;
+    let mut stmt = transaction.prepare("INSERT INTO iris_codes (code, mask) VALUES (?1, ?2)")?;
     for code in codes {
-        conn.execute(
-            "INSERT INTO iris_codes (code, mask) VALUES (?1, ?2)",
-            rusqlite::params![code.code.as_raw_slice(), code.mask.as_raw_slice()],
-        )?;
+        stmt.execute([code.code.as_raw_slice(), code.mask.as_raw_slice()])?;
     }
+    drop(stmt);
+    transaction.commit()?;
 
     Ok(())
 }

@@ -9,5 +9,5 @@ edition = "2021"
 bitvec = "1.0.1"
 clap = { version = "4.4.8", features = ["derive"] }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
-rand = "0.8.5"
+rand = { version = "0.8.5", features = ["small_rng"] }
 color-eyre = "0.6.2"
