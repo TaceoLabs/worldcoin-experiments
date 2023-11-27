@@ -41,7 +41,7 @@ fn main() -> Result<()> {
         rusqlite::params![],
     )?;
 
-    let mut codes = Vec::new();
+    let mut codes = Vec::with_capacity(num_items as usize);
     for _ in 0..num_items {
         let code = IrisCode::random();
         codes.push(code);
