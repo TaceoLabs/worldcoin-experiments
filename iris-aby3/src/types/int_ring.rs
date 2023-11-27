@@ -2,6 +2,7 @@ use super::{bit::Bit, ring_element::RingElement, sharable::Sharable};
 use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
@@ -34,6 +35,8 @@ pub trait IntRing2k:
     + Default
     + PartialOrd
     + Ord
+    + Serialize
+    + for<'a> Deserialize<'a>
 {
     type Signed: Sharable<Share = RingElement<Self>>;
 

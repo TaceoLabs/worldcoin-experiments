@@ -3,6 +3,7 @@ use super::{int_ring::IntRing2k, ring_element::RingImpl};
 use num_traits::{
     WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
+use serde::{Deserialize, Serialize};
 use std::mem::ManuallyDrop;
 use std::{
     fmt::Debug,
@@ -33,6 +34,8 @@ pub trait Sharable:
     + Zero
     + From<bool>
     + Default
+    + Serialize
+    + for<'a> Deserialize<'a>
 {
     /// Each Sharable type has a corresponding internal ABY3 representation. In the easiest cases this is just the unsigned version of the type with the same size, i.e., u32 for i32 or u32 for u32.
     type Share: RingImpl;

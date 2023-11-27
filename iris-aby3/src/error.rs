@@ -9,7 +9,9 @@ pub enum Error {
     /// A IO error has orccured
     #[error("IO error")]
     IOError(#[from] std::io::Error),
-
+    /// Invalid party id provided
+    #[error("Invalid Party id {0}")]
+    IdError(usize),
     /// Some other error has occured.
     #[error("Err: {0}")]
     Other(String),

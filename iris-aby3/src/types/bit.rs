@@ -3,6 +3,7 @@ use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
 use rand::{distributions::Standard, prelude::Distribution, Rng};
+use serde::{Deserialize, Serialize};
 use std::mem::ManuallyDrop;
 use std::ops::{
     Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Neg, Not, Shl, Shr,
@@ -10,7 +11,7 @@ use std::ops::{
 };
 
 /// Bit is a sharable wrapper for a boolean value
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
 /// This transparent is important due to some typecasts!
 pub struct Bit(pub(super) bool);

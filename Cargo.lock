@@ -453,6 +453,7 @@ dependencies = [
  "bytes",
  "num-traits",
  "rand",
+ "serde",
  "thiserror",
 ]
 

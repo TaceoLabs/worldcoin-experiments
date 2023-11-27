@@ -3,6 +3,7 @@ use super::int_ring::IntRing2k;
 use crate::error::Error;
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::mem::ManuallyDrop;
 use std::num::TryFromIntError;
@@ -101,8 +102,8 @@ where
         Ok(test)
     }
 }
-
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, PartialOrd, Eq, Ord)]
+#[serde(bound = "")]
 #[repr(transparent)]
 /// This transparent is important due to some typecasts!
 pub struct RingElement<T: IntRing2k + std::fmt::Display>(pub T);
