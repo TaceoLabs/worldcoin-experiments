@@ -14,4 +14,6 @@ rust-version.workspace = true
 
 [dependencies]
 bytes = { workspace = true }
+num-traits = "0.2"
+rand = { workspace = true }
 thiserror = { workspace = true }

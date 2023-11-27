@@ -3,6 +3,9 @@ use thiserror::Error;
 /// An Error enum capturing the errors produced by this crate.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Type conversion error
+    #[error("Conversion error")]
+    ConversionError,
     /// A IO error has orccured
     #[error("IO error")]
     IOError(#[from] std::io::Error),
