@@ -1,3 +1,14 @@
 [workspace]
-members = ["plain-reference", "mpc-net"]
+members = ["plain-reference", "mpc-net", "iris-aby3"]
 resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.66"
+authors = ["TACEO GmbH <hello@taceo.io>"]
+description = "Experiments for WorldCoin"
+readme = "./README.md"
+homepage = "www.taceo.io"
+repository = "https://github.com/TaceoLabs/worldcoin-experiments"
+license = "MIT OR Apache-2.0"
+publish = ["taceo"]
