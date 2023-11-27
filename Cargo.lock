@@ -437,7 +437,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
-<<<<<<< HEAD
 name = "indexmap"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -446,6 +445,10 @@ dependencies = [
  "equivalent",
  "hashbrown",
 ]
+
+[[package]]
+name = "iris-aby3"
+version = "0.1.0"
 
 [[package]]
 name = "itoa"
@@ -461,10 +464,6 @@ checksum = "54c0c35952f67de54bb584e9fd912b3023117cbafc0a77d8f3dee1fb5f572fe8"
 dependencies = [
  "wasm-bindgen",
 ]
-=======
-name = "iris-aby3"
-version = "0.1.0"
->>>>>>> ea80a09 (start repo structure for aby3)
 
 [[package]]
 name = "lazy_static"
