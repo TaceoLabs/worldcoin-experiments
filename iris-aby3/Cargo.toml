@@ -14,7 +14,11 @@ rust-version.workspace = true
 
 [dependencies]
 bytes = { workspace = true }
+color-eyre = { workspace = true }
+futures = { workspace = true }
+mpc-net = { path = "../mpc-net" }
 num-traits = "0.2"
+quinn = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
