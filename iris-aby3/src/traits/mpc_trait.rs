@@ -1,5 +1,6 @@
 use crate::error::Error;
 
+#[allow(async_fn_in_trait)]
 pub trait MpcTrait<Ashare, Bshare> {
     async fn preprocess(&mut self) -> Result<(), Error>;
 

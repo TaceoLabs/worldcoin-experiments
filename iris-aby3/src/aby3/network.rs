@@ -49,9 +49,9 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), IOError> {
-        if (id == self.id.next_id().into()) {
+        if id == self.id.next_id().into() {
             self.channel_send.send(data).await
-        } else if (id == self.id.prev_id().into()) {
+        } else if id == self.id.prev_id().into() {
             self.channel_recv.send(data).await
         } else {
             Err(IOError::new(ErrorKind::Other, "Invalid ID"))
