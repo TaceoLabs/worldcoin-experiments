@@ -1,9 +1,13 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use channel::Channel;
 use color_eyre::eyre::{self, Context, Report};
 use config::NetworkConfig;
-use quinn::{ClientConfig, Connection, RecvStream, SendStream};
+use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream};
 use rustls::{Certificate, PrivateKey};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -12,7 +16,9 @@ pub mod config;
 
 #[derive(Debug)]
 pub struct MpcNetworkHandler {
-    connections: HashMap<usize, Connection>,
+    // this is a btreemap because we rely on iteration order
+    connections: BTreeMap<usize, Connection>,
+    endpoints: Vec<Endpoint>,
     my_id: usize,
 }
 
@@ -55,9 +61,10 @@ impl MpcNetworkHandler {
             .map(|p| p.socket_addr)
             .expect("we are in the list of parties, so we should have a socket address");
 
+        let mut endpoints = Vec::new();
         let server_endpoint = quinn::Endpoint::server(server_config.clone(), our_socket_addr)?;
 
-        let mut connections = HashMap::with_capacity(config.parties.len());
+        let mut connections = BTreeMap::new();
 
         for party in config.parties {
             if party.id == config.my_id {
@@ -78,8 +85,10 @@ impl MpcNetworkHandler {
                 let mut uni = conn.open_uni().await?;
                 uni.write_u32(u32::try_from(config.my_id).expect("party id fits into u32"))
                     .await?;
+                uni.flush().await?;
                 uni.finish().await?;
                 assert!(connections.insert(party.id, conn).is_none());
+                endpoints.push(endpoint);
             } else {
                 // we are the server, accept a connection
                 if let Some(maybe_conn) = server_endpoint.accept().await {
@@ -100,9 +109,11 @@ impl MpcNetworkHandler {
                 }
             }
         }
+        endpoints.push(server_endpoint);
 
         Ok(MpcNetworkHandler {
             connections,
+            endpoints,
             my_id: config.my_id,
         })
     }
@@ -120,21 +131,35 @@ impl MpcNetworkHandler {
     }
     pub async fn get_byte_channels(
         &mut self,
-    ) -> Result<HashMap<usize, Channel<RecvStream, SendStream>>, Report> {
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream>>> {
         let mut channels = HashMap::with_capacity(self.connections.len() - 1);
         for (&id, conn) in &mut self.connections {
             if id < self.my_id {
                 // we are the client, so we are the receiver
-                let (send_stream, recv_stream) = conn.open_bi().await?;
+                let (mut send_stream, mut recv_stream) = conn.open_bi().await?;
+                send_stream.write_u32(self.my_id as u32).await?;
+                recv_stream.read_u32().await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             } else {
-                // we are the server, so we are the receiver
-                let (send_stream, recv_stream) = conn.accept_bi().await?;
+                // we are the server, so we are the sender
+                let (mut send_stream, mut recv_stream) = conn.accept_bi().await?;
+                recv_stream.read_u32().await?;
+                send_stream.write_u32(self.my_id as u32).await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             }
         }
         Ok(channels)
+    }
+
+    /// Shutdown all connections, and call [`quinn::Endpoint::wait_idle`] on all of them
+    pub async fn shutdown(self) {
+        for conn in self.connections.into_values() {
+            conn.close(0u32.into(), b"");
+        }
+        for endpoint in self.endpoints {
+            endpoint.wait_idle().await;
+        }
     }
 }

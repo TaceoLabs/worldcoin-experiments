@@ -13,7 +13,7 @@ struct Opts {
     #[arg(short, long, value_name = "FILE", required = true)]
     database: PathBuf,
 
-    /// path to the database file to store stuff in
+    /// Set to true if a image should be generated that matches an element in the database
     #[arg(short, long, default_value = "false")]
     should_match: bool,
 }
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
     let mut result = false;
 
     for code in codes {
-        result = result | code?.is_close(&code_to_compare_to);
+        result |= code?.is_close(&code_to_compare_to);
     }
 
     if result {

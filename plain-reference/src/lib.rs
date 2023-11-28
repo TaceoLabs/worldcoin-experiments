@@ -1,10 +1,7 @@
-use core::panic;
-
 use bitvec::{prelude::Lsb0, BitArr};
-use rand::distributions::Bernoulli;
-use rand::distributions::Distribution;
-use rand::RngCore;
-use rand::SeedableRng;
+use core::panic;
+use rand::distributions::{Bernoulli, Distribution};
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 const IRIS_CODE_SIZE: usize = 12800;
 const MASK_THRESHOLD_RATIO: f64 = 0.70;
@@ -20,7 +17,7 @@ pub struct IrisCode {
 impl IrisCode {
     pub fn random() -> Self {
         let mut code = IrisCode::default();
-        let rng = &mut rand::rngs::SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         // Fill the code with random bytes
         rng.fill_bytes(code.code.as_raw_mut_slice());
         code.mask.fill(true);
@@ -30,7 +27,7 @@ impl IrisCode {
 
         // ...
         for i in 0..code.mask.len() {
-            if dist.sample(rng) {
+            if dist.sample(&mut rng) {
                 code.mask.set(i, false);
             }
         }

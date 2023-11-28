@@ -24,8 +24,8 @@ impl<
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
     > Channel<R, W>
 {
-    /// Create a new [`Connection`], backed by `socket`. Read and write buffers
-    /// are initialized.
+    /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
+    /// are automatically handled by [`LengthDelimitedCodec`].
     pub fn new(read_half: R, write_half: W) -> Self {
         let codec = LengthDelimitedCodec::new();
         Channel {
@@ -33,9 +33,33 @@ impl<
             read_conn: FramedRead::new(read_half, codec),
         }
     }
-    /// Split Connection into a `(ReadChannel,WriteChannel)` pair.
-    pub fn split(self) -> (ReadChannel<R>, WriteChannel<W>) {
-        (self.read_conn, self.write_conn)
+    /// Split Connection into a ([`WriteChannel`],[`ReadChannel`]) pair.
+    pub fn split(self) -> (WriteChannel<W>, ReadChannel<R>) {
+        (self.write_conn, self.read_conn)
+    }
+
+    pub async fn close(self) -> Result<(), io::Error> {
+        let Channel {
+            mut read_conn,
+            mut write_conn,
+        } = self;
+        write_conn.flush().await?;
+        write_conn.close().await?;
+        if let Some(x) = read_conn.next().await {
+            match x {
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Unexpected data on read channel when closing connections",
+                    ));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 impl<

@@ -1,13 +1,21 @@
 [package]
 name = "plain-reference"
 version = "0.1.0"
-edition = "2021"
+description = "Reference implementation of the privacy-preserving iris matching protocol."
+publish.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bitvec = "1.0.1"
-clap = { version = "4.4.8", features = ["derive"] }
+clap = { workspace = true }
+color-eyre = { workspace = true }
+rand = { workspace = true }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
-rand = { version = "0.8.5", features = ["small_rng"] }
-color-eyre = "0.6.2"
