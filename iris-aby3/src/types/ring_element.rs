@@ -1,6 +1,7 @@
 use super::bit::Bit;
 use super::int_ring::IntRing2k;
 use crate::error::Error;
+use bytes::{Bytes, BytesMut};
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
@@ -49,8 +50,11 @@ pub trait RingImpl:
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
-    fn add_not_clone(&self, other: &Self) -> Self;
-    fn mul_not_clone(&self, other: &Self) -> Self;
+    fn add_to_bytes(self, other: &mut BytesMut);
+    fn from_bytes_mut(other: BytesMut) -> Result<Self, Error>;
+    fn from_bytes(other: Bytes) -> Result<Self, Error>;
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
+    fn to_bytes(self) -> Bytes;
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
@@ -82,12 +86,25 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
         Ok(res)
     }
-    fn add_not_clone(&self, other: &Self) -> Self {
-        Self(self.0.wrapping_add(&other.0))
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        self.0.add_to_bytes(other)
     }
 
-    fn mul_not_clone(&self, other: &Self) -> Self {
-        Self(self.0.wrapping_mul(&other.0))
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        Ok(RingElement(T::from_bytes_mut(other)?))
+    }
+
+    fn from_bytes(other: Bytes) -> Result<Self, Error> {
+        Ok(RingElement(T::from_bytes(other)?))
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        Ok(RingElement(T::take_from_bytes_mut(other)?))
+    }
+
+    fn to_bytes(self) -> Bytes {
+        self.0.to_bytes()
     }
 }
 

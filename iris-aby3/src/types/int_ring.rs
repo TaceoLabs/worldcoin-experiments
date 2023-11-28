@@ -1,10 +1,13 @@
 use super::{bit::Bit, ring_element::RingElement, sharable::Sharable};
+use crate::error::Error;
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
+    mem::size_of,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
 };
 
@@ -42,6 +45,18 @@ pub trait IntRing2k:
 
     fn get_k() -> usize;
     fn to_signed(self) -> Self::Signed;
+
+    fn add_to_bytes(self, other: &mut BytesMut);
+    fn from_bytes_mut(other: BytesMut) -> Result<Self, Error>;
+    fn from_bytes(other: Bytes) -> Result<Self, Error>;
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
+
+    fn to_bytes(self) -> Bytes {
+        let mut out = BytesMut::new();
+        self.add_to_bytes(&mut out);
+        out.freeze()
+    }
 
     /// a += b
     #[inline(always)]
@@ -91,6 +106,31 @@ impl IntRing2k for Bit {
     fn to_signed(self) -> Self::Signed {
         self
     }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u8(self.into());
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != 1 {
+            return Err(Error::ConversionError);
+        }
+        Bit::try_from(other.get_u8())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != 1 {
+            return Err(Error::ConversionError);
+        }
+        Bit::try_from(other.get_u8())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < 1 {
+            return Err(Error::ConversionError);
+        }
+        Bit::try_from(other.get_u8())
+    }
 }
 
 impl IntRing2k for u8 {
@@ -103,6 +143,31 @@ impl IntRing2k for u8 {
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
+    }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u8(self);
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u8())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u8())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u8())
     }
 }
 
@@ -117,6 +182,31 @@ impl IntRing2k for u16 {
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
     }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u16(self);
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u16())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u16())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u16())
+    }
 }
 
 impl IntRing2k for u32 {
@@ -129,6 +219,31 @@ impl IntRing2k for u32 {
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
+    }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u32(self);
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u32())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u32())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u32())
     }
 }
 
@@ -143,6 +258,31 @@ impl IntRing2k for u64 {
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
     }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u64(self);
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u64())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u64())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u64())
+    }
 }
 
 impl IntRing2k for u128 {
@@ -155,5 +295,30 @@ impl IntRing2k for u128 {
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
+    }
+
+    fn add_to_bytes(self, other: &mut BytesMut) {
+        other.put_u128(self);
+    }
+
+    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u128())
+    }
+
+    fn from_bytes(mut other: Bytes) -> Result<Self, Error> {
+        if other.remaining() != size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u128())
+    }
+
+    fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error> {
+        if other.remaining() < size_of::<Self>() {
+            return Err(Error::ConversionError);
+        }
+        Ok(other.get_u128())
     }
 }

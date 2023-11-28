@@ -1,7 +1,7 @@
 use super::id::PartyID;
 use crate::error::Error;
 use crate::traits::network_trait::NetworkTrait;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
 use mpc_net::channel::Channel;
 use mpc_net::config::NetworkConfig;
@@ -62,13 +62,20 @@ impl NetworkTrait for Aby3Network {
         self.channel_send.send(data).await
     }
 
-    async fn receive(&mut self, id: usize) -> Result<bytes::Bytes, IOError> {
+    async fn receive(&mut self, id: usize) -> Result<BytesMut, IOError> {
         todo!()
     }
 
-    async fn receive_prev_id(&mut self) -> Result<bytes::Bytes, IOError> {
-        todo!()
-        // self.channel_recv.next().await
+    async fn receive_prev_id(&mut self) -> Result<BytesMut, IOError> {
+        let buf = self.channel_recv.next().await;
+        if let Some(Ok(b)) = buf {
+            Ok(b)
+        } else {
+            Err(IOError::new(
+                ErrorKind::ConnectionAborted,
+                "Receive on closed Channel",
+            ))
+        }
     }
 
     async fn broadcast(&mut self, data: bytes::Bytes) -> Vec<Result<bytes::Bytes, IOError>> {
