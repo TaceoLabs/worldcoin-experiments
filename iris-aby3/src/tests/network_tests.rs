@@ -1,4 +1,10 @@
 mod aby3_test {
+    use crate::{
+        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
+        error::Error,
+        traits::mpc_trait::MpcTrait,
+        types::sharable::Sharable,
+    };
     use mpc_net::config::{NetworkConfig, NetworkParty};
     use rand::{
         distributions::{Distribution, Standard},
@@ -9,12 +15,6 @@ mod aby3_test {
     use std::{
         net::{Ipv4Addr, SocketAddrV4},
         path::PathBuf,
-    };
-
-    use crate::{
-        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
-        traits::mpc_trait::MpcTrait,
-        types::sharable::Sharable,
     };
 
     const NUM_PARTIES: usize = 3;
@@ -75,6 +75,13 @@ mod aby3_test {
         protocol
     }
 
+    async fn finish_protocol<T: Sharable>(protocol: Aby3<Aby3Network>) -> Result<(), Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol).await
+    }
+
     #[test]
     fn test_network_config() {
         for i in 0..NUM_PARTIES {
@@ -83,15 +90,17 @@ mod aby3_test {
         }
     }
 
-    async fn input_test_party(id: usize) -> u16 {
+    async fn input_test_party(id: usize) -> (u16, Vec<u16>) {
         let mut protocol = get_preprocessed_protocol::<u16>(id).await;
         let rng = &mut SmallRng::from_entropy();
         let input = rng.gen::<u16>();
 
         let shares = protocol.input_all(input).await.unwrap();
+        let open = protocol.open_many(&shares).await.unwrap();
 
-        protocol.finish().await.unwrap();
-        input
+        finish_protocol::<u16>(protocol).await.unwrap();
+
+        (input, open)
     }
 
     #[tokio::test]
@@ -104,10 +113,12 @@ mod aby3_test {
             tasks.push(t);
         }
 
+        let mut inputs = Vec::with_capacity(NUM_PARTIES);
         let mut results = Vec::with_capacity(NUM_PARTIES);
         for t in tasks {
-            let outs = t.await.expect("Task exited normally");
-            results.push(outs);
+            let (inp, outp) = t.await.expect("Task exited normally");
+            inputs.push(inp);
+            results.push(outp);
         }
 
         let r0 = &results[0];

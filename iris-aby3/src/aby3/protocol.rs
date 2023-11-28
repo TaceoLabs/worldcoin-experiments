@@ -34,17 +34,17 @@ impl<N: NetworkTrait> Aby3<N> {
         self.prf = Prf::new(seed, their_seed);
         Ok(())
     }
-
-    pub async fn finish(mut self) -> Result<(), Error> {
-        self.network.shutdown().await?;
-        Ok(())
-    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<T>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
 {
+    async fn finish(mut self) -> Result<(), Error> {
+        self.network.shutdown().await?;
+        Ok(())
+    }
+
     async fn preprocess(&mut self) -> Result<(), Error> {
         self.setup_prf().await
     }

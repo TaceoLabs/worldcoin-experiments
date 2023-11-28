@@ -2,6 +2,8 @@ use crate::{error::Error, types::sharable::Sharable};
 
 #[allow(async_fn_in_trait)]
 pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
+    async fn finish(self) -> Result<(), Error>;
+
     async fn preprocess(&mut self) -> Result<(), Error>;
 
     // Each party inputs an arithmetic share
