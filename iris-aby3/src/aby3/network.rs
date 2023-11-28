@@ -7,9 +7,9 @@ use mpc_net::channel::Channel;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
 use quinn::{RecvStream, SendStream};
-use std::io::Error as IOError;
+use std::io::{Error as IOError, ErrorKind};
 
-struct Aby3Network {
+pub(crate) struct Aby3Network {
     id: PartyID,
     channel_send: Channel<RecvStream, SendStream>,
     channel_recv: Channel<RecvStream, SendStream>,
@@ -49,20 +49,26 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), IOError> {
-        todo!()
+        if (id == self.id.next_id().into()) {
+            self.channel_send.send(data).await
+        } else if (id == self.id.prev_id().into()) {
+            self.channel_recv.send(data).await
+        } else {
+            Err(IOError::new(ErrorKind::Other, "Invalid ID"))
+        }
     }
 
-    async fn sent_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
+    async fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
         self.channel_send.send(data).await
     }
 
     async fn receive(&mut self, id: usize) -> Result<bytes::Bytes, IOError> {
         todo!()
-        // self.channel_recv.next().await
     }
 
     async fn receive_prev_id(&mut self) -> Result<bytes::Bytes, IOError> {
         todo!()
+        // self.channel_recv.next().await
     }
 
     async fn broadcast(&mut self, data: bytes::Bytes) -> Vec<Result<bytes::Bytes, IOError>> {

@@ -20,5 +20,6 @@ mpc-net = { path = "../mpc-net" }
 num-traits = "0.2"
 quinn = { workspace = true }
 rand = { workspace = true }
+rand_chacha = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

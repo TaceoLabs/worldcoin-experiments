@@ -1,7 +1,8 @@
-use super::network_trait::NetworkTrait;
 use crate::error::Error;
 
-pub trait MpcTrait<N: NetworkTrait, Ashare, Bshare> {
+pub trait MpcTrait<Ashare, Bshare> {
+    async fn preprocess(&mut self) -> Result<(), Error>;
+
     fn add(a: Ashare, b: Ashare) -> Ashare;
-    fn mul(network: &mut N, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
+    async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
 }

@@ -48,28 +48,6 @@ impl<T: Sharable> Share<T> {
         }
     }
 
-    // Self + a random Share
-    pub(crate) fn mul_randomize(&self, rand: &Share<T>) -> T::Share {
-        debug_assert_eq!(self.b, T::Share::zero());
-        self.a.to_owned() + rand.a_minus_b()
-    }
-
-    pub(crate) fn a_plus_b(&self) -> T::Share {
-        self.a.to_owned() + &self.b
-    }
-
-    pub(crate) fn a_minus_b(&self) -> T::Share {
-        self.a.to_owned() - &self.b
-    }
-
-    pub(crate) fn get_a(&self) -> T::Share {
-        self.a.to_owned()
-    }
-
-    pub(crate) fn get_b(&self) -> T::Share {
-        self.b.to_owned()
-    }
-
     pub fn get_ab(&self) -> (T::Share, T::Share) {
         (self.a.to_owned(), self.b.to_owned())
     }

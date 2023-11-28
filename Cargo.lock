@@ -457,6 +457,7 @@ dependencies = [
  "num-traits",
  "quinn",
  "rand",
+ "rand_chacha",
  "serde",
  "thiserror",
 ]
