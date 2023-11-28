@@ -1,10 +1,6 @@
 mod aby3_test {
     use crate::{
-        aby3::{
-            network::Aby3Network,
-            protocol::Aby3,
-            share::{self, Share},
-        },
+        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
         traits::mpc_trait::MpcTrait,
         types::{int_ring::IntRing2k, sharable::Sharable},
     };
