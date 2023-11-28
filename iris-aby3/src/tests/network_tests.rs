@@ -1,15 +1,20 @@
 mod aby3_test {
     use mpc_net::config::{NetworkConfig, NetworkParty};
+    use rand::{
+        distributions::{Distribution, Standard},
+        rngs::SmallRng,
+        Rng, SeedableRng,
+    };
     use serial_test::serial;
     use std::{
         net::{Ipv4Addr, SocketAddrV4},
         path::PathBuf,
-        time::Duration,
     };
 
     use crate::{
         aby3::{network::Aby3Network, protocol::Aby3, share::Share},
         traits::mpc_trait::MpcTrait,
+        types::sharable::Sharable,
     };
 
     const NUM_PARTIES: usize = 3;
@@ -57,6 +62,19 @@ mod aby3_test {
         }
     }
 
+    async fn get_preprocessed_protocol<T: Sharable>(id: usize) -> Aby3<Aby3Network>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        let config = get_config(id);
+        let network = Aby3Network::new(config).await.unwrap();
+        let mut protocol = Aby3::new(network);
+        MpcTrait::<T, Share<T>, Share<T>>::preprocess(&mut protocol)
+            .await
+            .unwrap();
+        protocol
+    }
+
     #[test]
     fn test_network_config() {
         for i in 0..NUM_PARTIES {
@@ -65,25 +83,24 @@ mod aby3_test {
         }
     }
 
-    async fn add_test_party(id: usize) -> u16 {
-        let config = get_config(id);
-        let network = Aby3Network::new(config).await.unwrap();
-        let mut protocol = Aby3::new(network);
-        MpcTrait::<Share<u16>, Share<u16>>::preprocess(&mut protocol)
-            .await
-            .unwrap();
+    async fn input_test_party(id: usize) -> u16 {
+        let mut protocol = get_preprocessed_protocol::<u16>(id).await;
+        let rng = &mut SmallRng::from_entropy();
+        let input = rng.gen::<u16>();
+
+        let shares = protocol.input_all(input).await.unwrap();
 
         protocol.finish().await.unwrap();
-        1
+        input
     }
 
     #[tokio::test]
     #[serial]
-    async fn add_test() {
+    async fn input_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { add_test_party(i).await });
+            let t = tokio::spawn(async move { input_test_party(i).await });
             tasks.push(t);
         }
 

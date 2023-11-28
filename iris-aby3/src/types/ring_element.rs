@@ -1,7 +1,7 @@
 use super::bit::Bit;
 use super::int_ring::IntRing2k;
 use crate::error::Error;
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,7 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
         self.0.add_to_bytes(other)
     }
 
-    fn from_bytes_mut(mut other: BytesMut) -> Result<Self, Error> {
+    fn from_bytes_mut(other: BytesMut) -> Result<Self, Error> {
         Ok(RingElement(T::from_bytes_mut(other)?))
     }
 
@@ -413,6 +413,32 @@ impl<T: IntRing2k> ShlAssign<u32> for RingElement<T> {
     fn shl_assign(&mut self, rhs: u32) {
         self.0.wrapping_shl_assign(rhs)
     }
+}
+
+pub(crate) fn ring_vec_from_bytes<T>(mut bytes: BytesMut, n: usize) -> Result<Vec<T>, Error>
+where
+    T: RingImpl,
+{
+    let mut res = Vec::with_capacity(n);
+    for _ in 0..n {
+        res.push(T::take_from_bytes_mut(&mut bytes)?);
+    }
+    if bytes.remaining() != 0 {
+        return Err(Error::ConversionError);
+    }
+    Ok(res)
+}
+
+pub(crate) fn ring_vec_to_bytes<T>(vec: Vec<T>) -> Bytes
+where
+    T: RingImpl,
+{
+    let size = T::get_k() / 8 + ((T::get_k() % 8) != 0) as usize;
+    let mut out = BytesMut::with_capacity(size * vec.len());
+    for v in vec {
+        v.add_to_bytes(&mut out);
+    }
+    out.freeze()
 }
 
 #[cfg(test)]

@@ -65,7 +65,22 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn receive(&mut self, id: usize) -> Result<BytesMut, IOError> {
-        todo!()
+        let buf = if id == self.id.prev_id().into() {
+            self.channel_send.next().await
+        } else if id == self.id.next_id().into() {
+            self.channel_recv.next().await
+        } else {
+            return Err(IOError::new(ErrorKind::Other, "Invalid ID"));
+        };
+
+        if let Some(Ok(b)) = buf {
+            Ok(b)
+        } else {
+            Err(IOError::new(
+                ErrorKind::ConnectionAborted,
+                "Receive on closed Channel",
+            ))
+        }
     }
 
     async fn receive_prev_id(&mut self) -> Result<BytesMut, IOError> {
@@ -80,8 +95,21 @@ impl NetworkTrait for Aby3Network {
         }
     }
 
-    async fn broadcast(&mut self, data: bytes::Bytes) -> Vec<Result<bytes::Bytes, IOError>> {
-        todo!()
+    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, IOError> {
+        let mut result = Vec::with_capacity(3);
+        for id in 0..3 {
+            if id != self.id.into() {
+                self.send(id, data.clone()).await?;
+            }
+        }
+        for id in 0..3 {
+            if id == self.id.into() {
+                result.push(BytesMut::from(data.as_ref()));
+            } else {
+                result.push(self.receive(id).await?);
+            }
+        }
+        Ok(result)
     }
 
     async fn shutdown(&mut self) -> Result<(), IOError> {
