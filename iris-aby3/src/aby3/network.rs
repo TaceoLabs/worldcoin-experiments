@@ -9,7 +9,7 @@ use mpc_net::MpcNetworkHandler;
 use quinn::{RecvStream, SendStream};
 use std::io::{Error as IOError, ErrorKind};
 
-pub(crate) struct Aby3Network {
+pub struct Aby3Network {
     handler: MpcNetworkHandler,
     id: PartyID,
     channel_send: Channel<RecvStream, SendStream>,

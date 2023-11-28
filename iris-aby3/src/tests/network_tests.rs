@@ -1,7 +1,6 @@
 mod aby3_test {
     use crate::{
         aby3::{network::Aby3Network, protocol::Aby3, share::Share},
-        error::Error,
         traits::mpc_trait::MpcTrait,
         types::sharable::Sharable,
     };
@@ -75,13 +74,6 @@ mod aby3_test {
         protocol
     }
 
-    async fn finish_protocol<T: Sharable>(protocol: Aby3<Aby3Network>) -> Result<(), Error>
-    where
-        Standard: Distribution<T::Share>,
-    {
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol).await
-    }
-
     #[test]
     fn test_network_config() {
         for i in 0..NUM_PARTIES {
@@ -90,16 +82,21 @@ mod aby3_test {
         }
     }
 
-    async fn input_test_party(id: usize) -> (u16, Vec<u16>) {
-        let mut protocol = get_preprocessed_protocol::<u16>(id).await;
+    async fn input_test_party<T: Sharable>(id: usize) -> (T, Vec<T>)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+    {
+        let mut protocol = get_preprocessed_protocol::<T>(id).await;
         let rng = &mut SmallRng::from_entropy();
-        let input = rng.gen::<u16>();
+        let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
         let open = protocol.open_many(&shares).await.unwrap();
 
-        finish_protocol::<u16>(protocol).await.unwrap();
-
+        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+            .await
+            .unwrap();
         (input, open)
     }
 
@@ -109,7 +106,7 @@ mod aby3_test {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { input_test_party(i).await });
+            let t = tokio::spawn(async move { input_test_party::<u16>(i).await });
             tasks.push(t);
         }
 

@@ -1,6 +1,7 @@
 pub(crate) mod aby3;
-pub mod error;
+pub(crate) mod error;
+pub mod prelude;
 #[cfg(test)]
-pub mod tests;
-pub mod traits;
+pub(crate) mod tests;
+pub(crate) mod traits;
 pub(crate) mod types;
