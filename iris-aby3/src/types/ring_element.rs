@@ -45,6 +45,7 @@ pub trait RingImpl:
     + Shl<u32, Output = Self>
     + ShlAssign<u32>
     + Send
+    + From<bool>
 {
     fn get_k() -> usize;
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
@@ -105,6 +106,12 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn to_bytes(self) -> Bytes {
         self.0.to_bytes()
+    }
+}
+
+impl<T: IntRing2k> From<bool> for RingElement<T> {
+    fn from(value: bool) -> Self {
+        RingElement(T::from(value))
     }
 }
 

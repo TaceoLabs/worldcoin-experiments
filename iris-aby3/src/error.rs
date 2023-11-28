@@ -6,6 +6,12 @@ pub enum Error {
     /// Type conversion error
     #[error("Conversion error")]
     ConversionError,
+    /// Mask HW is to small
+    #[error("Mask HW is to small")]
+    MaskHWError,
+    /// Code size is invalid
+    #[error("Code size is invalid")]
+    InvlidCodeSizeError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,
