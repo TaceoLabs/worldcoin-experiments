@@ -33,14 +33,19 @@ impl<
             read_conn: FramedRead::new(read_half, codec),
         }
     }
-    /// Split Connection into a `(ReadChannel,WriteChannel)` pair.
-    pub fn split(self) -> (ReadChannel<R>, WriteChannel<W>) {
-        (self.read_conn, self.write_conn)
+    /// Split Connection into a `(WriteChannel,ReadChannel)` pair.
+    pub fn split(self) -> (WriteChannel<W>, ReadChannel<R>) {
+        (self.write_conn, self.read_conn)
     }
 
-    pub async fn finish(&mut self) -> Result<(), io::Error> {
-        self.write_conn.close().await?;
-        if let Some(x) = self.read_conn.next().await {
+    pub async fn close(self) -> Result<(), io::Error> {
+        let Channel {
+            mut read_conn,
+            mut write_conn,
+        } = self;
+        write_conn.flush().await?;
+        write_conn.close().await?;
+        if let Some(x) = read_conn.next().await {
             match x {
                 Ok(_) => {
                     return Err(io::Error::new(

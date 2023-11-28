@@ -13,6 +13,7 @@ pub mod config;
 #[derive(Debug)]
 pub struct MpcNetworkHandler {
     connections: HashMap<usize, Connection>,
+    server_endpoint: quinn::Endpoint,
     my_id: usize,
 }
 
@@ -101,9 +102,9 @@ impl MpcNetworkHandler {
                 }
             }
         }
-
         Ok(MpcNetworkHandler {
             connections,
+            server_endpoint,
             my_id: config.my_id,
         })
     }
@@ -121,7 +122,7 @@ impl MpcNetworkHandler {
     }
     pub async fn get_byte_channels(
         &mut self,
-    ) -> Result<HashMap<usize, Channel<RecvStream, SendStream>>, Report> {
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream>>> {
         let mut channels = HashMap::with_capacity(self.connections.len() - 1);
         for (&id, conn) in &mut self.connections {
             if id < self.my_id {

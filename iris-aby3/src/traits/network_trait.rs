@@ -6,7 +6,7 @@ pub trait NetworkTrait {
     fn get_id(&self) -> usize;
     fn get_num_parties(&self) -> usize;
 
-    async fn shutdown(&mut self) -> Result<(), Error>;
+    async fn shutdown(self) -> Result<(), Error>;
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), Error>;
     async fn send_next_id(&mut self, data: Bytes) -> Result<(), Error>;

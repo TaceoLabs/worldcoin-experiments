@@ -1,3 +1,5 @@
+use std::io;
+
 use super::id::PartyID;
 use crate::error::Error;
 use crate::traits::network_trait::NetworkTrait;
@@ -7,7 +9,6 @@ use mpc_net::channel::Channel;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
 use quinn::{RecvStream, SendStream};
-use std::io::{Error as IOError, ErrorKind};
 
 pub struct Aby3Network {
     handler: MpcNetworkHandler,
@@ -50,52 +51,52 @@ impl NetworkTrait for Aby3Network {
         3
     }
 
-    async fn send(&mut self, id: usize, data: Bytes) -> Result<(), IOError> {
+    async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
         if id == self.id.next_id().into() {
             self.channel_send.send(data).await
         } else if id == self.id.prev_id().into() {
             self.channel_recv.send(data).await
         } else {
-            Err(IOError::new(ErrorKind::Other, "Invalid ID"))
+            Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"))
         }
     }
 
-    async fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
+    async fn send_next_id(&mut self, data: Bytes) -> io::Result<()> {
         self.channel_send.send(data).await
     }
 
-    async fn receive(&mut self, id: usize) -> Result<BytesMut, IOError> {
+    async fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
         let buf = if id == self.id.prev_id().into() {
             self.channel_send.next().await
         } else if id == self.id.next_id().into() {
             self.channel_recv.next().await
         } else {
-            return Err(IOError::new(ErrorKind::Other, "Invalid ID"));
+            return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
 
         if let Some(Ok(b)) = buf {
             Ok(b)
         } else {
-            Err(IOError::new(
-                ErrorKind::ConnectionAborted,
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
                 "Receive on closed Channel",
             ))
         }
     }
 
-    async fn receive_prev_id(&mut self) -> Result<BytesMut, IOError> {
+    async fn receive_prev_id(&mut self) -> io::Result<BytesMut> {
         let buf = self.channel_recv.next().await;
         if let Some(Ok(b)) = buf {
             Ok(b)
         } else {
-            Err(IOError::new(
-                ErrorKind::ConnectionAborted,
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
                 "Receive on closed Channel",
             ))
         }
     }
 
-    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, IOError> {
+    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
         let mut result = Vec::with_capacity(3);
         for id in 0..3 {
             if id != self.id.into() {
@@ -112,9 +113,41 @@ impl NetworkTrait for Aby3Network {
         Ok(result)
     }
 
-    async fn shutdown(&mut self) -> Result<(), IOError> {
-        self.channel_send.close().await?;
-        self.channel_recv.finish().await?;
+    async fn shutdown(self) -> io::Result<()> {
+        let (mut send1, mut recv1) = self.channel_send.split();
+        let (mut send2, mut recv2) = self.channel_recv.split();
+        send1.flush().await?;
+        send1.close().await?;
+        send2.flush().await?;
+        send2.close().await?;
+        drop(send1);
+        drop(send2);
+        if let Some(x) = recv1.next().await {
+            match x {
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Unexpected data on read channel when closing connections",
+                    ));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        if let Some(x) = recv2.next().await {
+            match x {
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Unexpected data on read channel when closing connections",
+                    ));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
         Ok(())
     }
 }
