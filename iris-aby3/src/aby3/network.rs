@@ -10,6 +10,7 @@ use quinn::{RecvStream, SendStream};
 use std::io::{Error as IOError, ErrorKind};
 
 pub(crate) struct Aby3Network {
+    handler: MpcNetworkHandler,
     id: PartyID,
     channel_send: Channel<RecvStream, SendStream>,
     channel_recv: Channel<RecvStream, SendStream>,
@@ -22,8 +23,8 @@ impl Aby3Network {
             return Err(Error::NumPartyError(config.parties.len()));
         }
 
-        let mut network = MpcNetworkHandler::establish(config).await?;
-        let mut channels = network.get_byte_channels().await?;
+        let mut handler = MpcNetworkHandler::establish(config).await?;
+        let mut channels = handler.get_byte_channels().await?;
 
         let next_id: usize = id.next_id().into();
         let prev_id: usize = id.prev_id().into();
@@ -32,6 +33,7 @@ impl Aby3Network {
         let channel_recv = channels.remove(&prev_id).ok_or(Error::ConfigError)?;
 
         Ok(Self {
+            handler,
             id,
             channel_send,
             channel_recv,

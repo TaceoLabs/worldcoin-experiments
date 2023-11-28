@@ -9,13 +9,13 @@ use crate::types::sharable::Sharable;
 use bytes::Bytes;
 use rand::distributions::{Distribution, Standard};
 
-struct Aby3<N: NetworkTrait> {
+pub struct Aby3<N: NetworkTrait> {
     network: N,
     prf: Prf,
 }
 
 impl<N: NetworkTrait> Aby3<N> {
-    pub async fn new(network: N) -> Self {
+    pub fn new(network: N) -> Self {
         let prf = Prf::default();
 
         Self { network, prf }

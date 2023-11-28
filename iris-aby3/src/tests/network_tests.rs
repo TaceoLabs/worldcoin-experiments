@@ -1,12 +1,19 @@
 mod aby3_test {
     use mpc_net::config::{NetworkConfig, NetworkParty};
+    use serial_test::serial;
     use std::{
         net::{Ipv4Addr, SocketAddrV4},
         path::PathBuf,
+        time::Duration,
+    };
+
+    use crate::{
+        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
+        traits::mpc_trait::MpcTrait,
     };
 
     const NUM_PARTIES: usize = 3;
-    const PORT: u16 = 1000;
+    const PORT: u16 = 10000;
     const IP: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
     const CERT_PATH: &str = "/src/tests/certs/";
 
@@ -55,6 +62,39 @@ mod aby3_test {
         for i in 0..NUM_PARTIES {
             let config = get_config(i);
             assert!(config.check_config().is_ok());
+        }
+    }
+
+    async fn add_test_party(id: usize) -> u16 {
+        let config = get_config(id);
+        let network = Aby3Network::new(config).await.unwrap();
+        let mut protocol = Aby3::new(network);
+        MpcTrait::<Share<u16>, Share<u16>>::preprocess(&mut protocol)
+            .await
+            .unwrap();
+
+        1
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn add_test() {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move { add_test_party(i).await });
+            tasks.push(t);
+        }
+
+        let mut results = Vec::with_capacity(NUM_PARTIES);
+        for t in tasks {
+            let outs = t.await.expect("Task exited normally");
+            results.push(outs);
+        }
+
+        let r0 = &results[0];
+        for r in results.iter().skip(1) {
+            assert_eq!(r0, r);
         }
     }
 }

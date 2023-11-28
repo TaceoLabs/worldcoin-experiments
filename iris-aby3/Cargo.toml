@@ -23,3 +23,7 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+serial_test = "2.0"

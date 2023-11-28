@@ -129,7 +129,7 @@ impl MpcNetworkHandler {
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             } else {
-                // we are the server, so we are the receiver
+                // we are the server, so we are the sender
                 let (send_stream, recv_stream) = conn.accept_bi().await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
