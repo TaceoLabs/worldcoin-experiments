@@ -96,7 +96,7 @@ where
         Ok(res)
     }
 
-    fn add(a: Share<T>, b: Share<T>) -> Share<T> {
+    fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {
         a + b
     }
 
