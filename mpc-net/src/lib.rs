@@ -78,6 +78,7 @@ impl MpcNetworkHandler {
                 let mut uni = conn.open_uni().await?;
                 uni.write_u32(u32::try_from(config.my_id).expect("party id fits into u32"))
                     .await?;
+                uni.flush().await?;
                 uni.finish().await?;
                 assert!(connections.insert(party.id, conn).is_none());
             } else {
@@ -125,12 +126,16 @@ impl MpcNetworkHandler {
         for (&id, conn) in &mut self.connections {
             if id < self.my_id {
                 // we are the client, so we are the receiver
-                let (send_stream, recv_stream) = conn.open_bi().await?;
+                let (mut send_stream, mut recv_stream) = conn.open_bi().await?;
+                send_stream.write_u32(self.my_id as u32).await?;
+                recv_stream.read_u32().await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             } else {
                 // we are the server, so we are the sender
-                let (send_stream, recv_stream) = conn.accept_bi().await?;
+                let (mut send_stream, mut recv_stream) = conn.accept_bi().await?;
+                recv_stream.read_u32().await?;
+                send_stream.write_u32(self.my_id as u32).await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             }

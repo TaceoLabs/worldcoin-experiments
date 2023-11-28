@@ -83,4 +83,10 @@ impl NetworkTrait for Aby3Network {
     async fn broadcast(&mut self, data: bytes::Bytes) -> Vec<Result<bytes::Bytes, IOError>> {
         todo!()
     }
+
+    async fn shutdown(&mut self) -> Result<(), IOError> {
+        self.channel_send.close().await?;
+        self.channel_recv.finish().await?;
+        Ok(())
+    }
 }

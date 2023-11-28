@@ -13,4 +13,6 @@ pub trait NetworkTrait {
     async fn receive_prev_id(&mut self) -> Result<BytesMut, Error>;
 
     async fn broadcast(&mut self, data: Bytes) -> Vec<Result<Bytes, Error>>;
+
+    async fn shutdown(&mut self) -> Result<(), Error>;
 }

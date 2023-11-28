@@ -33,6 +33,11 @@ impl<N: NetworkTrait> Aby3<N> {
         self.prf = Prf::new(seed, their_seed);
         Ok(())
     }
+
+    pub async fn finish(mut self) -> Result<(), Error> {
+        self.network.shutdown().await?;
+        Ok(())
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<Share<T>, Share<T>> for Aby3<N>

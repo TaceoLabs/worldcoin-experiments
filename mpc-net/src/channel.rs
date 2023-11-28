@@ -37,6 +37,25 @@ impl<
     pub fn split(self) -> (ReadChannel<R>, WriteChannel<W>) {
         (self.read_conn, self.write_conn)
     }
+
+    pub async fn finish(&mut self) -> Result<(), io::Error> {
+        self.write_conn.close().await?;
+        if let Some(x) = self.read_conn.next().await {
+            match x {
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Unexpected data on read channel when closing connections",
+                    ));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,

@@ -73,6 +73,7 @@ mod aby3_test {
             .await
             .unwrap();
 
+        protocol.finish().await.unwrap();
         1
     }
 
