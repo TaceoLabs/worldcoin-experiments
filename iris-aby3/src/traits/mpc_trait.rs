@@ -1,4 +1,5 @@
 use crate::{error::Error, types::sharable::Sharable};
+use rand::Rng;
 
 #[allow(async_fn_in_trait)]
 pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
@@ -8,6 +9,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 
     // Each party inputs an arithmetic share
     async fn input_all(&mut self, input: T) -> Result<Vec<Ashare>, Error>;
+    async fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Ashare>;
 
     async fn open(&mut self, share: Ashare) -> Result<T, Error>;
     async fn open_many(&mut self, share: &[Ashare]) -> Result<Vec<T>, Error>;

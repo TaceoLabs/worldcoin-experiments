@@ -1,6 +1,10 @@
 mod aby3_test {
     use crate::{
-        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
+        aby3::{
+            network::Aby3Network,
+            protocol::Aby3,
+            share::{self, Share},
+        },
         traits::mpc_trait::MpcTrait,
         types::{int_ring::IntRing2k, sharable::Sharable},
     };
@@ -82,13 +86,61 @@ mod aby3_test {
         }
     }
 
+    async fn share_test_party<T: Sharable, R: Rng + SeedableRng>(id: usize, seed: R::Seed) -> (T, T)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+    {
+        let mut protocol = get_preprocessed_protocol::<T>(id).await;
+        let mut rng = R::from_seed(seed);
+        let input = rng.gen::<T>();
+
+        let shares = Aby3::<Aby3Network>::share(input, &mut rng).await;
+        let open = protocol.open(shares[id].to_owned()).await.unwrap();
+
+        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+            .await
+            .unwrap();
+        (input, open)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn share_test() {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move { share_test_party::<u16, SmallRng>(i, seed).await });
+            tasks.push(t);
+        }
+
+        let mut inputs = Vec::with_capacity(NUM_PARTIES);
+        let mut results = Vec::with_capacity(NUM_PARTIES);
+        for t in tasks {
+            let (inp, outp) = t.await.expect("Task exited normally");
+            inputs.push(inp);
+            results.push(outp);
+        }
+
+        let r0 = &results[0];
+        for r in results.iter().skip(1) {
+            assert_eq!(r0, r);
+        }
+        for i in inputs.iter() {
+            assert_eq!(r0, i);
+        }
+    }
+
     async fn input_test_party<T: Sharable>(id: usize) -> (T, Vec<T>)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
     {
         let mut protocol = get_preprocessed_protocol::<T>(id).await;
-        let rng = &mut SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -131,7 +183,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
     {
         let mut protocol = get_preprocessed_protocol::<T>(id).await;
-        let rng = &mut SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -180,7 +232,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
     {
         let mut protocol = get_preprocessed_protocol::<T>(id).await;
-        let rng = &mut SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();

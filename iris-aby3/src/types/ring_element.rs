@@ -444,7 +444,7 @@ where
 #[cfg(test)]
 mod unsafe_test {
     use super::*;
-    use rand::{Rng, SeedableRng};
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
 
     const ELEMENTS: usize = 100;
 
@@ -452,7 +452,7 @@ mod unsafe_test {
     where
         Standard: Distribution<T>,
     {
-        let rng = &mut rand::rngs::SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         let t_vec: Vec<T> = (0..ELEMENTS).map(|_| rng.gen()).collect();
         let rt_vec: Vec<RingElement<T>> =
             (0..ELEMENTS).map(|_| rng.gen::<RingElement<T>>()).collect();

@@ -9,6 +9,7 @@ use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
 use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 pub struct Aby3<N: NetworkTrait> {
     network: N,
@@ -73,6 +74,18 @@ where
         }
 
         Ok(shares)
+    }
+
+    async fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+        let a = rng.gen::<T::Share>();
+        let b = rng.gen::<T::Share>();
+        let c = input.to_sharetype() - &a - &b;
+
+        let share1 = Share::new(a.to_owned(), c.to_owned());
+        let share2 = Share::new(b.to_owned(), a);
+        let share3 = Share::new(c, b);
+
+        vec![share1, share2, share3]
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {

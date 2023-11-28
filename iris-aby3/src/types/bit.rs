@@ -364,13 +364,13 @@ impl AsRef<Bit> for Bit {
 #[cfg(test)]
 mod unsafe_test {
     use super::*;
-    use rand::{Rng, SeedableRng};
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
 
     const ELEMENTS: usize = 100;
 
     #[test]
     fn bit_conversion_test() {
-        let rng = &mut rand::rngs::SmallRng::from_entropy();
+        let mut rng = SmallRng::from_entropy();
         let bit_vec: Vec<Bit> = (0..ELEMENTS).map(|_| rng.gen()).collect();
         let bool_vec: Vec<bool> = (0..ELEMENTS).map(|_| rng.gen()).collect();
 

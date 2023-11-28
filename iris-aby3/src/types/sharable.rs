@@ -184,7 +184,7 @@ sharable_impl! {
 #[cfg(test)]
 mod unsafe_test {
     use super::*;
-    use rand::{Rng, SeedableRng};
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
 
     const ELEMENTS: usize = 100;
 
@@ -192,7 +192,7 @@ mod unsafe_test {
         ($([$ty:ty,$fn:ident]),*) => ($(
             #[test]
             fn $fn() {
-                let rng = &mut rand::rngs::SmallRng::from_entropy();
+                let mut rng = SmallRng::from_entropy();
                 let t_vec: Vec<$ty> = (0..ELEMENTS).map(|_| rng.gen()).collect();
                 let s_vec: Vec<<$ty as Sharable>::Share> = (0..ELEMENTS)
                     .map(|_| rng.gen::<<$ty as Sharable>::Share>())
