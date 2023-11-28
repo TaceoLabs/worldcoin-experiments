@@ -21,7 +21,7 @@ mod aby3_test {
     const IP: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
     const CERT_PATH: &str = "/src/tests/certs/";
 
-    fn get_network_parties() -> Vec<NetworkParty> {
+    fn get_network_parties(port_offset: u16) -> Vec<NetworkParty> {
         let mut parties = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
@@ -35,7 +35,10 @@ mod aby3_test {
             let party = NetworkParty {
                 id: i,
                 dns_name: format!("party{}", i),
-                socket_addr: std::net::SocketAddr::V4(SocketAddrV4::new(IP, PORT + i as u16)),
+                socket_addr: std::net::SocketAddr::V4(SocketAddrV4::new(
+                    IP,
+                    PORT + port_offset + i as u16,
+                )),
                 cert_path,
             };
             parties.push(party);
@@ -44,7 +47,7 @@ mod aby3_test {
         parties
     }
 
-    fn get_config(id: usize) -> NetworkConfig {
+    fn get_config(id: usize, port_offset: u16) -> NetworkConfig {
         assert!(id < NUM_PARTIES);
 
         let key_path = PathBuf::from(format!(
@@ -55,17 +58,20 @@ mod aby3_test {
         ));
 
         NetworkConfig {
-            parties: get_network_parties(),
+            parties: get_network_parties(port_offset),
             my_id: id,
             key_path,
         }
     }
 
-    async fn get_preprocessed_protocol<T: Sharable>(id: usize) -> Aby3<Aby3Network>
+    async fn get_preprocessed_protocol<T: Sharable>(
+        id: usize,
+        port_offset: u16,
+    ) -> Aby3<Aby3Network>
     where
         Standard: Distribution<T::Share>,
     {
-        let config = get_config(id);
+        let config = get_config(id, port_offset);
         let network = Aby3Network::new(config).await.unwrap();
         let mut protocol = Aby3::new(network);
         MpcTrait::<T, Share<T>, Share<T>>::preprocess(&mut protocol)
@@ -77,17 +83,21 @@ mod aby3_test {
     #[test]
     fn test_network_config() {
         for i in 0..NUM_PARTIES {
-            let config = get_config(i);
+            let config = get_config(i, 0);
             assert!(config.check_config().is_ok());
         }
     }
 
-    async fn share_test_party<T: Sharable, R: Rng + SeedableRng>(id: usize, seed: R::Seed) -> (T, T)
+    async fn share_test_party<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+    ) -> (T, T)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
     {
-        let mut protocol = get_preprocessed_protocol::<T>(id).await;
+        let mut protocol = get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
@@ -109,7 +119,8 @@ mod aby3_test {
         let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { share_test_party::<u16, SmallRng>(i, seed).await });
+            let t =
+                tokio::spawn(async move { share_test_party::<u16, SmallRng>(i, 10, seed).await });
             tasks.push(t);
         }
 
@@ -130,12 +141,12 @@ mod aby3_test {
         }
     }
 
-    async fn input_test_party<T: Sharable>(id: usize) -> (T, Vec<T>)
+    async fn input_test_party<T: Sharable>(id: usize, port_offset: u16) -> (T, Vec<T>)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
     {
-        let mut protocol = get_preprocessed_protocol::<T>(id).await;
+        let mut protocol = get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
@@ -154,7 +165,7 @@ mod aby3_test {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { input_test_party::<u16>(i).await });
+            let t = tokio::spawn(async move { input_test_party::<u16>(i, 20).await });
             tasks.push(t);
         }
 
@@ -173,12 +184,12 @@ mod aby3_test {
         assert_eq!(&inputs, r0);
     }
 
-    async fn add_test_party<T: Sharable>(id: usize) -> (T, T)
+    async fn add_test_party<T: Sharable>(id: usize, port_offset: u16) -> (T, T)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
     {
-        let mut protocol = get_preprocessed_protocol::<T>(id).await;
+        let mut protocol = get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
@@ -203,7 +214,7 @@ mod aby3_test {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { add_test_party::<u16>(i).await });
+            let t = tokio::spawn(async move { add_test_party::<u16>(i, 30).await });
             tasks.push(t);
         }
 
@@ -222,12 +233,12 @@ mod aby3_test {
         assert_eq!(r0, &sum);
     }
 
-    async fn mul_test_party<T: Sharable>(id: usize) -> (T, T)
+    async fn mul_test_party<T: Sharable>(id: usize, port_offset: u16) -> (T, T)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
     {
-        let mut protocol = get_preprocessed_protocol::<T>(id).await;
+        let mut protocol = get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
@@ -252,7 +263,7 @@ mod aby3_test {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { mul_test_party::<u16>(i).await });
+            let t = tokio::spawn(async move { mul_test_party::<u16>(i, 40).await });
             tasks.push(t);
         }
 

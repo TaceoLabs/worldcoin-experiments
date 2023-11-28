@@ -46,7 +46,7 @@ impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<T>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
 {
-    async fn finish(mut self) -> Result<(), Error> {
+    async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
     }

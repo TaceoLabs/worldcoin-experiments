@@ -24,8 +24,8 @@ impl<
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
     > Channel<R, W>
 {
-    /// Create a new [`Connection`], backed by `socket`. Read and write buffers
-    /// are initialized.
+    /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
+    /// are automatically handled by [`LengthDelimitedCodec`].
     pub fn new(read_half: R, write_half: W) -> Self {
         let codec = LengthDelimitedCodec::new();
         Channel {
@@ -33,7 +33,7 @@ impl<
             read_conn: FramedRead::new(read_half, codec),
         }
     }
-    /// Split Connection into a `(WriteChannel,ReadChannel)` pair.
+    /// Split Connection into a ([`WriteChannel`],[`ReadChannel`]) pair.
     pub fn split(self) -> (WriteChannel<W>, ReadChannel<R>) {
         (self.write_conn, self.read_conn)
     }
