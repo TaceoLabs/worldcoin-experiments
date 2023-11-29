@@ -7,6 +7,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 
     async fn preprocess(&mut self) -> Result<(), Error>;
 
+    async fn input(&mut self, input: Option<T>, id: usize) -> Result<Ashare, Error>;
     // Each party inputs an arithmetic share
     async fn input_all(&mut self, input: T) -> Result<Vec<Ashare>, Error>;
     async fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Ashare>;

@@ -1,22 +1,24 @@
-use std::ops::Mul;
-
 use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
 use crate::error::Error;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
+use crate::traits::security::SemiHonest;
 use crate::types::ring_element::RingImpl;
 use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+use std::ops::Mul;
 
 pub struct Aby3<N: NetworkTrait> {
     network: N,
     prf: Prf,
 }
+
+impl<N: NetworkTrait> SemiHonest for Aby3<N> {}
 
 impl<N: NetworkTrait> Aby3<N> {
     pub fn new(network: N) -> Self {
@@ -57,6 +59,28 @@ where
 
     async fn preprocess(&mut self) -> Result<(), Error> {
         self.setup_prf().await
+    }
+
+    async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
+        if id >= self.network.get_num_parties() {
+            return Err(Error::IdError(id));
+        }
+
+        let mut share_a = self.prf.gen_zero_share::<T>();
+        if id == self.network.get_id() {
+            let value = match input {
+                Some(x) => x.to_sharetype(),
+                None => return Err(Error::ValueError("Cannot share None".to_string())),
+            };
+            share_a += value;
+        }
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, share_a.to_owned().to_bytes()).await?;
+        let share_b = T::Share::from_bytes_mut(response)?;
+
+        Ok(Share::new(share_a, share_b))
     }
 
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {

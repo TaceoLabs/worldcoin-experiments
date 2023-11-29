@@ -24,6 +24,9 @@ pub enum Error {
     /// Invalid number of parties
     #[error("Invalid number of parties {0}")]
     NumPartyError(usize),
+    /// Invalid value provided
+    #[error("Invalid value: {0}")]
+    ValueError(String),
     /// Error from the color_eyre crate
     #[error("ColorEyre error")]
     ColorEyreError(#[from] color_eyre::Report),
