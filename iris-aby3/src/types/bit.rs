@@ -69,6 +69,18 @@ impl TryFrom<u8> for Bit {
     }
 }
 
+impl TryFrom<usize> for Bit {
+    type Error = Error;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Bit(false)),
+            1 => Ok(Bit(true)),
+            _ => Err(Error::ConversionError),
+        }
+    }
+}
+
 impl Add for Bit {
     type Output = Self;
 

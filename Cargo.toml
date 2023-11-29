@@ -14,6 +14,7 @@ license = "MIT OR Apache-2.0"
 publish = ["taceo"]
 
 [workspace.dependencies]
+bitvec = "1.0.1"
 bytes = "1.5.0"
 clap = { version = "4.4.8", features = ["derive"] }
 color-eyre = "0.6.2"

@@ -13,11 +13,13 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bitvec = { workspace = true }
 bytes = { workspace = true }
 color-eyre = { workspace = true }
 futures = { workspace = true }
 mpc-net = { path = "../mpc-net" }
 num-traits = "0.2"
+plain-reference = { path = "../plain-reference" }
 quinn = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }

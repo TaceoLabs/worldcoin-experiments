@@ -1,11 +1,12 @@
 use bitvec::{prelude::Lsb0, BitArr};
 use core::panic;
 use rand::distributions::{Bernoulli, Distribution};
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::Rng;
+use rand::{rngs::SmallRng, SeedableRng};
 
-const IRIS_CODE_SIZE: usize = 12800;
+pub const IRIS_CODE_SIZE: usize = 12800;
 const MASK_THRESHOLD_RATIO: f64 = 0.70;
-const MASK_THRESHOLD: usize = (MASK_THRESHOLD_RATIO * IRIS_CODE_SIZE as f64) as usize;
+pub const MASK_THRESHOLD: usize = (MASK_THRESHOLD_RATIO * IRIS_CODE_SIZE as f64) as usize;
 const MATCH_THRESHOLD_RATIO: f64 = 0.34;
 
 #[derive(Default, Debug)]
@@ -16,8 +17,12 @@ pub struct IrisCode {
 
 impl IrisCode {
     pub fn random() -> Self {
-        let mut code = IrisCode::default();
         let mut rng = SmallRng::from_entropy();
+        Self::random_rng(&mut rng)
+    }
+
+    pub fn random_rng<R: Rng>(rng: &mut R) -> Self {
+        let mut code = IrisCode::default();
         // Fill the code with random bytes
         rng.fill_bytes(code.code.as_raw_mut_slice());
         code.mask.fill(true);
@@ -27,7 +32,7 @@ impl IrisCode {
 
         // ...
         for i in 0..code.mask.len() {
-            if dist.sample(&mut rng) {
+            if dist.sample(rng) {
                 code.mask.set(i, false);
             }
         }

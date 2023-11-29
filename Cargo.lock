@@ -463,11 +463,13 @@ dependencies = [
 name = "iris-aby3"
 version = "0.1.0"
 dependencies = [
+ "bitvec",
  "bytes",
  "color-eyre",
  "futures",
  "mpc-net",
  "num-traits",
+ "plain-reference",
  "quinn",
  "rand",
  "rand_chacha",

@@ -6,6 +6,15 @@ pub enum Error {
     /// Type conversion error
     #[error("Conversion error")]
     ConversionError,
+    /// Mask HW is to small
+    #[error("Mask HW is to small")]
+    MaskHWError,
+    /// Size is invalid
+    #[error("Size is invalid")]
+    InvlidSizeError,
+    /// Code size is invalid
+    #[error("Code size is invalid")]
+    InvlidCodeSizeError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,
@@ -18,6 +27,9 @@ pub enum Error {
     /// Invalid number of parties
     #[error("Invalid number of parties {0}")]
     NumPartyError(usize),
+    /// Invalid value provided
+    #[error("Invalid value: {0}")]
+    ValueError(String),
     /// Error from the color_eyre crate
     #[error("ColorEyre error")]
     ColorEyreError(#[from] color_eyre::Report),

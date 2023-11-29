@@ -39,7 +39,9 @@ pub trait IntRing2k:
     + PartialOrd
     + Ord
     + Serialize
+    + TryFrom<usize>
     + for<'a> Deserialize<'a>
+    + 'static
 {
     type Signed: Sharable<Share = RingElement<Self>>;
 

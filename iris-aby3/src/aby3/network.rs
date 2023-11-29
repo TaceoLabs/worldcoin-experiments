@@ -40,6 +40,10 @@ impl Aby3Network {
             channel_recv,
         })
     }
+
+    pub fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        self.handler.print_connection_stats(out)
+    }
 }
 
 impl NetworkTrait for Aby3Network {
