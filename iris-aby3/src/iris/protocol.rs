@@ -1,9 +1,11 @@
 use crate::prelude::{Error, MpcTrait, Sharable};
+use crate::types::ring_element::RingImpl;
 use bitvec::{prelude::Lsb0, BitArr};
 use std::{marker::PhantomData, ops::Mul, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
+const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 
 pub type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
 
@@ -19,13 +21,31 @@ impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
 where
     Ashare: Mul<T::Share, Output = Ashare>,
 {
-    pub fn new(mpc: Mpc) -> Self {
-        IrisProtocol {
+    pub fn new(mpc: Mpc) -> Result<Self, Error> {
+        if MATCH_THRESHOLD_RATIO >= 1.
+            || MATCH_THRESHOLD_RATIO <= 0.
+            || T::Share::get_k() <= Self::ceil_log2(IRIS_CODE_SIZE)
+        // Comparison by checking msb of difference could produce an overflow
+        {
+            return Err(Error::ConfigError);
+        }
+
+        Ok(IrisProtocol {
             mpc,
             phantom_t: PhantomData,
             phantom_a: PhantomData,
             phantom_b: PhantomData,
+        })
+    }
+
+    fn ceil_log2(x: usize) -> usize {
+        let mut y = 0;
+        let mut x = x - 1;
+        while x > 0 {
+            x >>= 1;
+            y += 1;
         }
+        y
     }
 
     pub fn get_mpc_ref(&self) -> &Mpc {

@@ -32,7 +32,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
-        let mut iris = IrisProtocol::new(protocol);
+        let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
 
@@ -122,7 +122,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
-        let mut iris = IrisProtocol::new(protocol);
+        let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
 
