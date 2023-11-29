@@ -1,4 +1,7 @@
-use crate::{error::Error, types::sharable::Sharable};
+use crate::{
+    error::Error,
+    types::{ring_element::RingImpl, sharable::Sharable},
+};
 use rand::Rng;
 
 #[allow(async_fn_in_trait)]
@@ -21,12 +24,13 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
     async fn dot(&mut self, a: Vec<Ashare>, b: Vec<Ashare>) -> Result<Ashare, Error>;
+    async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
 }
 
 #[derive(Default)]
 pub struct Plain {}
 
-impl<T: Sharable> MpcTrait<T, T, T> for Plain {
+impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
     async fn finish(self) -> Result<(), Error> {
         Ok(())
     }
@@ -80,5 +84,9 @@ impl<T: Sharable> MpcTrait<T, T, T> for Plain {
             res = res.wrapping_add(&a.wrapping_mul(&b));
         }
         Ok(res)
+    }
+
+    async fn get_msb(&mut self, a: T) -> Result<bool, Error> {
+        Ok((a >> (T::Share::get_k() - 1) & T::one()) == T::one())
     }
 }

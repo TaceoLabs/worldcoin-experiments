@@ -3,6 +3,7 @@ pub mod aby3_config {
     use crate::{
         aby3::share::Share,
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
+        types::bit::Bit,
     };
     use mpc_net::config::{NetworkConfig, NetworkParty};
     use rand::distributions::{Distribution, Standard};
@@ -81,7 +82,7 @@ pub mod aby3_config {
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = get_protocol::<T>(id, port_offset).await;
-        MpcTrait::<T, Share<T>, Share<T>>::preprocess(&mut protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::preprocess(&mut protocol)
             .await
             .unwrap();
         protocol

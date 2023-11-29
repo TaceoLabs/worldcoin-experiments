@@ -5,6 +5,7 @@ use crate::error::Error;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
+use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
 use crate::types::sharable::Sharable;
@@ -46,7 +47,7 @@ impl<N: NetworkTrait> Aby3<N> {
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<T>> for Aby3<N>
+impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<Output = Share<T>>,
@@ -184,5 +185,9 @@ where
         c.b = T::Share::from_bytes_mut(response)?;
 
         Ok(c)
+    }
+
+    async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
+        todo!()
     }
 }

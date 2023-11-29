@@ -3,7 +3,7 @@ mod aby3_test {
         aby3::{network::Aby3Network, protocol::Aby3, share::Share},
         tests::aby_config::aby3_config,
         traits::mpc_trait::{MpcTrait, Plain},
-        types::{int_ring::IntRing2k, sharable::Sharable},
+        types::{bit::Bit, int_ring::IntRing2k, sharable::Sharable},
     };
     use num_traits::Zero;
     use rand::{
@@ -43,7 +43,7 @@ mod aby3_test {
         let shares = Aby3::<Aby3Network>::share(input, &mut rng).await;
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -94,7 +94,7 @@ mod aby3_test {
         let shares = protocol.input_all(input).await.unwrap();
         let open = protocol.open_many(shares).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -145,7 +145,7 @@ mod aby3_test {
 
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -195,7 +195,7 @@ mod aby3_test {
 
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -246,7 +246,7 @@ mod aby3_test {
 
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -303,7 +303,7 @@ mod aby3_test {
         let result = protocol.mul_const(share, mul);
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input.unwrap_or(T::zero()), open)
@@ -380,7 +380,7 @@ mod aby3_test {
         let result = protocol.dot(a, b).await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
