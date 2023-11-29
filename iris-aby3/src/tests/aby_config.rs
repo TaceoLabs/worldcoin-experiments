@@ -60,6 +60,17 @@ pub mod aby3_config {
         }
     }
 
+    pub async fn get_protocol<T: Sharable>(id: usize, port_offset: u16) -> Aby3<Aby3Network>
+    where
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+    {
+        let config = get_config(id, port_offset);
+        let network = Aby3Network::new(config).await.unwrap();
+        Aby3::new(network)
+    }
+
     pub async fn get_preprocessed_protocol<T: Sharable>(
         id: usize,
         port_offset: u16,
@@ -69,9 +80,7 @@ pub mod aby3_config {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let config = get_config(id, port_offset);
-        let network = Aby3Network::new(config).await.unwrap();
-        let mut protocol = Aby3::new(network);
+        let mut protocol = get_protocol::<T>(id, port_offset).await;
         MpcTrait::<T, Share<T>, Share<T>>::preprocess(&mut protocol)
             .await
             .unwrap();
