@@ -12,6 +12,7 @@ mod iris_test {
         rngs::SmallRng,
         Rng, SeedableRng,
     };
+    use serial_test::serial;
     use std::ops::Mul;
 
     const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
@@ -103,6 +104,7 @@ mod iris_test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn mask_test_aby3() {
         mask_test_aby3_impl::<u16>(150).await
     }
@@ -202,7 +204,8 @@ mod iris_test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn hwd_test_aby3() {
-        hwd_test_aby3_impl::<u16>(150).await
+        hwd_test_aby3_impl::<u16>(160).await
     }
 }
