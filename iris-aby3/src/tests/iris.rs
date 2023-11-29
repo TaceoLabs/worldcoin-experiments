@@ -3,7 +3,7 @@ mod iris_test {
         aby3::share::Share,
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
-        tests::aby_config::aby3_config,
+        tests::{aby_config::aby3_config, iris_config::iris_config::similar_iris},
         traits::mpc_trait::Plain,
     };
     use plain_reference::IrisCode;
@@ -201,7 +201,7 @@ mod iris_test {
             let distance: T = combined_code
                 .count_ones()
                 .try_into()
-                .expect("Overflow should not happened");
+                .expect("Overflow should not happene");
             assert_eq!(&distance, r);
         }
     }
@@ -236,7 +236,7 @@ mod iris_test {
             let distance_: T = combined_code
                 .count_ones()
                 .try_into()
-                .expect("Overflow should not happened");
+                .expect("Overflow should not happen");
 
             assert_eq!(distance, distance_);
         }
@@ -245,5 +245,60 @@ mod iris_test {
     #[tokio::test]
     async fn plain_hwd_test() {
         plain_hwd_test_inner::<u16>().await
+    }
+
+    async fn plain_lt_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let combined_mask = code1.mask & code2.mask;
+        let combined_code = code1.code ^ code2.code;
+        let masked_code = combined_code & combined_mask;
+
+        let distance = masked_code.count_ones();
+        let threshold =
+            (combined_mask.len() as f64 * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
+        let cmp_ = distance < threshold;
+
+        let distance = distance.try_into().expect("Overflow should not happen");
+
+        let cmp = iris
+            .compare_threshold(distance, combined_mask.len())
+            .await
+            .unwrap();
+
+        assert_eq!(cmp, cmp_);
+        cmp
+    }
+
+    async fn plain_lt_test_inner<T: Sharable>()
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut iris_rng = SmallRng::from_entropy();
+
+        for _ in 0..TESTRUNS {
+            let code1 = IrisCode::random_rng(&mut iris_rng);
+            let code2 = IrisCode::random_rng(&mut iris_rng);
+            let code3 = IrisCode::random_rng(&mut iris_rng);
+            let code4 = similar_iris(&code3, &mut iris_rng);
+
+            plain_lt_tester::<T>(code1, code2).await;
+            assert!(plain_lt_tester::<T>(code3, code4).await);
+        }
+    }
+
+    #[tokio::test]
+    async fn plain_lt_test() {
+        plain_lt_test_inner::<u16>().await
     }
 }
