@@ -110,6 +110,22 @@ macro_rules! sharable_impl {
             }
         }
 
+        impl Mul<RingElement<$t>> for $s {
+            type Output = $s;
+
+            fn mul(self, rhs: RingElement<$t>) -> Self::Output {
+                self.wrapping_mul(rhs.0 as $s)
+            }
+        }
+
+        impl Mul<RingElement<$t>> for $t {
+            type Output = $t;
+
+            fn mul(self, rhs: RingElement<$t>) -> Self::Output {
+                self.wrapping_mul(rhs.0)
+            }
+        }
+
         impl Mul<&$s> for RingElement<$t> {
             type Output = Self;
 

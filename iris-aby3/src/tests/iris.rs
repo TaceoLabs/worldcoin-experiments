@@ -1,10 +1,10 @@
 mod iris_test {
     use crate::{
         aby3::share::Share,
-        error::Error,
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
         tests::aby_config::aby3_config,
+        traits::mpc_trait::Plain,
     };
     use plain_reference::IrisCode;
     use rand::{
@@ -210,5 +210,40 @@ mod iris_test {
     #[serial]
     async fn hwd_test_aby3() {
         hwd_test_aby3_impl::<u16>(160).await
+    }
+
+    async fn plain_hwd_test_inner<T: Sharable>()
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut iris_rng = SmallRng::from_entropy();
+
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        for _ in 0..TESTRUNS {
+            let code1 = IrisCode::random_rng(&mut iris_rng);
+            let code2 = IrisCode::random_rng(&mut iris_rng);
+
+            let a = code1.code.iter().map(|b| T::from(*b)).collect();
+            let b = code2.code.iter().map(|b| T::from(*b)).collect();
+            let distance = iris.hamming_distance(a, b).await.unwrap();
+
+            let combined_code = code1.code ^ code2.code;
+            let distance_: T = combined_code
+                .count_ones()
+                .try_into()
+                .expect("Overflow should not happened");
+
+            assert_eq!(distance, distance_);
+        }
+    }
+
+    #[tokio::test]
+    async fn plain_hwd_test() {
+        plain_hwd_test_inner::<u16>().await
     }
 }
