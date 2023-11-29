@@ -16,6 +16,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     async fn open_many(&mut self, shares: Vec<Ashare>) -> Result<Vec<T>, Error>;
 
     fn add(&self, a: Ashare, b: Ashare) -> Ashare;
+    fn sub(&self, a: Ashare, b: Ashare) -> Ashare;
     async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
@@ -56,6 +57,10 @@ impl<T: Sharable> MpcTrait<T, T, T> for Plain {
 
     fn add(&self, a: T, b: T) -> T {
         a.wrapping_add(&b)
+    }
+
+    fn sub(&self, a: T, b: T) -> T {
+        a.wrapping_sub(&b)
     }
 
     async fn mul(&mut self, a: T, b: T) -> Result<T, Error> {

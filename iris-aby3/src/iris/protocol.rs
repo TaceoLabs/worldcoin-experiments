@@ -54,15 +54,48 @@ where
         Ok(combined_mask)
     }
 
-    pub(crate) fn apply_mask(&self, code: &[Ashare], mask: &BitArr) -> Result<Vec<Ashare>, Error> {
+    pub(crate) fn apply_mask(
+        &self,
+        code: Vec<Ashare>,
+        mask: &BitArr,
+    ) -> Result<Vec<Ashare>, Error> {
         if code.len() != IRIS_CODE_SIZE {
             return Err(Error::InvlidCodeSizeError);
         }
 
         let mut masked_code = Vec::with_capacity(IRIS_CODE_SIZE);
-        for (c, m) in code.iter().zip(mask.iter()) {
-            masked_code.push(c.to_owned() * T::Share::from(*m));
+        for (c, m) in code.into_iter().zip(mask.iter()) {
+            masked_code.push(c * T::Share::from(*m));
         }
         Ok(masked_code)
+    }
+
+    pub(crate) async fn hamming_distance(
+        &mut self,
+        a: Vec<Ashare>,
+        b: Vec<Ashare>,
+    ) -> Result<Ashare, Error> {
+        if a.is_empty() || a.len() != b.len() {
+            return Err(Error::InvlidCodeSizeError);
+        }
+
+        let sum_a = a
+            .iter()
+            .cloned()
+            .reduce(|a_, b_| self.mpc.add(a_, b_))
+            .expect("Size is not zero");
+        let sum_b = b
+            .iter()
+            .cloned()
+            .reduce(|a_, b_| self.mpc.add(a_, b_))
+            .expect("Size is not zero");
+
+        let dot = self.mpc.dot(a, b).await?;
+        let dot = self.mpc.add(dot.to_owned(), dot);
+
+        let sum = self.mpc.add(sum_a, sum_b);
+        let res = self.mpc.sub(sum, dot);
+
+        Ok(res)
     }
 }

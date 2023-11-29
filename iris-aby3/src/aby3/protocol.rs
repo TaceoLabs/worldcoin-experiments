@@ -146,6 +146,10 @@ where
         a + b
     }
 
+    fn sub(&self, a: Share<T>, b: Share<T>) -> Share<T> {
+        a - b
+    }
+
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;

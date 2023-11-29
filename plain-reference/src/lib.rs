@@ -2,7 +2,7 @@ use bitvec::{prelude::Lsb0, BitArr};
 use core::panic;
 use rand::distributions::{Bernoulli, Distribution};
 use rand::Rng;
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::{rngs::SmallRng, SeedableRng};
 
 pub const IRIS_CODE_SIZE: usize = 12800;
 const MASK_THRESHOLD_RATIO: f64 = 0.70;

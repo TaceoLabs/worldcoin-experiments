@@ -36,7 +36,9 @@ pub trait Sharable:
     + From<bool>
     + Default
     + Serialize
+    + TryFrom<usize>
     + for<'a> Deserialize<'a>
+    + 'static
 {
     /// Each Sharable type has a corresponding internal ABY3 representation. In the easiest cases this is just the unsigned version of the type with the same size, i.e., u32 for i32 or u32 for u32.
     type Share: RingImpl;
