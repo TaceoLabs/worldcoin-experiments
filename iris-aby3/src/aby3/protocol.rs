@@ -151,6 +151,26 @@ where
         a - b
     }
 
+    fn add_const(&self, a: Share<T>, b: T) -> Share<T> {
+        a.add_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
+    }
+
+    fn sub_const(&self, a: Share<T>, b: T) -> Share<T> {
+        a.sub_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
+    }
+
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;

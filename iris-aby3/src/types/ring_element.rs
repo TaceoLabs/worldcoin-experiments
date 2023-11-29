@@ -10,7 +10,7 @@ use std::mem::ManuallyDrop;
 use std::num::TryFromIntError;
 use std::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, MulAssign,
-    Neg, Not, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    Neg, Not, Shl, ShlAssign, Sub, SubAssign,
 };
 
 pub trait RingImpl:

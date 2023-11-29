@@ -30,6 +30,7 @@ mod iris_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -70,6 +71,7 @@ mod iris_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
@@ -120,6 +122,7 @@ mod iris_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -164,6 +167,7 @@ mod iris_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
@@ -197,8 +201,7 @@ mod iris_test {
             let distance: T = combined_code
                 .count_ones()
                 .try_into()
-                .map_err(|_| Error::Other("Overflow has happened".to_string()))
-                .unwrap();
+                .expect("Overflow should not happened");
             assert_eq!(&distance, r);
         }
     }

@@ -226,6 +226,138 @@ mod aby3_test {
         assert_eq!(r0, &sum);
     }
 
+    async fn add_const_test_party<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+    ) -> (T, T)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+    {
+        let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
+        let mut rng = R::from_seed(seed);
+        let mul = rng.gen::<T>();
+
+        let input = if id == 0 {
+            let mut rng = R::from_entropy();
+            let inp = rng.gen::<T>();
+            Some(inp)
+        } else {
+            None
+        };
+        let share = protocol.input(input, 0).await.unwrap();
+        let result = protocol.add_const(share, mul);
+        let open = protocol.open(result).await.unwrap();
+
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
+            .await
+            .unwrap();
+        (input.unwrap_or(T::zero()), open)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn add_const_test() {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = SmallRng::from_seed(seed);
+        let add = rng.gen::<u16>();
+
+        for i in 0..NUM_PARTIES {
+            let t =
+                tokio::spawn(
+                    async move { add_const_test_party::<u16, SmallRng>(i, 10, seed).await },
+                );
+            tasks.push(t);
+        }
+
+        let mut sum = 0;
+        let mut results = Vec::with_capacity(NUM_PARTIES);
+        for t in tasks {
+            let (inp, outp) = t.await.expect("Task exited normally");
+            sum.wrapping_add_assign(&inp);
+            results.push(outp);
+        }
+        let sum = sum.wrapping_add(add);
+
+        let r0 = &results[0];
+        for r in results.iter().skip(1) {
+            assert_eq!(r0, r);
+        }
+        assert_eq!(r0, &sum);
+    }
+
+    async fn sub_const_test_party<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+    ) -> (T, T)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+    {
+        let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
+        let mut rng = R::from_seed(seed);
+        let mul = rng.gen::<T>();
+
+        let input = if id == 0 {
+            let mut rng = R::from_entropy();
+            let inp = rng.gen::<T>();
+            Some(inp)
+        } else {
+            None
+        };
+        let share = protocol.input(input, 0).await.unwrap();
+        let result = protocol.sub_const(share, mul);
+        let open = protocol.open(result).await.unwrap();
+
+        MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
+            .await
+            .unwrap();
+        (input.unwrap_or(T::zero()), open)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn sub_const_test() {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = SmallRng::from_seed(seed);
+        let add = rng.gen::<u16>();
+
+        for i in 0..NUM_PARTIES {
+            let t =
+                tokio::spawn(
+                    async move { sub_const_test_party::<u16, SmallRng>(i, 15, seed).await },
+                );
+            tasks.push(t);
+        }
+
+        let mut sum = 0;
+        let mut results = Vec::with_capacity(NUM_PARTIES);
+        for t in tasks {
+            let (inp, outp) = t.await.expect("Task exited normally");
+            sum.wrapping_add_assign(&inp);
+            results.push(outp);
+        }
+        let sum = sum.wrapping_sub(add);
+
+        let r0 = &results[0];
+        for r in results.iter().skip(1) {
+            assert_eq!(r0, r);
+        }
+        assert_eq!(r0, &sum);
+    }
+
     async fn mul_test_party<T: Sharable>(id: usize, port_offset: u16) -> (T, T)
     where
         Standard: Distribution<T>,

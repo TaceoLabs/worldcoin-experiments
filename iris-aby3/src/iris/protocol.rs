@@ -20,6 +20,7 @@ impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
     Ashare: Mul<T::Share, Output = Ashare>,
+    <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
         if MATCH_THRESHOLD_RATIO >= 1.
@@ -117,5 +118,23 @@ where
         let res = self.mpc.sub(sum, dot);
 
         Ok(res)
+    }
+
+    pub(crate) async fn compare_threshold(
+        &mut self,
+        hwd: Ashare,
+        mask_len: usize,
+    ) -> Result<Bshare, Error> {
+        let threshold = (mask_len as f64 * MATCH_THRESHOLD_RATIO) as usize;
+        // a < b <=> msb(a - b)
+        // Given no overflow, which is enforced in constructor
+        let diff = self.mpc.sub_const(
+            hwd,
+            threshold
+                .try_into()
+                .expect("Sizes are checked in constructor"),
+        );
+        let msb = self.mpc.get_msb(diff).await?;
+        Ok(msb)
     }
 }
