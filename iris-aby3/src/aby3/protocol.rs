@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
@@ -45,6 +47,8 @@ impl<N: NetworkTrait> Aby3<N> {
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<T>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
+    Share<T>: Mul<Output = Share<T>>,
+    Share<T>: Mul<T::Share, Output = Share<T>>,
 {
     async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
@@ -129,5 +133,9 @@ where
         c.b = T::Share::from_bytes_mut(response)?;
 
         Ok(c)
+    }
+
+    fn mul_const(&self, a: Share<T>, b: T) -> Share<T> {
+        a * b.to_sharetype()
     }
 }

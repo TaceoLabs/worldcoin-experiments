@@ -1,6 +1,6 @@
 use crate::prelude::{Error, MpcTrait, Sharable};
 use bitvec::{prelude::Lsb0, BitArr};
-use std::{marker::PhantomData, usize};
+use std::{marker::PhantomData, ops::Mul, usize};
 
 const IRIS_CODE_SIZE: usize = 12800;
 const MASK_THRESHOLD_RATIO: f64 = 0.70;
@@ -8,15 +8,17 @@ const MASK_THRESHOLD: usize = (MASK_THRESHOLD_RATIO * IRIS_CODE_SIZE as f64) as 
 
 type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
 
-struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
+pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,
     phantom_t: PhantomData<T>,
     phantom_a: PhantomData<Ashare>,
     phantom_b: PhantomData<Bshare>,
 }
 
-impl<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
+impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
+where
+    Ashare: Mul<T::Share, Output = Ashare>,
 {
     pub fn new(mpc: Mpc) -> Self {
         IrisProtocol {
@@ -50,10 +52,10 @@ impl<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
             return Err(Error::InvlidCodeSizeError);
         }
 
-        // let masked_code = Vec::with_capacity(IRIS_CODE_SIZE);
-        // for (c, m) in code.iter().zip(mask.iter()) {
-        // masked_code.push(c * T::Share::from(*m));
-        // }
+        let mut masked_code = Vec::with_capacity(IRIS_CODE_SIZE);
+        for (c, m) in code.iter().zip(mask.iter()) {
+            masked_code.push(c.to_owned() * T::Share::from(*m));
+        }
         todo!()
     }
 }

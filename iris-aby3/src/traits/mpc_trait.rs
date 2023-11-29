@@ -16,4 +16,5 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 
     fn add(&self, a: Ashare, b: Ashare) -> Ashare;
     async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
+    fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 }
