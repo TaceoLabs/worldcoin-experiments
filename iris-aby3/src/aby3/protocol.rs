@@ -128,12 +128,12 @@ where
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
-    async fn open_many(&mut self, shares: &[Share<T>]) -> Result<Vec<T>, Error> {
+    async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
         let response =
             utils::send_and_receive(&mut self.network, ring_vec_to_bytes(shares_b)).await?;
 
-        let shares_c: Vec<T::Share> = ring_vec_from_bytes(response, 3)?;
+        let shares_c: Vec<T::Share> = ring_vec_from_bytes(response, shares.len())?;
         let res: Vec<T> = shares
             .iter()
             .zip(shares_c.into_iter())

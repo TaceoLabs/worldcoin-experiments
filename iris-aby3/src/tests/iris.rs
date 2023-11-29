@@ -1,14 +1,28 @@
 mod iris_test {
     use crate::{
-        aby3::share::Share, iris::protocol::IrisProtocol, prelude::Sharable,
+        aby3::share::Share,
+        iris::protocol::{BitArr, IrisProtocol},
+        prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
         tests::aby_config::aby3_config,
     };
-    use rand::distributions::{Distribution, Standard};
+    use plain_reference::IrisCode;
+    use rand::{
+        distributions::{Distribution, Standard},
+        rngs::SmallRng,
+        Rng, SeedableRng,
+    };
     use std::ops::Mul;
 
     const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
+    const DB_SIZE: usize = 1000;
+    const TESTRUNS: usize = 5;
 
-    async fn basic_test_impl_inner<T: Sharable>(id: usize, port_offset: u16) -> bool
+    async fn mask_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+        iris_seed: R::Seed,
+    ) -> Vec<BitArr>
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -20,11 +34,35 @@ mod iris_test {
 
         iris.preprocessing().await.unwrap();
 
+        let mut iris_rng = R::from_seed(iris_seed);
+        let mut rng = R::from_seed(seed);
+        let mut results = Vec::with_capacity(TESTRUNS);
+        for _ in 0..TESTRUNS {
+            let code = IrisCode::random_rng(&mut iris_rng);
+
+            let mut shared_code = Vec::with_capacity(code.code.len());
+            for bit in code.code.iter() {
+                // We simulate the parties already knowing the shares of the code.
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                shared_code.push(shares[id].to_owned());
+            }
+
+            let masked_code = iris.apply_mask(&shared_code, &code.mask).unwrap();
+            let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
+
+            let mut bitarr = BitArr::default();
+            for (mut bit, code_bit) in bitarr.iter_mut().zip(open_masked_code.into_iter()) {
+                assert!(code_bit.is_zero() || code_bit.is_one());
+                bit.set(code_bit == T::one());
+            }
+            results.push(bitarr);
+        }
+
         iris.finish().await.unwrap();
-        true
+        results
     }
 
-    async fn basic_test_impl<T: Sharable>(port_offset: u16)
+    async fn mask_test_aby3_impl<T: Sharable>(port_offset: u16)
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -33,8 +71,15 @@ mod iris_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
+        let mut rng = SmallRng::from_entropy();
+        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let seed: [u8; 32] = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut iris_rng = SmallRng::from_seed(iris_seed);
+
         for i in 0..NUM_PARTIES {
-            let t = tokio::spawn(async move { basic_test_impl_inner::<T>(i, port_offset).await });
+            let t = tokio::spawn(async move {
+                mask_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+            });
             tasks.push(t);
         }
 
@@ -48,10 +93,16 @@ mod iris_test {
         for r in results.iter().skip(1) {
             assert_eq!(r0, r);
         }
+        // Compare to plain
+        for r in r0.iter() {
+            let plain = IrisCode::random_rng(&mut iris_rng);
+            let plain_code = plain.code & plain.mask;
+            assert_eq!(&plain_code, r);
+        }
     }
 
     #[tokio::test]
-    async fn basic_test() {
-        basic_test_impl::<u16>(150).await
+    async fn mask_test_aby3() {
+        mask_test_aby3_impl::<u16>(150).await
     }
 }

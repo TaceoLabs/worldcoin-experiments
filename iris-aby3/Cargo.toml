@@ -19,6 +19,7 @@ color-eyre = { workspace = true }
 futures = { workspace = true }
 mpc-net = { path = "../mpc-net" }
 num-traits = "0.2"
+plain-reference = { path = "../plain-reference" }
 quinn = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }

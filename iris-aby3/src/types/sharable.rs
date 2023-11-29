@@ -1,7 +1,7 @@
 use super::ring_element::RingElement;
 use super::{int_ring::IntRing2k, ring_element::RingImpl};
 use num_traits::{
-    WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
+    One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
 use serde::{Deserialize, Serialize};
 use std::mem::ManuallyDrop;
@@ -32,6 +32,7 @@ pub trait Sharable:
     + BitAnd<Output = Self>
     + BitAndAssign
     + Zero
+    + One
     + From<bool>
     + Default
     + Serialize

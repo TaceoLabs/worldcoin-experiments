@@ -469,6 +469,7 @@ dependencies = [
  "futures",
  "mpc-net",
  "num-traits",
+ "plain-reference",
  "quinn",
  "rand",
  "rand_chacha",

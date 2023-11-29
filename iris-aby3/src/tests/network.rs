@@ -90,7 +90,7 @@ mod aby3_test {
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
-        let open = protocol.open_many(&shares).await.unwrap();
+        let open = protocol.open_many(shares).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
             .await
@@ -241,7 +241,7 @@ mod aby3_test {
         let mul = rng.gen::<T>();
 
         let input = if id == 0 {
-            let mut rng = SmallRng::from_entropy();
+            let mut rng = R::from_entropy();
             let inp = rng.gen::<T>();
             Some(inp)
         } else {
