@@ -2,7 +2,7 @@ mod aby3_test {
     use crate::{
         aby3::{network::Aby3Network, protocol::Aby3, share::Share},
         tests::aby_config::aby3_config,
-        traits::mpc_trait::MpcTrait,
+        traits::mpc_trait::{MpcTrait, Plain},
         types::{int_ring::IntRing2k, sharable::Sharable},
     };
     use rand::{
@@ -14,6 +14,7 @@ mod aby3_test {
     use std::ops::Mul;
 
     const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
+    const DOT_SIZE: usize = 1000;
 
     #[test]
     fn test_network_config() {
@@ -289,5 +290,81 @@ mod aby3_test {
             assert_eq!(r0, r);
         }
         assert_eq!(r0, &prod);
+    }
+
+    async fn dot_test_party<T: Sharable>(id: usize, port_offset: u16) -> (Vec<T>, T)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+    {
+        let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
+        let mut rng = SmallRng::from_entropy();
+
+        let mut input = Vec::with_capacity(DOT_SIZE);
+        let mut a = Vec::with_capacity(DOT_SIZE);
+        let mut b = Vec::with_capacity(DOT_SIZE);
+        for _ in 0..DOT_SIZE {
+            let input1 = if id == 0 {
+                let inp = rng.gen::<T>();
+                input.push(inp);
+                Some(inp)
+            } else {
+                None
+            };
+            let input2 = if id == 1 {
+                let inp = rng.gen::<T>();
+                input.push(inp);
+                Some(inp)
+            } else {
+                None
+            };
+            let share1 = protocol.input(input1, 0).await.unwrap();
+            let share2 = protocol.input(input2, 1).await.unwrap();
+            a.push(share1);
+            b.push(share2);
+        }
+
+        let result = protocol.dot(a, b).await.unwrap();
+        let open = protocol.open(result).await.unwrap();
+
+        MpcTrait::<T, Share<T>, Share<T>>::finish(protocol)
+            .await
+            .unwrap();
+        (input, open)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn dot_test() {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move { dot_test_party::<u16>(i, 80).await });
+            tasks.push(t);
+        }
+
+        let mut inputs = Vec::with_capacity(2);
+        let mut results = Vec::with_capacity(NUM_PARTIES);
+        for t in tasks {
+            let (inp, outp) = t.await.expect("Task exited normally");
+            if !inp.is_empty() {
+                inputs.push(inp);
+            }
+            results.push(outp);
+        }
+
+        let r0 = &results[0];
+        for r in results.iter().skip(1) {
+            assert_eq!(r0, r);
+        }
+        let mut plain = Plain::default();
+        let res = plain
+            .dot(inputs[0].to_owned(), inputs[1].to_owned())
+            .await
+            .unwrap();
+        assert_eq!(inputs.len(), 2);
+        assert_eq!(r0, &res);
     }
 }

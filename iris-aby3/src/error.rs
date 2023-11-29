@@ -9,6 +9,9 @@ pub enum Error {
     /// Mask HW is to small
     #[error("Mask HW is to small")]
     MaskHWError,
+    /// Size is invalid
+    #[error("Size is invalid")]
+    InvlidSizeError,
     /// Code size is invalid
     #[error("Code size is invalid")]
     InvlidCodeSizeError,

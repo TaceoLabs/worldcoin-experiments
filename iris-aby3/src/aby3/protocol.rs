@@ -162,4 +162,23 @@ where
     fn mul_const(&self, a: Share<T>, b: T) -> Share<T> {
         a * b.to_sharetype()
     }
+
+    async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+
+        let rand = self.prf.gen_zero_share::<T>();
+        let mut c = Share::new(rand, T::zero().to_sharetype());
+        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+            c += a_ * b_;
+        }
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, c.a.to_owned().to_bytes()).await?;
+        c.b = T::Share::from_bytes_mut(response)?;
+
+        Ok(c)
+    }
 }
