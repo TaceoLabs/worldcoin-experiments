@@ -23,3 +23,13 @@ pub(crate) async fn send_and_receive<N: NetworkTrait>(
     let data = network.receive_prev_id().await?;
     Ok(data)
 }
+
+pub(crate) fn ceil_log2(x: usize) -> usize {
+    let mut y = 0;
+    let mut x = x - 1;
+    while x > 0 {
+        x >>= 1;
+        y += 1;
+    }
+    y
+}

@@ -41,6 +41,14 @@ pub trait RingImpl:
     + for<'a> BitXor<&'a Self, Output = Self>
     + BitXorAssign<Self>
     + for<'a> BitXorAssign<&'a Self>
+    + BitAnd<Self, Output = Self>
+    + for<'a> BitAnd<&'a Self, Output = Self>
+    + BitAnd<Self, Output = Self>
+    + for<'a> BitAnd<&'a Self, Output = Self>
+    + BitAndAssign<Self>
+    + for<'a> BitAndAssign<&'a Self>
+    + BitAndAssign<Self>
+    + for<'a> BitAndAssign<&'a Self>
     + Not<Output = Self>
     + Shl<u32, Output = Self>
     + ShlAssign<u32>

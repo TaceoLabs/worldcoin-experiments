@@ -22,12 +22,12 @@ pub mod iris_config {
         // flip a few bits in mask and code (like 5%)
         let dist = Bernoulli::new(0.05).unwrap();
         for mut b in res.code.as_mut_bitslice() {
-            if dist.sample(&mut rand::thread_rng()) {
+            if dist.sample(rng) {
                 b.set(!*b);
             }
         }
         for mut b in res.mask.as_mut_bitslice() {
-            if dist.sample(&mut rand::thread_rng()) {
+            if dist.sample(rng) {
                 b.set(!*b);
             }
         }

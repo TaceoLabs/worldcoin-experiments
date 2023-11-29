@@ -136,6 +136,42 @@ macro_rules! sharable_impl {
             }
         }
 
+        impl BitAnd<$s> for RingElement<$t> {
+            type Output = Self;
+
+            fn bitand(self, rhs: $s) -> Self::Output {
+                Self {
+                    0: self.0 & (rhs as $t),
+                }
+            }
+        }
+
+        impl BitAnd<RingElement<$t>> for $s {
+            type Output = $s;
+
+            fn bitand(self, rhs: RingElement<$t>) -> Self::Output {
+                self & (rhs.0 as $s)
+            }
+        }
+
+        impl BitAnd<RingElement<$t>> for $t {
+            type Output = $t;
+
+            fn bitand(self, rhs: RingElement<$t>) -> Self::Output {
+                self & rhs.0
+            }
+        }
+
+        impl BitAnd<&$s> for RingElement<$t> {
+            type Output = Self;
+
+            fn bitand(self, rhs: &$s) -> Self::Output {
+                Self {
+                    0: self.0 & (*rhs as $t),
+                }
+            }
+        }
+
         impl MulAssign<$s> for RingElement<$t> {
             fn mul_assign(&mut self, rhs: $s)  {
                self.0.wrapping_mul_assign(&(rhs as $t));
@@ -146,6 +182,19 @@ macro_rules! sharable_impl {
         impl MulAssign<&$s> for RingElement<$t> {
             fn mul_assign(&mut self, rhs: &$s)  {
                 self.0.wrapping_mul_assign(&(*rhs as $t));
+            }
+        }
+
+        impl BitAndAssign<$s> for RingElement<$t> {
+            fn bitand_assign(&mut self, rhs: $s)  {
+               self.0 &= (&(rhs as $t));
+
+            }
+        }
+
+        impl BitAndAssign<&$s> for RingElement<$t> {
+            fn bitand_assign(&mut self, rhs: &$s)  {
+                 self.0 &= (&(*rhs as $t));
             }
         }
 

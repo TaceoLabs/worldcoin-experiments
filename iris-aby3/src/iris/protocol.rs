@@ -1,3 +1,4 @@
+use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Error, MpcTrait, Sharable};
 use crate::types::ring_element::RingImpl;
 use bitvec::{prelude::Lsb0, BitArr};
@@ -25,7 +26,7 @@ where
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
         if MATCH_THRESHOLD_RATIO >= 1.
             || MATCH_THRESHOLD_RATIO <= 0.
-            || T::Share::get_k() <= Self::ceil_log2(IRIS_CODE_SIZE)
+            || T::Share::get_k() <= ceil_log2(IRIS_CODE_SIZE)
         // Comparison by checking msb of difference could produce an overflow
         {
             return Err(Error::ConfigError);
@@ -37,16 +38,6 @@ where
             phantom_a: PhantomData,
             phantom_b: PhantomData,
         })
-    }
-
-    fn ceil_log2(x: usize) -> usize {
-        let mut y = 0;
-        let mut x = x - 1;
-        while x > 0 {
-            x >>= 1;
-            y += 1;
-        }
-        y
     }
 
     pub fn get_mpc_ref(&self) -> &Mpc {
