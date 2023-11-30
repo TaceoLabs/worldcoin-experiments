@@ -141,7 +141,7 @@ where
             utils::send_and_receive(&mut self.network, ring_vec_to_bytes(shares_b)).await?;
 
         let shares_c: Vec<T::Share> = ring_vec_from_bytes(response, shares.len())?;
-        let res: Vec<T> = shares
+        let res = shares
             .iter()
             .zip(shares_c.into_iter())
             .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
@@ -265,7 +265,7 @@ where
                 .await?;
         let shares_b: Vec<T::Share> = ring_vec_from_bytes(response, shares_a.len())?;
 
-        let res: Vec<Share<T>> = shares_a
+        let res = shares_a
             .into_iter()
             .zip(shares_b.into_iter())
             .map(|(a_, b_)| Share::new(a_, b_))

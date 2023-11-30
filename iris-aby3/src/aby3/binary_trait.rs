@@ -20,6 +20,27 @@ pub trait BinaryMpcTrait<T: Sharable> {
         b: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error>;
 
+    async fn or(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        let x = Self::xor(a.to_owned(), b.to_owned());
+        let y = self.and(a, b).await?;
+        Ok(Self::xor(x, y))
+    }
+
+    async fn or_many(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        let y = self.and_many(a.to_owned(), b.to_owned()).await?;
+        let res = a
+            .into_iter()
+            .zip(b.into_iter())
+            .zip(y.into_iter())
+            .map(|((a_, b_), y_)| Self::xor(y_, Self::xor(a_, b_)))
+            .collect();
+        Ok(res)
+    }
+
     async fn binary_add_3(
         &mut self,
         x1: Share<T>,
