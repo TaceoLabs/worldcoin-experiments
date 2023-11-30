@@ -224,6 +224,10 @@ where
         let bits = self.arithmetic_to_binary(a).await?;
         Ok(bits.get_msb())
     }
+
+    async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
+        <Self as BinaryMpcTrait<Bit>>::or(self, a, b).await
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
