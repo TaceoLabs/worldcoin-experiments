@@ -228,7 +228,7 @@ where
     pub async fn iris_in_db(
         &mut self,
         iris: Vec<Ashare>,
-        db: Vec<Vec<Ashare>>,
+        db: &[Vec<Ashare>],
         mask_iris: &BitArr,
         mask_db: &[BitArr],
     ) -> Result<bool, Error> {
@@ -239,9 +239,9 @@ where
 
         let mut bool_shares = Vec::with_capacity(amount);
 
-        for db_ in db.chunks(PACK_SIZE) {
+        for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
             let res = self
-                .compare_iris_many(iris.to_owned(), db_.to_owned(), mask_iris, mask_db)
+                .compare_iris_many(iris.to_owned(), db_.to_owned(), mask_iris, mask_)
                 .await?;
             bool_shares.extend(res);
         }

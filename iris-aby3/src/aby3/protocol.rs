@@ -197,6 +197,7 @@ impl<N: NetworkTrait> Aby3<N> {
         mut inputs: Vec<Share<u128>>,
     ) -> Result<Share<u128>, Error> {
         const PACK_SIZE: usize = 8; // TODO Move
+
         let mut num = inputs.len();
 
         while num > 1 {

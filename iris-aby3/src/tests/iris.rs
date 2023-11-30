@@ -3,7 +3,10 @@ mod iris_test {
         aby3::share::Share,
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
-        tests::{aby_config::aby3_config, iris_config::iris_config::similar_iris},
+        tests::{
+            aby_config::aby3_config,
+            iris_config::iris_config::{create_database, similar_iris},
+        },
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
@@ -672,5 +675,61 @@ mod iris_test {
     #[serial]
     async fn cmp_iris_test_aby3() {
         cmp_iris_test_aby3_impl::<u16>(125).await
+    }
+
+    async fn plain_full_test_inner<T: Sharable>()
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut rng = SmallRng::from_entropy();
+        let db = create_database(DB_SIZE, &mut rng);
+
+        let iris1 = IrisCode::random_rng(&mut rng);
+        let iris2 = similar_iris(&db[0], &mut rng);
+
+        let mut db_t = Vec::with_capacity(db.len());
+        let mut masks = Vec::with_capacity(db.len());
+        let mut is_in1 = false;
+        let mut is_in2 = false;
+
+        // get plain result and share database
+        for iris in db {
+            is_in1 |= iris1.is_close(&iris);
+            is_in2 |= iris2.is_close(&iris);
+
+            let iris_t = iris.code.iter().map(|b| T::from(*b)).collect();
+            db_t.push(iris_t);
+            masks.push(iris.mask);
+        }
+
+        // share iris1 and iris2
+        let iris1_ = iris1.code.iter().map(|b| T::from(*b)).collect();
+        let iris2_ = iris2.code.iter().map(|b| T::from(*b)).collect();
+
+        // calculate
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let res1 = iris
+            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .await
+            .unwrap();
+
+        let res2 = iris
+            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .await
+            .unwrap();
+
+        assert_eq!(res1, is_in1);
+        assert_eq!(res2, is_in2);
+        assert!(res2);
+    }
+
+    #[tokio::test]
+    async fn plain_full_test() {
+        plain_full_test_inner::<u16>().await
     }
 }
