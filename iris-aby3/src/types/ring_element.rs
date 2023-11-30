@@ -10,7 +10,7 @@ use std::mem::ManuallyDrop;
 use std::num::TryFromIntError;
 use std::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, MulAssign,
-    Neg, Not, Shl, ShlAssign, Sub, SubAssign,
+    Neg, Not, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
 };
 
 pub trait RingImpl:
@@ -52,6 +52,8 @@ pub trait RingImpl:
     + Not<Output = Self>
     + Shl<u32, Output = Self>
     + ShlAssign<u32>
+    + Shr<u32, Output = Self>
+    + ShrAssign<u32>
     + Send
     + From<bool>
     + Display
@@ -434,6 +436,20 @@ impl<T: IntRing2k> Shl<u32> for RingElement<T> {
 impl<T: IntRing2k> ShlAssign<u32> for RingElement<T> {
     fn shl_assign(&mut self, rhs: u32) {
         self.0.wrapping_shl_assign(rhs)
+    }
+}
+
+impl<T: IntRing2k> Shr<u32> for RingElement<T> {
+    type Output = Self;
+
+    fn shr(self, rhs: u32) -> Self::Output {
+        RingElement(self.0.wrapping_shr(rhs))
+    }
+}
+
+impl<T: IntRing2k> ShrAssign<u32> for RingElement<T> {
+    fn shr_assign(&mut self, rhs: u32) {
+        self.0.wrapping_shr_assign(rhs)
     }
 }
 

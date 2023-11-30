@@ -7,8 +7,8 @@ use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
 use crate::types::bit::Bit;
-use crate::types::ring_element::RingImpl;
 use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
+use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
 use num_traits::Zero;
@@ -83,6 +83,94 @@ impl<N: NetworkTrait> Aby3<N> {
             _ => unreachable!(),
         }
         (x1, x2, x3)
+    }
+
+    async fn reduce_or_u128(&mut self, a: Share<u128>) -> Result<Share<Bit>, Error> {
+        let (a, b) = a.get_ab();
+
+        let a1 = RingElement(a.0 as u64);
+        let a2 = RingElement((a.0 >> 64) as u64);
+        let share_a = Share::new(a1, a2);
+
+        let b1 = RingElement(b.0 as u64);
+        let b2 = RingElement((b.0 >> 64) as u64);
+        let share_b = Share::new(b1, b2);
+
+        let out = self.or(share_a, share_b).await?;
+        self.reduce_or_u64(out).await
+    }
+
+    async fn reduce_or_u64(&mut self, a: Share<u64>) -> Result<Share<Bit>, Error> {
+        let (a, b) = a.get_ab();
+
+        let a1 = RingElement(a.0 as u32);
+        let a2 = RingElement((a.0 >> 32) as u32);
+        let share_a = Share::new(a1, a2);
+
+        let b1 = RingElement(b.0 as u32);
+        let b2 = RingElement((b.0 >> 32) as u32);
+        let share_b = Share::new(b1, b2);
+
+        let out = self.or(share_a, share_b).await?;
+        self.reduce_or_u32(out).await
+    }
+
+    async fn reduce_or_u32(&mut self, a: Share<u32>) -> Result<Share<Bit>, Error> {
+        let (a, b) = a.get_ab();
+
+        let a1 = RingElement(a.0 as u16);
+        let a2 = RingElement((a.0 >> 16) as u16);
+        let share_a = Share::new(a1, a2);
+
+        let b1 = RingElement(b.0 as u16);
+        let b2 = RingElement((b.0 >> 16) as u16);
+        let share_b = Share::new(b1, b2);
+
+        let out = self.or(share_a, share_b).await?;
+        self.reduce_or_u16(out).await
+    }
+
+    async fn reduce_or_u16(&mut self, a: Share<u16>) -> Result<Share<Bit>, Error> {
+        let (a, b) = a.get_ab();
+
+        let a1 = RingElement(a.0 as u8);
+        let a2 = RingElement((a.0 >> 8) as u8);
+        let share_a = Share::new(a1, a2);
+
+        let b1 = RingElement(b.0 as u8);
+        let b2 = RingElement((b.0 >> 8) as u8);
+        let share_b = Share::new(b1, b2);
+
+        let out = self.or(share_a, share_b).await?;
+        self.reduce_or_u8(out).await
+    }
+
+    async fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
+        const K: usize = 8;
+
+        let mut decomp: Vec<Share<Bit>> = Vec::with_capacity(K);
+        for i in 0..K as u32 {
+            let bit_a = ((a.a.to_owned() >> i) & RingElement(1)) == RingElement(1);
+            let bit_b = ((a.b.to_owned() >> i) & RingElement(1)) == RingElement(1);
+
+            decomp.push(Share::new(
+                <Bit as Sharable>::Share::from(bit_a),
+                <Bit as Sharable>::Share::from(bit_b),
+            ));
+        }
+
+        let mut k = K;
+        while k != 1 {
+            k >>= 1;
+            decomp = <Self as BinaryMpcTrait<Bit>>::or_many(
+                self,
+                decomp[..k].to_vec(),
+                decomp[k..].to_vec(),
+            )
+            .await?;
+        }
+
+        Ok(decomp[0].to_owned())
     }
 }
 

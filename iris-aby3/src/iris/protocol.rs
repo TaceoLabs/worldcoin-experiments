@@ -113,6 +113,7 @@ where
         Ok(res)
     }
 
+    #[allow(unused)]
     pub(crate) async fn hamming_distance(
         &mut self,
         a: Vec<Ashare>,
@@ -148,6 +149,7 @@ where
         )
     }
 
+    #[allow(unused)]
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
@@ -178,6 +180,7 @@ where
         self.mpc.get_msb_many(diffs).await
     }
 
+    #[allow(unused)]
     pub(crate) async fn compare_iris(
         &mut self,
         a: Vec<Ashare>,
@@ -220,7 +223,6 @@ where
 
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
         self.compare_threshold_many(hwds, mask_lens).await
-        // TODO maybe pack bits
     }
 
     pub async fn iris_in_db(
@@ -244,6 +246,7 @@ where
             bool_shares.extend(res);
         }
 
+        // TODO pack the results into one share
         todo!()
     }
 }
