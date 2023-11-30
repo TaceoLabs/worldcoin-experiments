@@ -60,8 +60,8 @@ where
         self.mpc.finish().await
     }
 
-    pub(crate) fn combine_masks(&self, a_mask: &BitArr, b_mask: &BitArr) -> Result<BitArr, Error> {
-        let combined_mask = *a_mask & b_mask;
+    pub(crate) fn combine_masks(&self, mask_a: &BitArr, mask_b: &BitArr) -> Result<BitArr, Error> {
+        let combined_mask = *mask_a & mask_b;
         let combined_mask_len = combined_mask.count_ones();
         // TODO: is this check needed?
         if combined_mask_len < MASK_THRESHOLD {
@@ -131,5 +131,21 @@ where
         );
         let msb = self.mpc.get_msb(diff).await?;
         Ok(msb)
+    }
+
+    pub(crate) async fn compare_iris(
+        &mut self,
+        a: Vec<Ashare>,
+        b: Vec<Ashare>,
+        mask_a: &BitArr,
+        mask_b: &BitArr,
+    ) -> Result<Bshare, Error> {
+        let mask = self.combine_masks(mask_a, mask_b)?;
+        let a = self.apply_mask(a, &mask)?;
+        let b = self.apply_mask(b, &mask)?;
+
+        let hwd = self.hamming_distance(a, b).await?;
+        let res = self.compare_threshold(hwd, mask.len()).await?;
+        Ok(res)
     }
 }

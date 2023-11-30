@@ -405,4 +405,52 @@ mod iris_test {
     async fn lt_test_aby3() {
         lt_test_aby3_impl::<u16>(165).await
     }
+
+    async fn plain_cmp_iris_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let inp1 = code1.code.iter().map(|b| T::from(*b)).collect();
+        let inp2 = code2.code.iter().map(|b| T::from(*b)).collect();
+
+        let cmp = iris
+            .compare_iris(inp1, inp2, &code1.mask, &code2.mask)
+            .await
+            .unwrap();
+
+        let cmp_ = code1.is_close(&code2);
+        assert_eq!(cmp, cmp_);
+        cmp
+    }
+
+    async fn plain_cmp_iris_test_inner<T: Sharable>()
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut iris_rng = SmallRng::from_entropy();
+
+        for _ in 0..TESTRUNS {
+            let code1 = IrisCode::random_rng(&mut iris_rng);
+            let code2 = IrisCode::random_rng(&mut iris_rng);
+            let code3 = IrisCode::random_rng(&mut iris_rng);
+            let code4 = similar_iris(&code3, &mut iris_rng);
+
+            plain_cmp_iris_tester::<T>(code1, code2).await;
+            assert!(plain_cmp_iris_tester::<T>(code3, code4).await);
+        }
+    }
+
+    #[tokio::test]
+    async fn plain_cmp_iris_test() {
+        plain_cmp_iris_test_inner::<u16>().await
+    }
 }
