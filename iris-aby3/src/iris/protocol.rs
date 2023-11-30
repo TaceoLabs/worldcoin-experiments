@@ -1,9 +1,12 @@
+use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Error, MpcTrait, Sharable};
+use crate::types::ring_element::RingImpl;
 use bitvec::{prelude::Lsb0, BitArr};
 use std::{marker::PhantomData, ops::Mul, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
+const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 
 pub type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
 
@@ -18,14 +21,27 @@ impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
     Ashare: Mul<T::Share, Output = Ashare>,
+    <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    pub fn new(mpc: Mpc) -> Self {
-        IrisProtocol {
+    pub fn new(mpc: Mpc) -> Result<Self, Error> {
+        if MATCH_THRESHOLD_RATIO >= 1.
+            || MATCH_THRESHOLD_RATIO <= 0.
+            || T::Share::get_k() <= ceil_log2(IRIS_CODE_SIZE)
+        // Comparison by checking msb of difference could produce an overflow
+        {
+            return Err(Error::ConfigError);
+        }
+
+        Ok(IrisProtocol {
             mpc,
             phantom_t: PhantomData,
             phantom_a: PhantomData,
             phantom_b: PhantomData,
-        }
+        })
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.mpc.get_id()
     }
 
     pub fn get_mpc_ref(&self) -> &Mpc {
@@ -44,8 +60,8 @@ where
         self.mpc.finish().await
     }
 
-    pub(crate) fn combine_masks(&self, a_mask: &BitArr, b_mask: &BitArr) -> Result<BitArr, Error> {
-        let combined_mask = *a_mask & b_mask;
+    pub(crate) fn combine_masks(&self, mask_a: &BitArr, mask_b: &BitArr) -> Result<BitArr, Error> {
+        let combined_mask = *mask_a & mask_b;
         let combined_mask_len = combined_mask.count_ones();
         // TODO: is this check needed?
         if combined_mask_len < MASK_THRESHOLD {
@@ -96,6 +112,40 @@ where
         let sum = self.mpc.add(sum_a, sum_b);
         let res = self.mpc.sub(sum, dot);
 
+        Ok(res)
+    }
+
+    pub(crate) async fn compare_threshold(
+        &mut self,
+        hwd: Ashare,
+        mask_len: usize,
+    ) -> Result<Bshare, Error> {
+        let threshold = (mask_len as f64 * MATCH_THRESHOLD_RATIO) as usize;
+        // a < b <=> msb(a - b)
+        // Given no overflow, which is enforced in constructor
+        let diff = self.mpc.sub_const(
+            hwd,
+            threshold
+                .try_into()
+                .expect("Sizes are checked in constructor"),
+        );
+        let msb = self.mpc.get_msb(diff).await?;
+        Ok(msb)
+    }
+
+    pub(crate) async fn compare_iris(
+        &mut self,
+        a: Vec<Ashare>,
+        b: Vec<Ashare>,
+        mask_a: &BitArr,
+        mask_b: &BitArr,
+    ) -> Result<Bshare, Error> {
+        let mask = self.combine_masks(mask_a, mask_b)?;
+        let a = self.apply_mask(a, &mask)?;
+        let b = self.apply_mask(b, &mask)?;
+
+        let hwd = self.hamming_distance(a, b).await?;
+        let res = self.compare_threshold(hwd, mask.len()).await?;
         Ok(res)
     }
 }

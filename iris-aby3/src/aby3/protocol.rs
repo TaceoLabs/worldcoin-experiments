@@ -1,3 +1,4 @@
+use super::binary_trait::BinaryMpcTrait;
 use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
@@ -5,10 +6,12 @@ use crate::error::Error;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
+use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
+use num_traits::Zero;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 use std::ops::Mul;
@@ -46,12 +49,16 @@ impl<N: NetworkTrait> Aby3<N> {
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<T>> for Aby3<N>
+impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<Output = Share<T>>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
 {
+    fn get_id(&self) -> usize {
+        self.network.get_id()
+    }
+
     async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
@@ -134,12 +141,19 @@ where
             utils::send_and_receive(&mut self.network, ring_vec_to_bytes(shares_b)).await?;
 
         let shares_c: Vec<T::Share> = ring_vec_from_bytes(response, shares.len())?;
-        let res: Vec<T> = shares
+        let res = shares
             .iter()
             .zip(shares_c.into_iter())
             .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
             .collect();
         Ok(res)
+    }
+
+    async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
+        let response =
+            utils::send_and_receive(&mut self.network, share.b.to_owned().to_bytes()).await?;
+        let c = <Bit as Sharable>::Share::from_bytes_mut(response)?;
+        Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
     fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {
@@ -148,6 +162,26 @@ where
 
     fn sub(&self, a: Share<T>, b: Share<T>) -> Share<T> {
         a - b
+    }
+
+    fn add_const(&self, a: Share<T>, b: T) -> Share<T> {
+        a.add_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
+    }
+
+    fn sub_const(&self, a: Share<T>, b: T) -> Share<T> {
+        a.sub_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
     }
 
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
@@ -184,5 +218,89 @@ where
         c.b = T::Share::from_bytes_mut(response)?;
 
         Ok(c)
+    }
+
+    async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
+        let bits = self.arithmetic_to_binary(a).await?;
+        Ok(bits.get_msb())
+    }
+
+    async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
+        <Self as BinaryMpcTrait<Bit>>::or(self, a, b).await
+    }
+}
+
+impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
+where
+    Standard: Distribution<T::Share>,
+{
+    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        let rand = self.prf.gen_binary_zero_share::<T>();
+        let mut c = a & b;
+        c.a ^= rand;
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, c.a.to_owned().to_bytes()).await?;
+        c.b = T::Share::from_bytes_mut(response)?;
+
+        Ok(c)
+    }
+
+    async fn and_many(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+        let mut shares_a = Vec::with_capacity(a.len());
+        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+            let rand = self.prf.gen_binary_zero_share::<T>();
+            let mut c = a_ & b_;
+            c.a ^= rand;
+            shares_a.push(c.a);
+        }
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, ring_vec_to_bytes(shares_a.to_owned()))
+                .await?;
+        let shares_b: Vec<T::Share> = ring_vec_from_bytes(response, shares_a.len())?;
+
+        let res = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
+
+    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
+        let (a, b) = x.get_ab();
+
+        let mut x1 = Share::<T>::zero();
+        let mut x2 = Share::<T>::zero();
+        let mut x3 = Share::<T>::zero();
+
+        match self.network.get_id() {
+            0 => {
+                x1.a = a;
+                x3.b = b;
+            }
+            1 => {
+                x2.a = a;
+                x1.b = b;
+            }
+            2 => {
+                x3.a = a;
+                x2.b = b;
+            }
+            _ => unreachable!(),
+        }
+
+        self.binary_add_3(x1, x2, x3).await
     }
 }

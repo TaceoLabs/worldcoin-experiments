@@ -1,4 +1,9 @@
-use crate::types::{int_ring::IntRing2k, ring_element::RingElement, sharable::Sharable};
+use crate::types::{
+    bit::Bit,
+    int_ring::IntRing2k,
+    ring_element::{RingElement, RingImpl},
+    sharable::Sharable,
+};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -28,28 +33,16 @@ impl<T: Sharable> Share<T> {
         }
     }
 
-    pub(crate) fn trivial_share(a: T::Share, id: PartyID) -> Self {
-        match id {
-            PartyID::ID0 => Share {
-                a,
-                b: T::Share::zero(),
-                sharetype: PhantomData,
-            },
-            PartyID::ID1 => Share {
-                a: T::Share::zero(),
-                b: a,
-                sharetype: PhantomData,
-            },
-            PartyID::ID2 => Share {
-                a: T::Share::zero(),
-                b: T::Share::zero(),
-                sharetype: PhantomData,
-            },
-        }
-    }
-
     pub fn get_ab(&self) -> (T::Share, T::Share) {
         (self.a.to_owned(), self.b.to_owned())
+    }
+
+    pub fn get_msb(&self) -> Share<Bit> {
+        Share {
+            a: self.a.get_msb(),
+            b: self.b.get_msb(),
+            sharetype: PhantomData,
+        }
     }
 
     pub(crate) fn add_const(mut self, other: &T::Share, id: PartyID) -> Self {
@@ -57,23 +50,10 @@ impl<T: Sharable> Share<T> {
         self
     }
 
-    pub(crate) fn xor_const(mut self, other: &T::Share, id: PartyID) -> Self {
-        self.xor_assign_const(other, id);
-        self
-    }
-
     pub(crate) fn add_assign_const(&mut self, other: &T::Share, id: PartyID) {
         match id {
             PartyID::ID0 => self.a += other,
             PartyID::ID1 => self.b += other,
-            PartyID::ID2 => {}
-        }
-    }
-
-    pub(crate) fn xor_assign_const(&mut self, other: &T::Share, id: PartyID) {
-        match id {
-            PartyID::ID0 => self.a ^= other,
-            PartyID::ID1 => self.b ^= other,
             PartyID::ID2 => {}
         }
     }
@@ -89,16 +69,6 @@ impl<T: Sharable> Share<T> {
             PartyID::ID1 => self.b -= other,
             PartyID::ID2 => {}
         }
-    }
-
-    pub(crate) fn sub_from_const(self, other: &T::Share, id: PartyID) -> Self {
-        let neg = -self;
-        neg.add_const(other, id)
-    }
-
-    pub(crate) fn sub_assign_from_const(&mut self, other: &T::Share, id: PartyID) {
-        *self = self.to_owned().neg();
-        self.add_assign_const(other, id);
     }
 }
 
@@ -363,6 +333,52 @@ impl<T: Sharable> BitXorAssign<&Self> for Share<T> {
     fn bitxor_assign(&mut self, rhs: &Self) {
         self.a ^= &rhs.a;
         self.b ^= &rhs.b;
+    }
+}
+
+/// This is only the local part of the AND (so without randomness and without communication)!
+impl<T: Sharable> BitAnd for Share<T> {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Share {
+            a: (self.a.to_owned() & &rhs.a) ^ (self.a & &rhs.b) ^ (self.b & &rhs.a),
+            b: T::Share::zero(),
+            sharetype: PhantomData,
+        }
+    }
+}
+
+/// This is only the local part of the AND (so without randomness and without communication)!
+impl<T: Sharable> BitAnd<&Share<T>> for Share<T> {
+    type Output = Self;
+
+    fn bitand(self, rhs: &Share<T>) -> Self::Output {
+        Share {
+            a: (self.a.to_owned() & &rhs.a) ^ (self.a & &rhs.b) ^ (self.b & &rhs.a),
+            b: T::Share::zero(),
+            sharetype: PhantomData,
+        }
+    }
+}
+
+/// This is only the local part of the AND (so without randomness and without communication)!
+impl<T: Sharable> BitAndAssign for Share<T> {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.a = (self.a.to_owned() & &rhs.a)
+            ^ (self.a.to_owned() & &rhs.b)
+            ^ (self.b.to_owned() & &rhs.a);
+        self.b = T::Share::zero();
+    }
+}
+
+/// This is only the local part of the AND (so without randomness and without communication)!
+impl<T: Sharable> BitAndAssign<&Share<T>> for Share<T> {
+    fn bitand_assign(&mut self, rhs: &Share<T>) {
+        self.a = (self.a.to_owned() & &rhs.a)
+            ^ (self.a.to_owned() & &rhs.b)
+            ^ (self.b.to_owned() & &rhs.a);
+        self.b = T::Share::zero();
     }
 }
 

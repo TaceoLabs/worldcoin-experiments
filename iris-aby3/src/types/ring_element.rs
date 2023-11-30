@@ -5,7 +5,7 @@ use bytes::{Buf, Bytes, BytesMut};
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::mem::ManuallyDrop;
 use std::num::TryFromIntError;
 use std::ops::{
@@ -41,13 +41,23 @@ pub trait RingImpl:
     + for<'a> BitXor<&'a Self, Output = Self>
     + BitXorAssign<Self>
     + for<'a> BitXorAssign<&'a Self>
+    + BitAnd<Self, Output = Self>
+    + for<'a> BitAnd<&'a Self, Output = Self>
+    + BitAnd<Self, Output = Self>
+    + for<'a> BitAnd<&'a Self, Output = Self>
+    + BitAndAssign<Self>
+    + for<'a> BitAndAssign<&'a Self>
+    + BitAndAssign<Self>
+    + for<'a> BitAndAssign<&'a Self>
     + Not<Output = Self>
     + Shl<u32, Output = Self>
     + ShlAssign<u32>
     + Send
     + From<bool>
+    + Display
 {
     fn get_k() -> usize;
+    fn get_msb(&self) -> RingElement<Bit>;
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
@@ -61,6 +71,10 @@ pub trait RingImpl:
 impl<T: IntRing2k> RingImpl for RingElement<T> {
     fn get_k() -> usize {
         T::get_k()
+    }
+
+    fn get_msb(&self) -> RingElement<Bit> {
+        RingElement(Bit(self.0 >> (Self::get_k() - 1) == T::one()))
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
@@ -126,6 +140,7 @@ where
         Ok(test)
     }
 }
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, PartialOrd, Eq, Ord)]
 #[serde(bound = "")]
 #[repr(transparent)]

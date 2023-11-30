@@ -1,11 +1,14 @@
-use crate::{error::Error, types::sharable::Sharable};
+use crate::{
+    error::Error,
+    types::{ring_element::RingImpl, sharable::Sharable},
+};
 use rand::Rng;
 
 #[allow(async_fn_in_trait)]
 pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
-    async fn finish(self) -> Result<(), Error>;
-
+    fn get_id(&self) -> usize;
     async fn preprocess(&mut self) -> Result<(), Error>;
+    async fn finish(self) -> Result<(), Error>;
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Ashare, Error>;
     // Each party inputs an arithmetic share
@@ -14,19 +17,28 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 
     async fn open(&mut self, share: Ashare) -> Result<T, Error>;
     async fn open_many(&mut self, shares: Vec<Ashare>) -> Result<Vec<T>, Error>;
+    async fn open_bit(&mut self, share: Bshare) -> Result<bool, Error>;
 
     fn add(&self, a: Ashare, b: Ashare) -> Ashare;
+    fn add_const(&self, a: Ashare, b: T) -> Ashare;
     fn sub(&self, a: Ashare, b: Ashare) -> Ashare;
+    fn sub_const(&self, a: Ashare, b: T) -> Ashare;
     async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
     async fn dot(&mut self, a: Vec<Ashare>, b: Vec<Ashare>) -> Result<Ashare, Error>;
+    async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
+    async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 }
 
 #[derive(Default)]
 pub struct Plain {}
 
-impl<T: Sharable> MpcTrait<T, T, T> for Plain {
+impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
+    fn get_id(&self) -> usize {
+        0
+    }
+
     async fn finish(self) -> Result<(), Error> {
         Ok(())
     }
@@ -55,11 +67,23 @@ impl<T: Sharable> MpcTrait<T, T, T> for Plain {
         Ok(shares)
     }
 
+    async fn open_bit(&mut self, share: bool) -> Result<bool, Error> {
+        Ok(share)
+    }
+
     fn add(&self, a: T, b: T) -> T {
         a.wrapping_add(&b)
     }
 
     fn sub(&self, a: T, b: T) -> T {
+        a.wrapping_sub(&b)
+    }
+
+    fn add_const(&self, a: T, b: T) -> T {
+        a.wrapping_add(&b)
+    }
+
+    fn sub_const(&self, a: T, b: T) -> T {
         a.wrapping_sub(&b)
     }
 
@@ -80,5 +104,13 @@ impl<T: Sharable> MpcTrait<T, T, T> for Plain {
             res = res.wrapping_add(&a.wrapping_mul(&b));
         }
         Ok(res)
+    }
+
+    async fn get_msb(&mut self, a: T) -> Result<bool, Error> {
+        Ok(a.to_sharetype().get_msb().convert().convert())
+    }
+
+    async fn binary_or(&mut self, a: bool, b: bool) -> Result<bool, Error> {
+        Ok(a | b)
     }
 }

@@ -4,6 +4,7 @@ use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::mem::ManuallyDrop;
 use std::{
     fmt::Debug,
@@ -38,6 +39,7 @@ pub trait Sharable:
     + Serialize
     + TryFrom<usize>
     + for<'a> Deserialize<'a>
+    + Display
     + 'static
 {
     /// Each Sharable type has a corresponding internal ABY3 representation. In the easiest cases this is just the unsigned version of the type with the same size, i.e., u32 for i32 or u32 for u32.
@@ -110,12 +112,64 @@ macro_rules! sharable_impl {
             }
         }
 
+        impl Mul<RingElement<$t>> for $s {
+            type Output = $s;
+
+            fn mul(self, rhs: RingElement<$t>) -> Self::Output {
+                self.wrapping_mul(rhs.0 as $s)
+            }
+        }
+
+        impl Mul<RingElement<$t>> for $t {
+            type Output = $t;
+
+            fn mul(self, rhs: RingElement<$t>) -> Self::Output {
+                self.wrapping_mul(rhs.0)
+            }
+        }
+
         impl Mul<&$s> for RingElement<$t> {
             type Output = Self;
 
             fn mul(self, rhs: &$s) -> Self::Output {
                 Self {
                     0: self.0.wrapping_mul(*rhs as $t),
+                }
+            }
+        }
+
+        impl BitAnd<$s> for RingElement<$t> {
+            type Output = Self;
+
+            fn bitand(self, rhs: $s) -> Self::Output {
+                Self {
+                    0: self.0 & (rhs as $t),
+                }
+            }
+        }
+
+        impl BitAnd<RingElement<$t>> for $s {
+            type Output = $s;
+
+            fn bitand(self, rhs: RingElement<$t>) -> Self::Output {
+                self & (rhs.0 as $s)
+            }
+        }
+
+        impl BitAnd<RingElement<$t>> for $t {
+            type Output = $t;
+
+            fn bitand(self, rhs: RingElement<$t>) -> Self::Output {
+                self & rhs.0
+            }
+        }
+
+        impl BitAnd<&$s> for RingElement<$t> {
+            type Output = Self;
+
+            fn bitand(self, rhs: &$s) -> Self::Output {
+                Self {
+                    0: self.0 & (*rhs as $t),
                 }
             }
         }
@@ -130,6 +184,19 @@ macro_rules! sharable_impl {
         impl MulAssign<&$s> for RingElement<$t> {
             fn mul_assign(&mut self, rhs: &$s)  {
                 self.0.wrapping_mul_assign(&(*rhs as $t));
+            }
+        }
+
+        impl BitAndAssign<$s> for RingElement<$t> {
+            fn bitand_assign(&mut self, rhs: $s)  {
+               self.0 &= (&(rhs as $t));
+
+            }
+        }
+
+        impl BitAndAssign<&$s> for RingElement<$t> {
+            fn bitand_assign(&mut self, rhs: &$s)  {
+                 self.0 &= (&(*rhs as $t));
             }
         }
 

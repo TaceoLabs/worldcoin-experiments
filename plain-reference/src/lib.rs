@@ -7,7 +7,7 @@ use rand::{rngs::SmallRng, SeedableRng};
 pub const IRIS_CODE_SIZE: usize = 12800;
 const MASK_THRESHOLD_RATIO: f64 = 0.70;
 pub const MASK_THRESHOLD: usize = (MASK_THRESHOLD_RATIO * IRIS_CODE_SIZE as f64) as usize;
-const MATCH_THRESHOLD_RATIO: f64 = 0.34;
+pub const MATCH_THRESHOLD_RATIO: f64 = 0.34;
 
 #[derive(Default, Debug)]
 pub struct IrisCode {
