@@ -246,7 +246,7 @@ where
             bool_shares.extend(res);
         }
 
-        // TODO pack the results into one share
-        todo!()
+        let res = self.mpc.reduce_binary_or(bool_shares).await?;
+        self.mpc.open_bit(res).await
     }
 }

@@ -37,6 +37,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
     async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Vec<Bshare>, Error>;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
+    async fn reduce_binary_or(&mut self, a: Vec<Bshare>) -> Result<Bshare, Error>;
 }
 
 #[derive(Default)]
@@ -146,5 +147,9 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn binary_or(&mut self, a: bool, b: bool) -> Result<bool, Error> {
         Ok(a | b)
+    }
+
+    async fn reduce_binary_or(&mut self, a: Vec<bool>) -> Result<bool, Error> {
+        Ok(a.into_iter().fold(false, |a, b| a | b))
     }
 }

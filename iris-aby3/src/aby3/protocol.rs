@@ -388,6 +388,11 @@ where
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
         <Self as BinaryMpcTrait<Bit>>::or(self, a, b).await
     }
+
+    async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
+        // TODO pack the results into one share
+        todo!()
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
