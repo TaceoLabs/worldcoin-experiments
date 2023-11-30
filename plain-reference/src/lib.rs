@@ -9,7 +9,7 @@ const MASK_THRESHOLD_RATIO: f64 = 0.70;
 pub const MASK_THRESHOLD: usize = (MASK_THRESHOLD_RATIO * IRIS_CODE_SIZE as f64) as usize;
 pub const MATCH_THRESHOLD_RATIO: f64 = 0.34;
 
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct IrisCode {
     pub code: BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0),
     pub mask: BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0),

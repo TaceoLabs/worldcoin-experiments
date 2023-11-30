@@ -290,11 +290,10 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
+            let code3 = similar_iris(&code1, &mut iris_rng);
 
-            plain_lt_tester::<T>(code1, code2).await;
-            assert!(plain_lt_tester::<T>(code3, code4).await);
+            plain_lt_tester::<T>(code1.to_owned(), code2).await;
+            assert!(plain_lt_tester::<T>(code1, code3).await);
         }
     }
 
@@ -365,10 +364,9 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
-            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code2).await;
-            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code3, code4).await);
+            let code3 = similar_iris(&code1, &mut iris_rng);
+            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
+            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
         }
 
         iris.finish().await.unwrap();
@@ -406,6 +404,41 @@ mod iris_test {
         lt_test_aby3_impl::<u16>(165).await
     }
 
+    async fn plain_cmp_many_iris_tester<T: Sharable>(
+        code1: IrisCode,
+        code2: Vec<IrisCode>,
+    ) -> Vec<bool>
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let inp1 = code1.code.iter().map(|b| T::from(*b)).collect();
+
+        let mut inp2s = Vec::with_capacity(code2.len());
+        let mut mask2 = Vec::with_capacity(code2.len());
+        let mut cmp_ = Vec::with_capacity(code2.len());
+        for code in code2 {
+            let c = code1.is_close(&code);
+            let inp2 = code.code.iter().map(|b| T::from(*b)).collect();
+            cmp_.push(c);
+            inp2s.push(inp2);
+            mask2.push(code.mask);
+        }
+
+        let cmp = iris
+            .compare_iris_many(inp1, inp2s, &code1.mask, &mask2)
+            .await
+            .unwrap();
+
+        assert_eq!(cmp, cmp_);
+        cmp
+    }
+
     async fn plain_cmp_iris_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
     where
         Standard: Distribution<T>,
@@ -441,11 +474,14 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
+            let code3 = similar_iris(&code1, &mut iris_rng);
 
-            plain_cmp_iris_tester::<T>(code1, code2).await;
-            assert!(plain_cmp_iris_tester::<T>(code3, code4).await);
+            let c1 = plain_cmp_iris_tester::<T>(code1.to_owned(), code2.to_owned()).await;
+            let c2 = plain_cmp_iris_tester::<T>(code1.to_owned(), code3.to_owned()).await;
+            let c3 = plain_cmp_many_iris_tester::<T>(code1, vec![code2, code3]).await;
+            assert_eq!(c1, c3[0]);
+            assert_eq!(c2, c3[1]);
+            assert!(c2);
         }
     }
 
@@ -516,10 +552,9 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
-            cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code2).await;
-            assert!(cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code3, code4).await);
+            let code3 = similar_iris(&code1, &mut iris_rng);
+            cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
+            assert!(cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
         }
 
         iris.finish().await.unwrap();
