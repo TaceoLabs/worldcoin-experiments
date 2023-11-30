@@ -1,6 +1,6 @@
 use super::binary_trait::BinaryMpcTrait;
 use super::random::prf::{Prf, PrfSeed};
-use super::utils::{self, ceil_log2};
+use super::utils;
 use crate::aby3::share::Share;
 use crate::error::Error;
 use crate::traits::mpc_trait::MpcTrait;
@@ -55,6 +55,10 @@ where
     Share<T>: Mul<Output = Share<T>>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
 {
+    fn get_id(&self) -> usize {
+        self.network.get_id()
+    }
+
     async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
@@ -145,6 +149,13 @@ where
         Ok(res)
     }
 
+    async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
+        let response =
+            utils::send_and_receive(&mut self.network, share.b.to_owned().to_bytes()).await?;
+        let c = <Bit as Sharable>::Share::from_bytes_mut(response)?;
+        Ok((share.a ^ share.b ^ c).convert().convert())
+    }
+
     fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {
         a + b
     }
@@ -219,16 +230,8 @@ impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
 {
-    fn xor(a: Share<T>, b: Share<T>) -> Share<T> {
-        a ^ b
-    }
-
-    fn xor_assign(a: &mut Share<T>, b: Share<T>) {
-        *a ^= b;
-    }
-
     async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
-        let rand = self.prf.gen_zero_share::<T>();
+        let rand = self.prf.gen_binary_zero_share::<T>();
         let mut c = a & b;
         c.a ^= rand;
 
@@ -250,7 +253,7 @@ where
         }
         let mut shares_a = Vec::with_capacity(a.len());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let rand = self.prf.gen_zero_share::<T>();
+            let rand = self.prf.gen_binary_zero_share::<T>();
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
@@ -271,39 +274,6 @@ where
         Ok(res)
     }
 
-    async fn binary_add_3(
-        &mut self,
-        x1: Share<T>,
-        x2: Share<T>,
-        x3: Share<T>,
-    ) -> Result<Share<T>, Error> {
-        let k = T::Share::get_k();
-        let logk = ceil_log2(k);
-
-        // Full Adder
-        let x2x3 = Self::xor(x2, x3.to_owned());
-        let s = Self::xor(x1.to_owned(), x2x3.to_owned());
-        let x1x3 = Self::xor(x1, x3.to_owned());
-        let mut c = self.and(x1x3, x2x3).await?;
-        Self::xor_assign(&mut c, x3);
-
-        // Add 2c + s via a packed Kogge-Stone adder
-        c <<= 1;
-        let mut p = Self::xor(s.to_owned(), c.to_owned());
-        let mut g = self.and(s, c).await?;
-        let s_ = p.to_owned();
-        for i in 0..logk {
-            let p_ = p.to_owned() << (1 << i);
-            let g_ = g.to_owned() << (1 << i);
-            // TODO Maybe work with Bits in the inner loop to have less communication?
-            let res = self.and_many(vec![p.to_owned(), p], vec![g_, p_]).await?;
-            p = res[1].to_owned(); // p = p & p_
-            Self::xor_assign(&mut g, res[0].to_owned()); // g = g ^ (p & g_)
-        }
-        g <<= 1;
-        Ok(Self::xor(s_, g))
-    }
-
     async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
         let (a, b) = x.get_ab();
 
@@ -314,15 +284,15 @@ where
         match self.network.get_id() {
             0 => {
                 x1.a = a;
-                x2.b = b;
+                x3.b = b;
             }
             1 => {
                 x2.a = a;
-                x3.b = b;
+                x1.b = b;
             }
             2 => {
                 x3.a = a;
-                x1.b = b;
+                x2.b = b;
             }
             _ => unreachable!(),
         }

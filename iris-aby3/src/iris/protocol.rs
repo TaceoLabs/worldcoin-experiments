@@ -40,6 +40,10 @@ where
         })
     }
 
+    pub fn get_id(&self) -> usize {
+        self.mpc.get_id()
+    }
+
     pub fn get_mpc_ref(&self) -> &Mpc {
         &self.mpc
     }

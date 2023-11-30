@@ -6,7 +6,7 @@ use num_traits::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     mem::size_of,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
 };
@@ -41,6 +41,7 @@ pub trait IntRing2k:
     + Serialize
     + TryFrom<usize>
     + for<'a> Deserialize<'a>
+    + Display
     + 'static
 {
     type Signed: Sharable<Share = RingElement<Self>>;

@@ -55,4 +55,12 @@ impl Prf {
         let (a, b) = self.gen_rands::<T::Share>();
         a - b
     }
+
+    pub(crate) fn gen_binary_zero_share<T: Sharable>(&mut self) -> T::Share
+    where
+        Standard: Distribution<T::Share>,
+    {
+        let (a, b) = self.gen_rands::<T::Share>();
+        a ^ b
+    }
 }

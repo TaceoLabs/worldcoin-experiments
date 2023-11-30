@@ -5,6 +5,7 @@ mod iris_test {
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
         tests::{aby_config::aby3_config, iris_config::iris_config::similar_iris},
         traits::mpc_trait::Plain,
+        types::bit::Bit,
     };
     use plain_reference::IrisCode;
     use rand::{
@@ -173,7 +174,7 @@ mod iris_test {
 
         let mut rng = SmallRng::from_entropy();
         let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed: [u8; 32] = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let mut iris_rng = SmallRng::from_seed(iris_seed);
 
         for i in 0..NUM_PARTIES {
@@ -300,5 +301,108 @@ mod iris_test {
     #[tokio::test]
     async fn plain_lt_test() {
         plain_lt_test_inner::<u16>().await
+    }
+
+    async fn lt_tester_aby3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
+        protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
+        rng: &mut R,
+        code1: IrisCode,
+        code2: IrisCode,
+    ) -> bool
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let id = protocol.get_id();
+
+        let combined_mask = code1.mask & code2.mask;
+        let combined_code = code1.code ^ code2.code;
+        let masked_code = combined_code & combined_mask;
+
+        let distance = masked_code.count_ones();
+        let threshold =
+            (combined_mask.len() as f64 * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
+        let cmp_ = distance < threshold;
+
+        let distance = distance.try_into().expect("Overflow should not happen");
+
+        // We simulate the parties already knowing the share of the distance
+        let share = Aby3::<Aby3Network>::share(distance, rng).await[id].to_owned();
+
+        let share_cmp = protocol
+            .compare_threshold(share, combined_mask.len())
+            .await
+            .unwrap();
+
+        let cmp = protocol.get_mpc_mut().open_bit(share_cmp).await.unwrap();
+
+        assert_eq!(cmp, cmp_);
+        cmp
+    }
+
+    async fn lt_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+        iris_seed: R::Seed,
+    ) where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let mut iris = IrisProtocol::new(protocol).unwrap();
+
+        iris.preprocessing().await.unwrap();
+
+        let mut iris_rng = R::from_seed(iris_seed);
+        let mut rng = R::from_seed(seed);
+        for _ in 0..TESTRUNS {
+            let code1 = IrisCode::random_rng(&mut iris_rng);
+            let code2 = IrisCode::random_rng(&mut iris_rng);
+            let code3 = IrisCode::random_rng(&mut iris_rng);
+            let code4 = similar_iris(&code3, &mut iris_rng);
+            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code2).await;
+            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code3, code4).await);
+        }
+
+        iris.finish().await.unwrap();
+    }
+
+    async fn lt_test_aby3_impl<T: Sharable>(port_offset: u16)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move {
+                lt_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+            });
+            tasks.push(t);
+        }
+
+        for t in tasks {
+            t.await.expect("Task exited normally");
+        }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn lt_test_aby3() {
+        lt_test_aby3_impl::<u16>(165).await
     }
 }
