@@ -196,18 +196,23 @@ impl<N: NetworkTrait> Aby3<N> {
         &mut self,
         mut inputs: Vec<Share<u128>>,
     ) -> Result<Share<u128>, Error> {
+        const PACK_SIZE: usize = 8; // TODO Move
         let mut num = inputs.len();
 
         while num > 1 {
             let mod_ = num & 1;
             num >>= 1;
 
-            let a_vec = inputs.drain(..num).collect();
-            let b_vec = inputs.drain(..num).collect();
+            let a_vec = &inputs[0..num];
+            let b_vec = &inputs[num..2 * num];
 
-            let mut res = self.or_many(a_vec, b_vec).await?;
-            debug_assert!(inputs.is_empty() || inputs.len() == 1);
-            for leftover in inputs {
+            let mut res = Vec::with_capacity(num + mod_);
+            for (tmp_a, tmp_b) in a_vec.chunks(PACK_SIZE).zip(b_vec.chunks(PACK_SIZE)) {
+                let r = self.or_many(tmp_a.to_vec(), tmp_b.to_vec()).await?;
+                res.extend(r);
+            }
+
+            for leftover in inputs.into_iter().skip(2 * num) {
                 res.push(leftover);
             }
             inputs = res;
