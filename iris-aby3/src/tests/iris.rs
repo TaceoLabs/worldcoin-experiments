@@ -685,8 +685,9 @@ mod iris_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut rng = SmallRng::from_entropy();
-        let db = create_database(DB_SIZE, &mut rng);
 
+        // gen db and iris
+        let db = create_database(DB_SIZE, &mut rng);
         let iris1 = IrisCode::random_rng(&mut rng);
         let iris2 = similar_iris(&db[0], &mut rng);
 
@@ -731,5 +732,114 @@ mod iris_test {
     #[tokio::test]
     async fn plain_full_test() {
         plain_full_test_inner::<u16>().await
+    }
+
+    async fn full_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+        iris_seed: R::Seed,
+    ) where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let mut iris = IrisProtocol::new(protocol).unwrap();
+
+        iris.preprocessing().await.unwrap();
+
+        let mut iris_rng = R::from_seed(iris_seed);
+        let mut rng = R::from_seed(seed);
+
+        // gen db and iris
+        let db = create_database(DB_SIZE, &mut iris_rng);
+        let iris1 = IrisCode::random_rng(&mut rng);
+        let iris2 = similar_iris(&db[0], &mut rng);
+
+        let mut db_t = Vec::with_capacity(db.len());
+        let mut masks = Vec::with_capacity(db.len());
+        let mut is_in1 = false;
+        let mut is_in2 = false;
+
+        // get plain result and share database
+        for iris in db {
+            is_in1 |= iris1.is_close(&iris);
+            is_in2 |= iris2.is_close(&iris);
+
+            let mut iris_t = Vec::with_capacity(iris.code.len());
+            for bit in iris.code.iter() {
+                // We simulate the parties already knowing the shares of the code.
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                iris_t.push(shares[id].to_owned());
+            }
+
+            db_t.push(iris_t);
+            masks.push(iris.mask);
+        }
+
+        // share iris1 and iris2
+        let mut iris1_ = Vec::with_capacity(iris1.code.len());
+        let mut iris2_ = Vec::with_capacity(iris2.code.len());
+        for bit in iris1.code.iter() {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            iris1_.push(shares[id].to_owned());
+        }
+        for bit in iris2.code.iter() {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            iris2_.push(shares[id].to_owned());
+        }
+        // calculate
+        let res1 = iris
+            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .await
+            .unwrap();
+
+        let res2 = iris
+            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .await
+            .unwrap();
+
+        iris.finish().await.unwrap();
+
+        assert_eq!(res1, is_in1);
+        assert_eq!(res2, is_in2);
+        assert!(res2);
+    }
+
+    async fn full_test_aby3_impl<T: Sharable>(port_offset: u16)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move {
+                full_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+            });
+            tasks.push(t);
+        }
+
+        for t in tasks {
+            t.await.expect("Task exited normally");
+        }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn full_test_aby3() {
+        full_test_aby3_impl::<u16>(200).await
     }
 }
