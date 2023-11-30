@@ -1,3 +1,4 @@
+pub(crate) mod binary_trait;
 pub(crate) mod id;
 pub(crate) mod network;
 pub(crate) mod protocol;

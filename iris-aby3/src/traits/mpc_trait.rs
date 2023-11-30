@@ -97,6 +97,6 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
     }
 
     async fn get_msb(&mut self, a: T) -> Result<bool, Error> {
-        Ok((a >> (T::Share::get_k() - 1) & T::one()) == T::one())
+        Ok(a.to_sharetype().get_msb().convert().convert())
     }
 }

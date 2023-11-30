@@ -1,3 +1,4 @@
+use super::binary_trait::BinaryMpcTrait;
 use super::random::prf::{Prf, PrfSeed};
 use super::utils::{self, ceil_log2};
 use crate::aby3::share::Share;
@@ -45,89 +46,6 @@ impl<N: NetworkTrait> Aby3<N> {
     pub async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
-    }
-
-    fn xor<T: Sharable>(&self, a: Share<T>, b: Share<T>) -> Share<T> {
-        a ^ b
-    }
-
-    async fn and<T: Sharable>(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error>
-    where
-        Standard: Distribution<T::Share>,
-    {
-        let rand = self.prf.gen_zero_share::<T>();
-        let mut c = a & b;
-        c.a ^= rand;
-
-        // Network: reshare
-        let response =
-            utils::send_and_receive(&mut self.network, c.a.to_owned().to_bytes()).await?;
-        c.b = T::Share::from_bytes_mut(response)?;
-
-        Ok(c)
-    }
-
-    pub(crate) fn binary_add_3<T: Sharable>(
-        &mut self,
-        x1: Share<T>,
-        x2: Share<T>,
-        x3: Share<T>,
-    ) -> Result<Share<T>, Error> {
-        let k = T::Share::get_k();
-        let logk = ceil_log2(k);
-
-        // Full Adder
-        // let x2x3 = Binary::xor(x2, x3);
-        // let s = Binary::xor(x1, x2x3);
-        // let x1x3 = Binary::xor(x1, x3);
-        // let mut c = party.and(x1x3, x2x3)?;
-        // Binary::xor_assign(&mut c, x3);
-
-        // // Add 2c + s via a packed Kogge-Stone adder
-        // c <<= 1;
-        // let mut p = Binary::xor(s, c);
-        // let mut g = party.and(s, c)?;
-        // let s_ = p.to_owned();
-        // for i in 0..logk {
-        //     let p_ = p << (1 << i);
-        //     let g_ = g << (1 << i);
-        //     // TODO Maybe work with Bits in the inner loop to have less communication?
-        //     let res = party.and_many(&[p, p], &[g_, p_])?;
-        //     p = res[1]; // p = p & p_
-        //     Binary::xor_assign(&mut g, res[0]); // g = g ^ (p & g_)
-        // }
-        // g <<= 1;
-        // Ok(Binary::xor(s_, g))
-        todo!()
-    }
-
-    pub(crate) fn arithmetic_to_binary<T: Sharable>(
-        &mut self,
-        x: Share<T>,
-    ) -> Result<Share<T>, Error> {
-        let (a, b) = x.get_ab();
-
-        let mut x1 = Share::<T>::zero();
-        let mut x2 = Share::<T>::zero();
-        let mut x3 = Share::<T>::zero();
-
-        match self.network.get_id() {
-            0 => {
-                x1.a = a;
-                x2.b = b;
-            }
-            1 => {
-                x2.a = a;
-                x3.b = b;
-            }
-            2 => {
-                x3.a = a;
-                x1.b = b;
-            }
-            _ => unreachable!(),
-        }
-
-        self.binary_add_3(x1, x2, x3)
     }
 }
 
@@ -292,6 +210,123 @@ where
     }
 
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
-        todo!()
+        let bits = self.arithmetic_to_binary(a).await?;
+        Ok(bits.get_msb())
+    }
+}
+
+impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
+where
+    Standard: Distribution<T::Share>,
+{
+    fn xor(a: Share<T>, b: Share<T>) -> Share<T> {
+        a ^ b
+    }
+
+    fn xor_assign(a: &mut Share<T>, b: Share<T>) {
+        *a ^= b;
+    }
+
+    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        let rand = self.prf.gen_zero_share::<T>();
+        let mut c = a & b;
+        c.a ^= rand;
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, c.a.to_owned().to_bytes()).await?;
+        c.b = T::Share::from_bytes_mut(response)?;
+
+        Ok(c)
+    }
+
+    async fn and_many(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+        let mut shares_a = Vec::with_capacity(a.len());
+        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+            let rand = self.prf.gen_zero_share::<T>();
+            let mut c = a_ & b_;
+            c.a ^= rand;
+            shares_a.push(c.a);
+        }
+
+        // Network: reshare
+        let response =
+            utils::send_and_receive(&mut self.network, ring_vec_to_bytes(shares_a.to_owned()))
+                .await?;
+        let shares_b: Vec<T::Share> = ring_vec_from_bytes(response, shares_a.len())?;
+
+        let res: Vec<Share<T>> = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
+
+    async fn binary_add_3(
+        &mut self,
+        x1: Share<T>,
+        x2: Share<T>,
+        x3: Share<T>,
+    ) -> Result<Share<T>, Error> {
+        let k = T::Share::get_k();
+        let logk = ceil_log2(k);
+
+        // Full Adder
+        let x2x3 = Self::xor(x2, x3.to_owned());
+        let s = Self::xor(x1.to_owned(), x2x3.to_owned());
+        let x1x3 = Self::xor(x1, x3.to_owned());
+        let mut c = self.and(x1x3, x2x3).await?;
+        Self::xor_assign(&mut c, x3);
+
+        // Add 2c + s via a packed Kogge-Stone adder
+        c <<= 1;
+        let mut p = Self::xor(s.to_owned(), c.to_owned());
+        let mut g = self.and(s, c).await?;
+        let s_ = p.to_owned();
+        for i in 0..logk {
+            let p_ = p.to_owned() << (1 << i);
+            let g_ = g.to_owned() << (1 << i);
+            // TODO Maybe work with Bits in the inner loop to have less communication?
+            let res = self.and_many(vec![p.to_owned(), p], vec![g_, p_]).await?;
+            p = res[1].to_owned(); // p = p & p_
+            Self::xor_assign(&mut g, res[0].to_owned()); // g = g ^ (p & g_)
+        }
+        g <<= 1;
+        Ok(Self::xor(s_, g))
+    }
+
+    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
+        let (a, b) = x.get_ab();
+
+        let mut x1 = Share::<T>::zero();
+        let mut x2 = Share::<T>::zero();
+        let mut x3 = Share::<T>::zero();
+
+        match self.network.get_id() {
+            0 => {
+                x1.a = a;
+                x2.b = b;
+            }
+            1 => {
+                x2.a = a;
+                x3.b = b;
+            }
+            2 => {
+                x3.a = a;
+                x1.b = b;
+            }
+            _ => unreachable!(),
+        }
+
+        self.binary_add_3(x1, x2, x3).await
     }
 }

@@ -56,6 +56,7 @@ pub trait RingImpl:
     + From<bool>
 {
     fn get_k() -> usize;
+    fn get_msb(&self) -> RingElement<Bit>;
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
@@ -69,6 +70,10 @@ pub trait RingImpl:
 impl<T: IntRing2k> RingImpl for RingElement<T> {
     fn get_k() -> usize {
         T::get_k()
+    }
+
+    fn get_msb(&self) -> RingElement<Bit> {
+        RingElement(Bit(self.0 >> (Self::get_k() - 1) == T::one()))
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
