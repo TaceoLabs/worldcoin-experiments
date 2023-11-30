@@ -109,11 +109,11 @@ impl<N: NetworkTrait> Aby3<N> {
 
         let a1 = RingElement(a.0 as u64);
         let a2 = RingElement((a.0 >> 64) as u64);
-        let share_a = Share::new(a1, a2);
 
         let b1 = RingElement(b.0 as u64);
         let b2 = RingElement((b.0 >> 64) as u64);
-        let share_b = Share::new(b1, b2);
+        let share_a = Share::new(a1, b1);
+        let share_b = Share::new(a2, b2);
 
         let out = self.or(share_a, share_b).await?;
         self.reduce_or_u64(out).await
@@ -124,11 +124,11 @@ impl<N: NetworkTrait> Aby3<N> {
 
         let a1 = RingElement(a.0 as u32);
         let a2 = RingElement((a.0 >> 32) as u32);
-        let share_a = Share::new(a1, a2);
 
         let b1 = RingElement(b.0 as u32);
         let b2 = RingElement((b.0 >> 32) as u32);
-        let share_b = Share::new(b1, b2);
+        let share_a = Share::new(a1, b1);
+        let share_b = Share::new(a2, b2);
 
         let out = self.or(share_a, share_b).await?;
         self.reduce_or_u32(out).await
@@ -139,11 +139,11 @@ impl<N: NetworkTrait> Aby3<N> {
 
         let a1 = RingElement(a.0 as u16);
         let a2 = RingElement((a.0 >> 16) as u16);
-        let share_a = Share::new(a1, a2);
 
         let b1 = RingElement(b.0 as u16);
         let b2 = RingElement((b.0 >> 16) as u16);
-        let share_b = Share::new(b1, b2);
+        let share_a = Share::new(a1, b1);
+        let share_b = Share::new(a2, b2);
 
         let out = self.or(share_a, share_b).await?;
         self.reduce_or_u16(out).await
@@ -154,11 +154,11 @@ impl<N: NetworkTrait> Aby3<N> {
 
         let a1 = RingElement(a.0 as u8);
         let a2 = RingElement((a.0 >> 8) as u8);
-        let share_a = Share::new(a1, a2);
 
         let b1 = RingElement(b.0 as u8);
         let b2 = RingElement((b.0 >> 8) as u8);
-        let share_b = Share::new(b1, b2);
+        let share_a = Share::new(a1, b1);
+        let share_b = Share::new(a2, b2);
 
         let out = self.or(share_a, share_b).await?;
         self.reduce_or_u8(out).await
