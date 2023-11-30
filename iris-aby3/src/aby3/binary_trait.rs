@@ -8,8 +8,30 @@ pub trait BinaryMpcTrait<T: Sharable> {
         a ^ b
     }
 
+    fn xor_many(a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+        let res = a
+            .into_iter()
+            .zip(b)
+            .map(|(a_, b_)| Self::xor(a_, b_))
+            .collect();
+        Ok(res)
+    }
+
     fn xor_assign(a: &mut Share<T>, b: Share<T>) {
         *a ^= b;
+    }
+
+    fn xor_assign_many(a: &mut Vec<Share<T>>, b: Vec<Share<T>>) -> Result<(), Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+        for (a_, b_) in a.iter_mut().zip(b) {
+            Self::xor_assign(a_, b_);
+        }
+        Ok(())
     }
 
     async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error>;
@@ -31,6 +53,9 @@ pub trait BinaryMpcTrait<T: Sharable> {
         a: Vec<Share<T>>,
         b: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
         let y = self.and_many(a.to_owned(), b.to_owned()).await?;
         let res = a
             .into_iter()
