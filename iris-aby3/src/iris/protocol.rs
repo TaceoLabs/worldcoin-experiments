@@ -7,6 +7,7 @@ use std::{marker::PhantomData, ops::Mul, usize};
 const IRIS_CODE_SIZE: usize = plain_reference::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
+const PACK_SIZE: usize = 8;
 
 pub type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
 
@@ -200,6 +201,9 @@ where
         mask_b: &[BitArr],
     ) -> Result<Vec<Bshare>, Error> {
         let amount = b.len();
+        if (amount != mask_b.len()) || (amount == 0) {
+            return Err(Error::InvlidSizeError);
+        }
         let mut a_vec = Vec::with_capacity(amount);
         let mut b_vec = Vec::with_capacity(amount);
         let mut mask_lens = Vec::with_capacity(amount);
@@ -217,5 +221,29 @@ where
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
         self.compare_threshold_many(hwds, mask_lens).await
         // TODO maybe pack bits
+    }
+
+    pub async fn iris_in_db(
+        &mut self,
+        iris: Vec<Ashare>,
+        db: Vec<Vec<Ashare>>,
+        mask_iris: &BitArr,
+        mask_db: &[BitArr],
+    ) -> Result<bool, Error> {
+        let amount = db.len();
+        if (amount != mask_db.len()) || (amount == 0) {
+            return Err(Error::InvlidSizeError);
+        }
+
+        let mut bool_shares = Vec::with_capacity(amount);
+
+        for db_ in db.chunks(PACK_SIZE) {
+            let res = self
+                .compare_iris_many(iris.to_owned(), db_.to_owned(), mask_iris, mask_db)
+                .await?;
+            bool_shares.extend(res);
+        }
+
+        todo!()
     }
 }
