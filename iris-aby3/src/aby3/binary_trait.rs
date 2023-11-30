@@ -2,7 +2,9 @@ use super::share::Share;
 use super::utils::ceil_log2;
 use crate::prelude::{Error, Sharable};
 use crate::types::ring_element::RingImpl;
+use async_trait::async_trait;
 
+#[async_trait]
 pub trait BinaryMpcTrait<T: Sharable> {
     fn xor(a: Share<T>, b: Share<T>) -> Share<T> {
         a ^ b

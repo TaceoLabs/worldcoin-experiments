@@ -1,6 +1,6 @@
 mod iris_test {
     use crate::{
-        aby3::share::Share,
+        aby3::{binary_trait::BinaryMpcTrait, share::Share},
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
         tests::{aby_config::aby3_config, iris_config::iris_config::similar_iris},
@@ -32,6 +32,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -73,6 +74,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
@@ -124,6 +126,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -169,6 +172,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
@@ -315,6 +319,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let id = protocol.get_id();
 
@@ -354,6 +359,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -381,6 +387,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
@@ -466,6 +473,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let id = protocol.get_id();
 
@@ -505,6 +513,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
@@ -532,6 +541,7 @@ mod iris_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 

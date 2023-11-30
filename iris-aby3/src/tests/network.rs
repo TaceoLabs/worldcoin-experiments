@@ -1,6 +1,6 @@
 mod aby3_test {
     use crate::{
-        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
+        aby3::{binary_trait::BinaryMpcTrait, network::Aby3Network, protocol::Aby3, share::Share},
         tests::aby_config::aby3_config,
         traits::mpc_trait::{MpcTrait, Plain},
         types::{bit::Bit, int_ring::IntRing2k, sharable::Sharable},
@@ -35,6 +35,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = R::from_seed(seed);
@@ -86,6 +87,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
@@ -131,6 +133,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
@@ -182,6 +185,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
@@ -236,6 +240,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = R::from_seed(seed);
@@ -302,6 +307,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = R::from_seed(seed);
@@ -364,6 +370,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
@@ -419,6 +426,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = R::from_seed(seed);
@@ -481,6 +489,7 @@ mod aby3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Aby3<Aby3Network>: BinaryMpcTrait<T>,
     {
         let mut protocol = aby3_config::get_preprocessed_protocol::<T>(id, port_offset).await;
         let mut rng = SmallRng::from_entropy();
