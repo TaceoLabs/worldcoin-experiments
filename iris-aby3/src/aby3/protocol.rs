@@ -218,6 +218,40 @@ where
         Ok(c)
     }
 
+    async fn dot_many(
+        &mut self,
+        a: Vec<Vec<Share<T>>>,
+        b: Vec<Vec<Share<T>>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+
+        let mut shares_a = Vec::with_capacity(a.len());
+
+        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+            let mut rand = self.prf.gen_zero_share::<T>();
+            if a_.len() != b_.len() {
+                return Err(Error::InvlidSizeError);
+            }
+            for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
+                rand += (a__ * b__).a;
+            }
+            shares_a.push(rand);
+        }
+
+        // Network: reshare
+        let shares_b = self.send_and_receive_vec(shares_a.to_owned()).await?;
+
+        let res = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
+
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
         let bits = self.arithmetic_to_binary(a).await?;
         Ok(bits.get_msb())

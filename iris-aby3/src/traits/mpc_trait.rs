@@ -27,6 +27,12 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
     async fn dot(&mut self, a: Vec<Ashare>, b: Vec<Ashare>) -> Result<Ashare, Error>;
+    async fn dot_many(
+        &mut self,
+        a: Vec<Vec<Ashare>>,
+        b: Vec<Vec<Ashare>>,
+    ) -> Result<Vec<Ashare>, Error>;
+
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 }
@@ -103,6 +109,20 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         for (a, b) in a.into_iter().zip(b.into_iter()) {
             res = res.wrapping_add(&a.wrapping_mul(&b));
         }
+        Ok(res)
+    }
+
+    async fn dot_many(&mut self, a: Vec<Vec<T>>, b: Vec<Vec<T>>) -> Result<Vec<T>, Error> {
+        if a.len() != b.len() {
+            return Err(Error::InvlidSizeError);
+        }
+
+        let mut res = Vec::with_capacity(a.len());
+        for (a_, b_) in a.into_iter().zip(b) {
+            let r = self.dot(a_, b_).await?;
+            res.push(r);
+        }
+
         Ok(res)
     }
 

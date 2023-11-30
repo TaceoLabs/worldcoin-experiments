@@ -86,31 +86,53 @@ where
         Ok(masked_code)
     }
 
-    pub(crate) async fn hamming_distance(
-        &mut self,
+    fn hamming_distance_post(
+        &self,
         a: Vec<Ashare>,
         b: Vec<Ashare>,
+        dot: Ashare,
     ) -> Result<Ashare, Error> {
         if a.is_empty() || a.len() != b.len() {
             return Err(Error::InvlidCodeSizeError);
         }
 
         let sum_a = a
-            .iter()
-            .cloned()
+            .into_iter()
             .reduce(|a_, b_| self.mpc.add(a_, b_))
             .expect("Size is not zero");
         let sum_b = b
-            .iter()
-            .cloned()
+            .into_iter()
             .reduce(|a_, b_| self.mpc.add(a_, b_))
             .expect("Size is not zero");
 
-        let dot = self.mpc.dot(a, b).await?;
-        let dot = self.mpc.add(dot.to_owned(), dot);
+        let dot = self.mpc.mul_const(dot, T::try_from(2).unwrap());
 
         let sum = self.mpc.add(sum_a, sum_b);
         let res = self.mpc.sub(sum, dot);
+        Ok(res)
+    }
+
+    pub(crate) async fn hamming_distance(
+        &mut self,
+        a: Vec<Ashare>,
+        b: Vec<Ashare>,
+    ) -> Result<Ashare, Error> {
+        let dot = self.mpc.dot(a.to_owned(), b.to_owned()).await?;
+        self.hamming_distance_post(a, b, dot)
+    }
+
+    pub(crate) async fn hamming_distance_many(
+        &mut self,
+        a: Vec<Vec<Ashare>>,
+        b: Vec<Vec<Ashare>>,
+    ) -> Result<Vec<Ashare>, Error> {
+        let dots = self.mpc.dot_many(a.to_owned(), b.to_owned()).await?;
+
+        let mut res = Vec::with_capacity(dots.len());
+        for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
+            let r = self.hamming_distance_post(a_, b_, dot)?;
+            res.push(r);
+        }
 
         Ok(res)
     }
@@ -147,5 +169,30 @@ where
         let hwd = self.hamming_distance(a, b).await?;
         let res = self.compare_threshold(hwd, mask.len()).await?;
         Ok(res)
+    }
+
+    pub(crate) async fn compare_iris_many(
+        &mut self,
+        a: Vec<Ashare>,
+        b: Vec<Vec<Ashare>>,
+        mask_a: &BitArr,
+        mask_b: &[BitArr],
+    ) -> Result<Vec<Bshare>, Error> {
+        let amount = b.len();
+        let mut a_vec = Vec::with_capacity(amount);
+        let mut b_vec = Vec::with_capacity(amount);
+
+        for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
+            let mask = self.combine_masks(mask_a, mask_b_)?;
+            let iris_a = self.apply_mask(a.to_owned(), &mask)?;
+            let iris_b = self.apply_mask(b_, &mask)?;
+
+            a_vec.push(iris_a);
+            b_vec.push(iris_b);
+        }
+
+        let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
+
+        todo!()
     }
 }
