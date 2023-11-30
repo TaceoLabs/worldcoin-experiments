@@ -34,6 +34,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     ) -> Result<Vec<Ashare>, Error>;
 
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
+    async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Vec<Bshare>, Error>;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 }
 
@@ -128,6 +129,14 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn get_msb(&mut self, a: T) -> Result<bool, Error> {
         Ok(a.to_sharetype().get_msb().convert().convert())
+    }
+
+    async fn get_msb_many(&mut self, a: Vec<T>) -> Result<Vec<bool>, Error> {
+        let res = a
+            .into_iter()
+            .map(|a_| a_.to_sharetype().get_msb().convert().convert())
+            .collect();
+        Ok(res)
     }
 
     async fn binary_or(&mut self, a: bool, b: bool) -> Result<bool, Error> {

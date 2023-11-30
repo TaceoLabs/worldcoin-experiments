@@ -155,8 +155,26 @@ where
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
         let diff = self.get_cmp_diff(hwd, mask_len);
-        let msb = self.mpc.get_msb(diff).await?;
-        Ok(msb)
+        self.mpc.get_msb(diff).await
+    }
+
+    pub(crate) async fn compare_threshold_many(
+        &mut self,
+        hwds: Vec<Ashare>,
+        mask_lens: Vec<usize>,
+    ) -> Result<Vec<Bshare>, Error> {
+        if hwds.len() != mask_lens.len() {
+            return Err(Error::InvlidSizeError);
+        }
+        // a < b <=> msb(a - b)
+        // Given no overflow, which is enforced in constructor
+        let diffs = hwds
+            .into_iter()
+            .zip(mask_lens)
+            .map(|(hwd, mask_len)| self.get_cmp_diff(hwd, mask_len))
+            .collect();
+
+        self.mpc.get_msb_many(diffs).await
     }
 
     pub(crate) async fn compare_iris(
@@ -171,8 +189,7 @@ where
         let b = self.apply_mask(b, &mask)?;
 
         let hwd = self.hamming_distance(a, b).await?;
-        let res = self.compare_threshold(hwd, mask.len()).await?;
-        Ok(res)
+        self.compare_threshold(hwd, mask.len()).await
     }
 
     pub(crate) async fn compare_iris_many(
@@ -185,6 +202,7 @@ where
         let amount = b.len();
         let mut a_vec = Vec::with_capacity(amount);
         let mut b_vec = Vec::with_capacity(amount);
+        let mut mask_lens = Vec::with_capacity(amount);
 
         for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
@@ -193,10 +211,11 @@ where
 
             a_vec.push(iris_a);
             b_vec.push(iris_b);
+            mask_lens.push(mask.len());
         }
 
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
-
-        todo!()
+        self.compare_threshold_many(hwds, mask_lens).await
+        // TODO maybe pack bits
     }
 }

@@ -59,6 +59,31 @@ impl<N: NetworkTrait> Aby3<N> {
             utils::send_and_receive(&mut self.network, ring_vec_to_bytes(values)).await?;
         ring_vec_from_bytes(response, len)
     }
+
+    fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
+        let (a, b) = x.get_ab();
+
+        let mut x1 = Share::<T>::zero();
+        let mut x2 = Share::<T>::zero();
+        let mut x3 = Share::<T>::zero();
+
+        match self.network.get_id() {
+            0 => {
+                x1.a = a;
+                x3.b = b;
+            }
+            1 => {
+                x2.a = a;
+                x1.b = b;
+            }
+            2 => {
+                x3.a = a;
+                x2.b = b;
+            }
+            _ => unreachable!(),
+        }
+        (x1, x2, x3)
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
@@ -257,6 +282,12 @@ where
         Ok(bits.get_msb())
     }
 
+    async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
+        let bits = self.arithmetic_to_binary_many(a).await?;
+        let res = bits.into_iter().map(|a| a.get_msb()).collect();
+        Ok(res)
+    }
+
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
         <Self as BinaryMpcTrait<Bit>>::or(self, a, b).await
     }
@@ -306,28 +337,25 @@ where
     }
 
     async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
-        let (a, b) = x.get_ab();
-
-        let mut x1 = Share::<T>::zero();
-        let mut x2 = Share::<T>::zero();
-        let mut x3 = Share::<T>::zero();
-
-        match self.network.get_id() {
-            0 => {
-                x1.a = a;
-                x3.b = b;
-            }
-            1 => {
-                x2.a = a;
-                x1.b = b;
-            }
-            2 => {
-                x3.a = a;
-                x2.b = b;
-            }
-            _ => unreachable!(),
-        }
-
+        let (x1, x2, x3) = self.a2b_pre(x);
         self.binary_add_3(x1, x2, x3).await
+    }
+
+    async fn arithmetic_to_binary_many(
+        &mut self,
+        x: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        let len = x.len();
+        let mut x1 = Vec::with_capacity(len);
+        let mut x2 = Vec::with_capacity(len);
+        let mut x3 = Vec::with_capacity(len);
+
+        for x_ in x {
+            let (x1_, x2_, x3_) = self.a2b_pre(x_);
+            x1.push(x1_);
+            x2.push(x2_);
+            x3.push(x3_);
+        }
+        self.binary_add_3_many(x1, x2, x3).await
     }
 }
