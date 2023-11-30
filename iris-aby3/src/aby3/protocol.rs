@@ -161,9 +161,7 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        let response =
-            utils::send_and_receive(&mut self.network, share.b.to_owned().to_bytes()).await?;
-        let c = T::Share::from_bytes_mut(response)?;
+        let c = self.send_and_receive_value(share.b.to_owned()).await?;
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
@@ -181,6 +179,17 @@ where
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
         let c = self.send_and_receive_value(share.b.to_owned()).await?;
         Ok((share.a ^ share.b ^ c).convert().convert())
+    }
+
+    async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
+        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
+        let shares_c = self.send_and_receive_vec(shares_b).await?;
+        let res = shares
+            .iter()
+            .zip(shares_c.into_iter())
+            .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
+            .collect();
+        Ok(res)
     }
 
     fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {

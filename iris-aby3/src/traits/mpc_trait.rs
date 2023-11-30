@@ -18,6 +18,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     async fn open(&mut self, share: Ashare) -> Result<T, Error>;
     async fn open_many(&mut self, shares: Vec<Ashare>) -> Result<Vec<T>, Error>;
     async fn open_bit(&mut self, share: Bshare) -> Result<bool, Error>;
+    async fn open_bit_many(&mut self, shares: Vec<Bshare>) -> Result<Vec<bool>, Error>;
 
     fn add(&self, a: Ashare, b: Ashare) -> Ashare;
     fn add_const(&self, a: Ashare, b: T) -> Ashare;
@@ -76,6 +77,10 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn open_bit(&mut self, share: bool) -> Result<bool, Error> {
         Ok(share)
+    }
+
+    async fn open_bit_many(&mut self, shares: Vec<bool>) -> Result<Vec<bool>, Error> {
+        Ok(shares)
     }
 
     fn add(&self, a: T, b: T) -> T {
