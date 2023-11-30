@@ -137,20 +137,24 @@ where
         Ok(res)
     }
 
+    fn get_cmp_diff(&self, hwd: Ashare, mask_len: usize) -> Ashare {
+        let threshold = (mask_len as f64 * MATCH_THRESHOLD_RATIO) as usize;
+        self.mpc.sub_const(
+            hwd,
+            threshold
+                .try_into()
+                .expect("Sizes are checked in constructor"),
+        )
+    }
+
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
         mask_len: usize,
     ) -> Result<Bshare, Error> {
-        let threshold = (mask_len as f64 * MATCH_THRESHOLD_RATIO) as usize;
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
-        let diff = self.mpc.sub_const(
-            hwd,
-            threshold
-                .try_into()
-                .expect("Sizes are checked in constructor"),
-        );
+        let diff = self.get_cmp_diff(hwd, mask_len);
         let msb = self.mpc.get_msb(diff).await?;
         Ok(msb)
     }
