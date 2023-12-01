@@ -78,8 +78,8 @@ impl NetworkTrait for Aby3Network {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
 
-        if let Some(Ok(b)) = buf {
-            Ok(b)
+        if let Some(maybe_packet) = buf {
+            maybe_packet
         } else {
             Err(io::Error::new(
                 io::ErrorKind::ConnectionAborted,
@@ -90,8 +90,8 @@ impl NetworkTrait for Aby3Network {
 
     async fn receive_prev_id(&mut self) -> io::Result<BytesMut> {
         let buf = self.channel_recv.next().await;
-        if let Some(Ok(b)) = buf {
-            Ok(b)
+        if let Some(maybe_packet) = buf {
+            maybe_packet
         } else {
             Err(io::Error::new(
                 io::ErrorKind::ConnectionAborted,

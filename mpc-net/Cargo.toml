@@ -24,3 +24,4 @@ serde = { workspace = true }
 serde_yaml = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+tracing = "0.1.40"
