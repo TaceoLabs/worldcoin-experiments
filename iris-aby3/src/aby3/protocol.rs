@@ -93,7 +93,7 @@ impl<N: NetworkTrait> Aby3<N> {
             let mut share_a = 0u128;
             let mut share_b = 0u128;
             for (i, bit) in a_.iter().enumerate() {
-                let (bit_a, bit_b) = bit.get_ab();
+                let (bit_a, bit_b) = bit.to_owned().get_ab();
                 share_a |= (bit_a.convert().convert() as u128) << i;
                 share_b |= (bit_b.convert().convert() as u128) << i;
             }

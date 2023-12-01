@@ -33,8 +33,12 @@ impl<T: Sharable> Share<T> {
         }
     }
 
-    pub fn get_ab(&self) -> (T::Share, T::Share) {
-        (self.a.to_owned(), self.b.to_owned())
+    pub fn get_a(self) -> T::Share {
+        self.a
+    }
+
+    pub fn get_ab(self) -> (T::Share, T::Share) {
+        (self.a, self.b)
     }
 
     pub fn get_msb(&self) -> Share<Bit> {

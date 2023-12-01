@@ -32,6 +32,14 @@ struct Args {
     /// The If of our party in the config
     #[clap(short, long, value_name = "ID")]
     party: usize,
+
+    /// path to the database file to store stuff in
+    #[arg(short, long, value_name = "FILE", required = true)]
+    database: PathBuf,
+
+    /// Set to true if a image should be generated that matches an element in the database
+    #[arg(short, long, default_value = "false")]
+    should_match: bool,
 }
 
 fn print_stats<T: Sharable>(iris: &IrisMpc<T, Aby3<Aby3Network>>) -> Result<()>
