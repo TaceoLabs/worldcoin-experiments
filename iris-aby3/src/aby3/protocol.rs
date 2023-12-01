@@ -245,6 +245,10 @@ where
         self.setup_prf().await
     }
 
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        Ok(self.network.print_connection_stats(out)?)
+    }
+
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
         if id >= self.network.get_num_parties() {
             return Err(Error::IdError(id));

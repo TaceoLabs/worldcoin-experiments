@@ -10,6 +10,8 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     async fn preprocess(&mut self) -> Result<(), Error>;
     async fn finish(self) -> Result<(), Error>;
 
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
+
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Ashare, Error>;
     // Each party inputs an arithmetic share
     async fn input_all(&mut self, input: T) -> Result<Vec<Ashare>, Error>;
@@ -53,6 +55,11 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
     }
 
     async fn preprocess(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        writeln!(out, "Connection 0 stats:\n\tSENT: 0 bytes\n\tRECV: 0 bytes")?;
         Ok(())
     }
 

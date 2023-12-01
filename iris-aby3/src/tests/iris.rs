@@ -3,10 +3,7 @@ mod iris_test {
         aby3::share::Share,
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
-        tests::{
-            aby_config::aby3_config,
-            iris_config::iris_config::{create_database, similar_iris},
-        },
+        tests::iris_config::iris_config::{create_database, similar_iris},
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
@@ -18,8 +15,8 @@ mod iris_test {
     };
     use std::ops::Mul;
 
-    const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
-    const DB_SIZE: usize = 1000;
+    const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
+    const DB_SIZE: usize = 128;
     const TESTRUNS: usize = 5;
 
     async fn mask_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(

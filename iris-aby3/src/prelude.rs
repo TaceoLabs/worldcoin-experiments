@@ -3,6 +3,7 @@ pub use super::aby3::protocol::Aby3;
 pub use super::aby3::share::Share;
 pub use super::error::Error;
 pub use super::iris::protocol::BitArr;
+pub use super::iris::protocol::IrisMpc;
 pub use super::iris::protocol::IrisProtocol;
 pub use super::traits::mpc_trait::MpcTrait;
 pub use super::traits::network_trait::NetworkTrait;

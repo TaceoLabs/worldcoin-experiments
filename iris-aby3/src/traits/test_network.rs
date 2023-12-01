@@ -61,6 +61,7 @@ impl TestNetwork3p {
             recv_prev: self.p3_p1_receiver,
             send_next: self.p1_p2_sender,
             recv_next: self.p2_p1_receiver,
+            stats: [0; 4],
         };
 
         let party2 = PartyTestNetwork {
@@ -69,6 +70,7 @@ impl TestNetwork3p {
             recv_prev: self.p1_p2_receiver,
             send_next: self.p2_p3_sender,
             recv_next: self.p3_p2_receiver,
+            stats: [0; 4],
         };
 
         let party3 = PartyTestNetwork {
@@ -77,6 +79,7 @@ impl TestNetwork3p {
             recv_prev: self.p2_p3_receiver,
             send_next: self.p3_p1_sender,
             recv_next: self.p1_p3_receiver,
+            stats: [0; 4],
         };
 
         [party1, party2, party3]
@@ -89,6 +92,11 @@ pub struct PartyTestNetwork {
     send_next: UnboundedSender<Bytes>,
     recv_prev: UnboundedReceiver<Bytes>,
     recv_next: UnboundedReceiver<Bytes>,
+    stats: [usize; 4], // [sent_prev, sent_next, recv_prev, recv_next]
+}
+
+impl PartyTestNetwork {
+    pub const NUM_PARTIES: usize = 3;
 }
 
 impl NetworkTrait for PartyTestNetwork {
@@ -96,12 +104,28 @@ impl NetworkTrait for PartyTestNetwork {
         Ok(())
     }
 
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        writeln!(
+            out,
+            "Connection \"prev\" stats:\n\tSENT: {} bytes\n\tRECV: {} bytes",
+            self.stats[0], self.stats[2]
+        )?;
+        writeln!(
+            out,
+            "Connection \"next\" stats:\n\tSENT: {} bytes\n\tRECV: {} bytes",
+            self.stats[1], self.stats[3]
+        )?;
+        Ok(())
+    }
+
     async fn send(&mut self, id: usize, data: Bytes) -> std::io::Result<()> {
         if id == self.id.next_id().into() {
+            self.stats[1] += data.len();
             self.send_next
                 .send(data)
                 .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"))
         } else if id == self.id.prev_id().into() {
+            self.stats[0] += data.len();
             self.send_prev
                 .send(data)
                 .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"))
@@ -112,15 +136,21 @@ impl NetworkTrait for PartyTestNetwork {
 
     async fn receive(&mut self, id: usize) -> std::io::Result<BytesMut> {
         let buf = if id == self.id.prev_id().into() {
-            self.recv_prev
+            let data = self
+                .recv_prev
                 .recv()
                 .await
-                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?
+                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+            self.stats[2] += data.len();
+            data
         } else if id == self.id.next_id().into() {
-            self.recv_next
+            let data = self
+                .recv_next
                 .recv()
                 .await
-                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?
+                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+            self.stats[3] += data.len();
+            data
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
@@ -150,10 +180,11 @@ impl NetworkTrait for PartyTestNetwork {
     }
 
     fn get_num_parties(&self) -> usize {
-        3
+        Self::NUM_PARTIES
     }
 
     async fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
+        self.stats[1] += data.len();
         self.send_next
             .send(data)
             .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"))
@@ -165,6 +196,7 @@ impl NetworkTrait for PartyTestNetwork {
             .recv()
             .await
             .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+        self.stats[2] += buf.len();
 
         Ok(BytesMut::from(buf.as_ref()))
     }

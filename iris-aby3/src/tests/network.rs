@@ -2,7 +2,6 @@ mod aby3_test {
     use crate::{
         aby3::{network::Aby3Network, protocol::Aby3, share::Share},
         prelude::{PartyTestNetwork, TestNetwork3p},
-        tests::aby_config::aby3_config,
         traits::mpc_trait::{MpcTrait, Plain},
         types::{bit::Bit, int_ring::IntRing2k, sharable::Sharable},
     };
@@ -14,7 +13,7 @@ mod aby3_test {
     };
     use std::ops::Mul;
 
-    const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
+    const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DOT_SIZE: usize = 1000;
 
     async fn share_test_party<T: Sharable, R: Rng + SeedableRng>(
