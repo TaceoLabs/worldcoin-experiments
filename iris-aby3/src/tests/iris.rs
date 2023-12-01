@@ -36,7 +36,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = aby3_config::get_protocol(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -128,7 +128,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = aby3_config::get_protocol(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -357,7 +357,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = aby3_config::get_protocol(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -604,7 +604,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = aby3_config::get_protocol(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -746,7 +746,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = aby3_config::get_protocol(id, port_offset).await;
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();

@@ -6,4 +6,6 @@ pub use super::iris::protocol::BitArr;
 pub use super::iris::protocol::IrisProtocol;
 pub use super::traits::mpc_trait::MpcTrait;
 pub use super::traits::network_trait::NetworkTrait;
+pub use super::traits::test_network::PartyTestNetwork;
+pub use super::traits::test_network::TestNetwork3p;
 pub use super::types::sharable::Sharable;
