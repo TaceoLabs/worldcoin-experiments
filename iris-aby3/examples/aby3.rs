@@ -10,6 +10,7 @@ use rand::{
 };
 use rusqlite::Connection;
 use std::{fs::File, ops::Mul, path::PathBuf};
+use tokio::time::Instant;
 
 macro_rules! println0  {
     ($id:expr) => {
@@ -203,33 +204,46 @@ async fn main() -> Result<()> {
     let id = args.party;
 
     println0!(id, "Reading database:");
+    let start = Instant::now();
     let db = read_db::<u16>(args.to_owned())?;
-    println0!(id, "...done\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
 
     println0!(id, "Get shares:");
+    let start = Instant::now();
     let shares = get_iris_share::<u16>(args.to_owned())?;
-    println0!(id, "...done\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
 
     println0!(id, "Setting up network:");
+    let start = Instant::now();
     let network = setup_network(args.to_owned()).await?;
-    println0!(id, "...done\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
 
     println0!(id, "\nInitialize protocol:");
+    let start = Instant::now();
     let protocol = Aby3::new(network);
     let mut iris = IrisMpc::<u16, _>::new(protocol)?;
-    println0!(id, "...done\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
     print_stats(&iris)?;
 
     println0!(id, "\nPreprocessing:");
+    let start = Instant::now();
     iris.preprocessing().await?;
-    println0!(id, "...done\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
     print_stats(&iris)?;
 
     println0!(id, "\nMPC matching:");
+    let start = Instant::now();
     let res = iris
         .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
         .await?;
-    println0!(id, "...done. Result is {res}\n");
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms", duration.as_millis());
+    println0!(id, "Result is {res}\n");
     print_stats(&iris)?;
 
     if args.should_match && !res {
