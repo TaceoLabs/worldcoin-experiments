@@ -1,9 +1,13 @@
 use clap::Parser;
 use color_eyre::{eyre::Context, Result};
-use iris_aby3::prelude::{Aby3, Aby3Network, BitArr, Error, IrisMpc, Sharable, Share};
+use iris_aby3::prelude::{Aby3, Aby3Network, BitArr, Error, IrisMpc, MpcTrait, Sharable, Share};
 use mpc_net::config::{NetworkConfig, NetworkParty};
-use plain_reference::IRIS_CODE_SIZE;
-use rand::distributions::{Distribution, Standard};
+use plain_reference::{IrisCode, IRIS_CODE_SIZE};
+use rand::{
+    distributions::{Bernoulli, Distribution, Standard},
+    rngs::SmallRng,
+    SeedableRng,
+};
 use rusqlite::Connection;
 use std::{fs::File, ops::Mul, path::PathBuf};
 
@@ -74,21 +78,26 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
     Ok(network)
 }
 
+#[derive(Default)]
 struct SharedDB<T: Sharable> {
     shares: Vec<Vec<Share<T>>>,
     masks: Vec<BitArr>,
 }
 
+#[derive(Default)]
+struct SharedIris<T: Sharable> {
+    shares: Vec<Share<T>>,
+    masks: BitArr,
+}
+
+fn open_database(database_file: &PathBuf) -> Result<Connection> {
+    let conn = Connection::open(database_file)?;
+    // Additional setup or configuration for the database connection can be done here
+    Ok(conn)
+}
+
 fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
-    let database_file = args.database;
-
-    fn open_database(database_file: &PathBuf) -> Result<Connection> {
-        let conn = Connection::open(database_file)?;
-        // Additional setup or configuration for the database connection can be done here
-        Ok(conn)
-    }
-
-    let conn = open_database(&database_file)?;
+    let conn = open_database(&args.database)?;
 
     // read the codes from the database using rusqlite and iterate over them
     let mut stmt = match args.party {
@@ -98,11 +107,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         i => Err(Error::IdError(i))?,
     };
 
-    let mut res = SharedDB::<T> {
-        shares: Vec::new(),
-        masks: Vec::new(),
-    };
-
+    let mut res = SharedDB::<T>::default();
     let mut rows = stmt.query([])?;
 
     while let Some(row) = rows.next()? {
@@ -130,6 +135,60 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     Ok(res)
 }
 
+fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
+where
+    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Standard: Distribution<T::Share>,
+{
+    let mut rng = SmallRng::from_entropy();
+    let iris = if args.should_match {
+        let conn = open_database(&args.database)?;
+        // read the codes from the database using rusqlite and iterate over them
+        conn.query_row("SELECT code, mask from iris_codes LIMIT 1;", [], |row| {
+            let mut res = IrisCode::default();
+            res.code
+                .as_raw_mut_slice()
+                .copy_from_slice(&row.get::<_, Vec<u8>>(0)?);
+            res.mask
+                .as_raw_mut_slice()
+                .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
+
+            // flip a few bits in mask and code (like 5%)
+            let dist = Bernoulli::new(0.05).unwrap();
+            for mut b in res.code.as_mut_bitslice() {
+                if dist.sample(&mut rand::thread_rng()) {
+                    b.set(!*b);
+                }
+            }
+            for mut b in res.mask.as_mut_bitslice() {
+                if dist.sample(&mut rand::thread_rng()) {
+                    b.set(!*b);
+                }
+            }
+
+            Ok(res)
+        })?
+    } else {
+        IrisCode::random_rng(&mut rng)
+    };
+
+    let mut res = SharedIris::<T>::default();
+    res.masks
+        .as_raw_mut_slice()
+        .copy_from_slice(iris.mask.as_raw_slice());
+
+    for bit in iris.code.iter() {
+        // We simulate the parties already knowing the shares of the code.
+        let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
+        if args.party > 2 {
+            Err(Error::IdError(args.party))?;
+        }
+        res.shares.push(shares[args.party].to_owned());
+    }
+
+    Ok(res)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -137,6 +196,10 @@ async fn main() -> Result<()> {
 
     println0!(id, "Reading database:");
     let db = read_db::<u16>(args.to_owned())?;
+    println0!(id, "...done\n");
+
+    println0!(id, "Get shares:");
+    let iris = get_iris_share::<u16>(args.to_owned())?;
     println0!(id, "...done\n");
 
     println0!(id, "Setting up network:");
