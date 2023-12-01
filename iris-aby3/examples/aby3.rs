@@ -5,6 +5,20 @@ use mpc_net::config::{NetworkConfig, NetworkParty};
 use rand::distributions::{Distribution, Standard};
 use std::{fs::File, ops::Mul, path::PathBuf};
 
+macro_rules! println0  {
+    ($id:expr) => {
+        if $id == 0 {
+            println!();
+        }
+    };
+    ($id:expr, $($arg:tt)*) => {{
+        if $id == 0 {
+            println!($($arg)*);
+        }
+    }};
+
+}
+
 #[derive(Parser)]
 struct Args {
     /// The config file path
@@ -34,26 +48,7 @@ where
     Ok(())
 }
 
-macro_rules! println0  {
-    ($id:expr) => {
-        if $id == 0 {
-            println!();
-        }
-    };
-    ($id:expr, $($arg:tt)*) => {{
-        if $id == 0 {
-            println!($($arg)*);
-        }
-    }};
-
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = Args::parse();
-
-    println0!(args.party, "Setting up network...");
-
+async fn setup_network(args: Args) -> Result<Aby3Network> {
     let parties: Vec<NetworkParty> =
         serde_yaml::from_reader(File::open(args.config_file).context("opening config file")?)
             .context("parsing config file")?;
@@ -66,18 +61,30 @@ async fn main() -> Result<()> {
 
     let network = Aby3Network::new(config).await?;
 
-    println0!(args.party, "\t..done\n");
+    Ok(network)
+}
 
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args = Args::parse();
+    let id = args.party;
+
+    println0!(id, "Setting up network:");
+    let network = setup_network(args).await?;
+    println0!(id, "...done\n");
+
+    println0!(id, "\nInitialize protocol:");
     let protocol = Aby3::new(network);
     let mut iris = IrisMpc::<u16, _>::new(protocol)?;
+    println0!(id, "...done\n");
     print_stats(&iris)?;
 
-    println0!(args.party, "\nPreprocessing...");
+    println0!(id, "\nPreprocessing:");
     iris.preprocessing().await?;
-    println0!(args.party, "\t..done\n");
+    println0!(id, "...done\n");
     print_stats(&iris)?;
 
-    println0!(args.party, "\nFinishing");
+    println0!(id, "\nFinishing:\n");
     print_stats(&iris)?;
     iris.finish().await?;
 
