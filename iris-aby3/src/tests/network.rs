@@ -40,7 +40,7 @@ mod aby3_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = Aby3::<Aby3Network>::share(input, &mut rng).await;
+        let shares = Aby3::<Aby3Network>::share(input, &mut rng);
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)

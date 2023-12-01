@@ -50,7 +50,7 @@ mod iris_test {
             let mut shared_code = Vec::with_capacity(code.code.len());
             for bit in code.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code.push(shares[id].to_owned());
             }
 
@@ -109,7 +109,7 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     #[serial]
     async fn mask_test_aby3() {
         mask_test_aby3_impl::<u16>(150).await
@@ -144,12 +144,12 @@ mod iris_test {
             let mut shared_code2 = Vec::with_capacity(code2.code.len());
             for bit in code1.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code1.push(shares[id].to_owned());
             }
             for bit in code2.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code2.push(shares[id].to_owned());
             }
 
@@ -210,7 +210,7 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     #[serial]
     async fn hwd_test_aby3() {
         hwd_test_aby3_impl::<u16>(160).await
@@ -332,7 +332,7 @@ mod iris_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Aby3::<Aby3Network>::share(distance, rng).await[id].to_owned();
+        let share = Aby3::<Aby3Network>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.len())
@@ -401,7 +401,7 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     #[serial]
     async fn lt_test_aby3() {
         lt_test_aby3_impl::<u16>(165).await
@@ -516,7 +516,7 @@ mod iris_test {
 
         for bit in code1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code1.push(shares[id].to_owned());
         }
 
@@ -529,7 +529,7 @@ mod iris_test {
             let mut shared_code2 = Vec::with_capacity(code.code.len());
             for bit in code.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
                 shared_code2.push(shares[id].to_owned());
             }
             cmp_.push(c);
@@ -571,12 +571,12 @@ mod iris_test {
         let mut shared_code2 = Vec::with_capacity(code2.code.len());
         for bit in code1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code1.push(shares[id].to_owned());
         }
         for bit in code2.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code2.push(shares[id].to_owned());
         }
 
@@ -671,7 +671,7 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     #[serial]
     async fn cmp_iris_test_aby3() {
         cmp_iris_test_aby3_impl::<u16>(125).await
@@ -772,7 +772,7 @@ mod iris_test {
             let mut iris_t = Vec::with_capacity(iris.code.len());
             for bit in iris.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 iris_t.push(shares[id].to_owned());
             }
 
@@ -785,12 +785,12 @@ mod iris_test {
         let mut iris2_ = Vec::with_capacity(iris2.code.len());
         for bit in iris1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
             iris1_.push(shares[id].to_owned());
         }
         for bit in iris2.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
             iris2_.push(shares[id].to_owned());
         }
         // calculate
@@ -837,7 +837,7 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     #[serial]
     async fn full_test_aby3() {
         full_test_aby3_impl::<u16>(200).await

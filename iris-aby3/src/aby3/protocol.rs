@@ -288,7 +288,7 @@ where
         Ok(shares)
     }
 
-    async fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
         let c = input.to_sharetype() - &a - &b;
