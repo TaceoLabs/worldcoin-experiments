@@ -163,12 +163,12 @@ where
                 // flip a few bits in mask and code (like 5%)
                 let dist = Bernoulli::new(0.05).unwrap();
                 for mut b in res.code.as_mut_bitslice() {
-                    if dist.sample(&mut rand::thread_rng()) {
+                    if dist.sample(&mut rng) {
                         b.set(!*b);
                     }
                 }
                 for mut b in res.mask.as_mut_bitslice() {
-                    if dist.sample(&mut rand::thread_rng()) {
+                    if dist.sample(&mut rng) {
                         b.set(!*b);
                     }
                 }
@@ -211,7 +211,7 @@ async fn main() -> Result<()> {
     println0!(id, "...done\n");
 
     println0!(id, "Setting up network:");
-    let network = setup_network(args).await?;
+    let network = setup_network(args.to_owned()).await?;
     println0!(id, "...done\n");
 
     println0!(id, "\nInitialize protocol:");
@@ -231,6 +231,10 @@ async fn main() -> Result<()> {
         .await?;
     println0!(id, "...done. Result is {res}\n");
     print_stats(&iris)?;
+
+    if args.should_match && !res {
+        println0!(id, "ERROR: should match but doesn't");
+    }
 
     iris.finish().await?;
 
