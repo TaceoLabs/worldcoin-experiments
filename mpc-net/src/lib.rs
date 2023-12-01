@@ -2,12 +2,13 @@ use std::{
     collections::{BTreeMap, HashMap},
     net::SocketAddr,
     sync::Arc,
+    time::Duration,
 };
 
 use channel::Channel;
 use color_eyre::eyre::{self, Context, Report};
 use config::NetworkConfig;
-use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream};
+use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, TransportConfig};
 use rustls::{Certificate, PrivateKey};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -48,7 +49,14 @@ impl MpcNetworkHandler {
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
-        let client_config = ClientConfig::new(Arc::new(crypto));
+        let client_config = {
+            let mut transport_config = TransportConfig::default();
+            // atm clients send keepalive packets
+            transport_config.keep_alive_interval(Some(Duration::from_secs(1)));
+            let mut client_config = ClientConfig::new(Arc::new(crypto));
+            client_config.transport_config(Arc::new(transport_config));
+            client_config
+        };
 
         let key = PrivateKey(std::fs::read(config.key_path).context("reading own key file")?);
         let server_config =
@@ -87,12 +95,24 @@ impl MpcNetworkHandler {
                     .await?;
                 uni.flush().await?;
                 uni.finish().await?;
+                tracing::trace!(
+                    "Conn with id {} from {} to {}",
+                    conn.stable_id(),
+                    endpoint.local_addr().unwrap(),
+                    conn.remote_address(),
+                );
                 assert!(connections.insert(party.id, conn).is_none());
                 endpoints.push(endpoint);
             } else {
                 // we are the server, accept a connection
                 if let Some(maybe_conn) = server_endpoint.accept().await {
                     let conn = maybe_conn.await?;
+                    tracing::trace!(
+                        "Conn with id {} from {} to {}",
+                        conn.stable_id(),
+                        server_endpoint.local_addr().unwrap(),
+                        conn.remote_address(),
+                    );
                     let mut uni = conn.accept_uni().await?;
                     let other_party_id = uni.read_u32().await?;
                     assert!(connections
@@ -138,13 +158,15 @@ impl MpcNetworkHandler {
                 // we are the client, so we are the receiver
                 let (mut send_stream, mut recv_stream) = conn.open_bi().await?;
                 send_stream.write_u32(self.my_id as u32).await?;
-                recv_stream.read_u32().await?;
+                let their_id = recv_stream.read_u32().await?;
+                assert!(their_id == id as u32);
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());
             } else {
                 // we are the server, so we are the sender
                 let (mut send_stream, mut recv_stream) = conn.accept_bi().await?;
-                recv_stream.read_u32().await?;
+                let their_id = recv_stream.read_u32().await?;
+                assert!(their_id == id as u32);
                 send_stream.write_u32(self.my_id as u32).await?;
                 let conn = Channel::new(recv_stream, send_stream);
                 assert!(channels.insert(id, conn).is_none());

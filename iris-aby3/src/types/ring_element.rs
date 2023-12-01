@@ -57,6 +57,8 @@ pub trait RingImpl:
     + Send
     + From<bool>
     + Display
+    + Serialize
+    + for<'a> Deserialize<'a>
 {
     fn get_k() -> usize;
     fn get_msb(&self) -> RingElement<Bit>;

@@ -93,7 +93,7 @@ impl<N: NetworkTrait> Aby3<N> {
             let mut share_a = 0u128;
             let mut share_b = 0u128;
             for (i, bit) in a_.iter().enumerate() {
-                let (bit_a, bit_b) = bit.get_ab();
+                let (bit_a, bit_b) = bit.to_owned().get_ab();
                 share_a |= (bit_a.convert().convert() as u128) << i;
                 share_b |= (bit_b.convert().convert() as u128) << i;
             }
@@ -245,6 +245,10 @@ where
         self.setup_prf().await
     }
 
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        Ok(self.network.print_connection_stats(out)?)
+    }
+
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
         if id >= self.network.get_num_parties() {
             return Err(Error::IdError(id));
@@ -288,7 +292,7 @@ where
         Ok(shares)
     }
 
-    async fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
         let c = input.to_sharetype() - &a - &b;

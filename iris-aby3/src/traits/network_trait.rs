@@ -6,6 +6,8 @@ pub trait NetworkTrait {
     fn get_id(&self) -> usize;
     fn get_num_parties(&self) -> usize;
 
+    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
+
     async fn shutdown(self) -> Result<(), Error>;
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), Error>;

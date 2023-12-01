@@ -1,5 +1,6 @@
 use crate::aby3::utils::ceil_log2;
-use crate::prelude::{Error, MpcTrait, Sharable};
+use crate::prelude::{Error, MpcTrait, Sharable, Share};
+use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use bitvec::{prelude::Lsb0, BitArr};
 use std::{marker::PhantomData, ops::Mul, usize};
@@ -10,6 +11,7 @@ const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 const PACK_SIZE: usize = 8; // TODO adjust
 
 pub type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
+pub type IrisMpc<T, Mpc> = IrisProtocol<T, Share<T>, Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,
@@ -51,6 +53,10 @@ where
 
     pub fn get_mpc_mut(&mut self) -> &mut Mpc {
         &mut self.mpc
+    }
+
+    pub fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        self.mpc.print_connection_stats(out)
     }
 
     pub async fn preprocessing(&mut self) -> Result<(), Error> {

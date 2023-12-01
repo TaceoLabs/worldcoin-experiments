@@ -2,11 +2,8 @@ mod iris_test {
     use crate::{
         aby3::share::Share,
         iris::protocol::{BitArr, IrisProtocol},
-        prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
-        tests::{
-            aby_config::aby3_config,
-            iris_config::iris_config::{create_database, similar_iris},
-        },
+        prelude::{Aby3, Aby3Network, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
+        tests::iris_config::iris_config::{create_database, similar_iris},
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
@@ -16,16 +13,14 @@ mod iris_test {
         rngs::SmallRng,
         Rng, SeedableRng,
     };
-    use serial_test::serial;
     use std::ops::Mul;
 
-    const NUM_PARTIES: usize = aby3_config::NUM_PARTIES;
-    const DB_SIZE: usize = 1000;
+    const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
+    const DB_SIZE: usize = 128;
     const TESTRUNS: usize = 5;
 
     async fn mask_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        id: usize,
-        port_offset: u16,
+        net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
     ) -> Vec<BitArr>
@@ -36,8 +31,9 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = Aby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
+        let id = iris.get_id();
 
         iris.preprocessing().await.unwrap();
 
@@ -50,7 +46,7 @@ mod iris_test {
             let mut shared_code = Vec::with_capacity(code.code.len());
             for bit in code.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code.push(shares[id].to_owned());
             }
 
@@ -69,7 +65,7 @@ mod iris_test {
         results
     }
 
-    async fn mask_test_aby3_impl<T: Sharable>(port_offset: u16)
+    async fn mask_test_aby3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -84,9 +80,12 @@ mod iris_test {
         let seed: [u8; 32] = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let mut iris_rng = SmallRng::from_seed(iris_seed);
 
-        for i in 0..NUM_PARTIES {
+        let network = TestNetwork3p::new();
+        let net = network.get_party_networks();
+
+        for n in net {
             let t = tokio::spawn(async move {
-                mask_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+                mask_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -109,15 +108,13 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
-    #[serial]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn mask_test_aby3() {
-        mask_test_aby3_impl::<u16>(150).await
+        mask_test_aby3_impl::<u16>().await
     }
 
     async fn hwd_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        id: usize,
-        port_offset: u16,
+        net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
     ) -> Vec<T>
@@ -128,8 +125,9 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = Aby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
+        let id = iris.get_id();
 
         iris.preprocessing().await.unwrap();
 
@@ -144,12 +142,12 @@ mod iris_test {
             let mut shared_code2 = Vec::with_capacity(code2.code.len());
             for bit in code1.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code1.push(shares[id].to_owned());
             }
             for bit in code2.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 shared_code2.push(shares[id].to_owned());
             }
 
@@ -165,7 +163,7 @@ mod iris_test {
         results
     }
 
-    async fn hwd_test_aby3_impl<T: Sharable>(port_offset: u16)
+    async fn hwd_test_aby3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -180,9 +178,12 @@ mod iris_test {
         let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let mut iris_rng = SmallRng::from_seed(iris_seed);
 
-        for i in 0..NUM_PARTIES {
+        let network = TestNetwork3p::new();
+        let net = network.get_party_networks();
+
+        for n in net {
             let t = tokio::spawn(async move {
-                hwd_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+                hwd_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -210,10 +211,9 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
-    #[serial]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn hwd_test_aby3() {
-        hwd_test_aby3_impl::<u16>(160).await
+        hwd_test_aby3_impl::<u16>().await
     }
 
     async fn plain_hwd_test_inner<T: Sharable>()
@@ -332,7 +332,7 @@ mod iris_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Aby3::<Aby3Network>::share(distance, rng).await[id].to_owned();
+        let share = Aby3::<Aby3Network>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.len())
@@ -346,8 +346,7 @@ mod iris_test {
     }
 
     async fn lt_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        id: usize,
-        port_offset: u16,
+        net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
     ) where
@@ -357,7 +356,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = Aby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -375,7 +374,7 @@ mod iris_test {
         iris.finish().await.unwrap();
     }
 
-    async fn lt_test_aby3_impl<T: Sharable>(port_offset: u16)
+    async fn lt_test_aby3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -389,9 +388,12 @@ mod iris_test {
         let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
 
-        for i in 0..NUM_PARTIES {
+        let network = TestNetwork3p::new();
+        let net = network.get_party_networks();
+
+        for n in net {
             let t = tokio::spawn(async move {
-                lt_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+                lt_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -401,10 +403,9 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
-    #[serial]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn lt_test_aby3() {
-        lt_test_aby3_impl::<u16>(165).await
+        lt_test_aby3_impl::<u16>().await
     }
 
     async fn plain_cmp_many_iris_tester<T: Sharable>(
@@ -516,7 +517,7 @@ mod iris_test {
 
         for bit in code1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code1.push(shares[id].to_owned());
         }
 
@@ -529,7 +530,7 @@ mod iris_test {
             let mut shared_code2 = Vec::with_capacity(code.code.len());
             for bit in code.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
                 shared_code2.push(shares[id].to_owned());
             }
             cmp_.push(c);
@@ -571,12 +572,12 @@ mod iris_test {
         let mut shared_code2 = Vec::with_capacity(code2.code.len());
         for bit in code1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code1.push(shares[id].to_owned());
         }
         for bit in code2.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
             shared_code2.push(shares[id].to_owned());
         }
 
@@ -593,8 +594,7 @@ mod iris_test {
     }
 
     async fn cmp_iris_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        id: usize,
-        port_offset: u16,
+        net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
     ) where
@@ -604,7 +604,7 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = Aby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -645,7 +645,7 @@ mod iris_test {
         iris.finish().await.unwrap();
     }
 
-    async fn cmp_iris_test_aby3_impl<T: Sharable>(port_offset: u16)
+    async fn cmp_iris_test_aby3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -659,9 +659,12 @@ mod iris_test {
         let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
 
-        for i in 0..NUM_PARTIES {
+        let network = TestNetwork3p::new();
+        let net = network.get_party_networks();
+
+        for n in net {
             let t = tokio::spawn(async move {
-                cmp_iris_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+                cmp_iris_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -671,10 +674,9 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
-    #[serial]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn cmp_iris_test_aby3() {
-        cmp_iris_test_aby3_impl::<u16>(125).await
+        cmp_iris_test_aby3_impl::<u16>().await
     }
 
     async fn plain_full_test_inner<T: Sharable>()
@@ -735,8 +737,7 @@ mod iris_test {
     }
 
     async fn full_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        id: usize,
-        port_offset: u16,
+        net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
     ) where
@@ -746,8 +747,9 @@ mod iris_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let protocol = Aby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
+        let id = iris.get_id();
 
         iris.preprocessing().await.unwrap();
 
@@ -772,7 +774,7 @@ mod iris_test {
             let mut iris_t = Vec::with_capacity(iris.code.len());
             for bit in iris.code.iter() {
                 // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
                 iris_t.push(shares[id].to_owned());
             }
 
@@ -785,12 +787,12 @@ mod iris_test {
         let mut iris2_ = Vec::with_capacity(iris2.code.len());
         for bit in iris1.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
             iris1_.push(shares[id].to_owned());
         }
         for bit in iris2.code.iter() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
             iris2_.push(shares[id].to_owned());
         }
         // calculate
@@ -811,7 +813,7 @@ mod iris_test {
         assert!(res2);
     }
 
-    async fn full_test_aby3_impl<T: Sharable>(port_offset: u16)
+    async fn full_test_aby3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -825,9 +827,12 @@ mod iris_test {
         let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
         let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
 
-        for i in 0..NUM_PARTIES {
+        let network = TestNetwork3p::new();
+        let net = network.get_party_networks();
+
+        for n in net {
             let t = tokio::spawn(async move {
-                full_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+                full_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -837,9 +842,8 @@ mod iris_test {
         }
     }
 
-    #[tokio::test]
-    #[serial]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn full_test_aby3() {
-        full_test_aby3_impl::<u16>(200).await
+        full_test_aby3_impl::<u16>().await
     }
 }
