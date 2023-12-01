@@ -43,6 +43,10 @@ struct Args {
     #[arg(short, long, value_name = "FILE", required = true)]
     database: PathBuf,
 
+    /// seed to generate the iris code to match
+    #[arg(short, long, value_name = "seed", required = true)]
+    iris_seed: u64,
+
     /// Set to true if a image should be generated that matches an element in the database
     #[arg(short, long, default_value = "false")]
     should_match: bool,
@@ -87,7 +91,7 @@ struct SharedDB<T: Sharable> {
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
     shares: Vec<Share<T>>,
-    masks: BitArr,
+    mask: BitArr,
 }
 
 fn open_database(database_file: &PathBuf) -> Result<Connection> {
@@ -140,40 +144,44 @@ where
     Share<T>: Mul<T::Share, Output = Share<T>>,
     Standard: Distribution<T::Share>,
 {
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::seed_from_u64(args.iris_seed);
     let iris = if args.should_match {
         let conn = open_database(&args.database)?;
         // read the codes from the database using rusqlite and iterate over them
-        conn.query_row("SELECT code, mask from iris_codes LIMIT 1;", [], |row| {
-            let mut res = IrisCode::default();
-            res.code
-                .as_raw_mut_slice()
-                .copy_from_slice(&row.get::<_, Vec<u8>>(0)?);
-            res.mask
-                .as_raw_mut_slice()
-                .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
+        conn.query_row(
+            "SELECT code, mask from iris_codes WHERE id = 1;",
+            [],
+            |row| {
+                let mut res = IrisCode::default();
+                res.code
+                    .as_raw_mut_slice()
+                    .copy_from_slice(&row.get::<_, Vec<u8>>(0)?);
+                res.mask
+                    .as_raw_mut_slice()
+                    .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
 
-            // flip a few bits in mask and code (like 5%)
-            let dist = Bernoulli::new(0.05).unwrap();
-            for mut b in res.code.as_mut_bitslice() {
-                if dist.sample(&mut rand::thread_rng()) {
-                    b.set(!*b);
+                // flip a few bits in mask and code (like 5%)
+                let dist = Bernoulli::new(0.05).unwrap();
+                for mut b in res.code.as_mut_bitslice() {
+                    if dist.sample(&mut rand::thread_rng()) {
+                        b.set(!*b);
+                    }
                 }
-            }
-            for mut b in res.mask.as_mut_bitslice() {
-                if dist.sample(&mut rand::thread_rng()) {
-                    b.set(!*b);
+                for mut b in res.mask.as_mut_bitslice() {
+                    if dist.sample(&mut rand::thread_rng()) {
+                        b.set(!*b);
+                    }
                 }
-            }
 
-            Ok(res)
-        })?
+                Ok(res)
+            },
+        )?
     } else {
         IrisCode::random_rng(&mut rng)
     };
 
     let mut res = SharedIris::<T>::default();
-    res.masks
+    res.mask
         .as_raw_mut_slice()
         .copy_from_slice(iris.mask.as_raw_slice());
 
@@ -199,7 +207,7 @@ async fn main() -> Result<()> {
     println0!(id, "...done\n");
 
     println0!(id, "Get shares:");
-    let iris = get_iris_share::<u16>(args.to_owned())?;
+    let shares = get_iris_share::<u16>(args.to_owned())?;
     println0!(id, "...done\n");
 
     println0!(id, "Setting up network:");
@@ -217,8 +225,13 @@ async fn main() -> Result<()> {
     println0!(id, "...done\n");
     print_stats(&iris)?;
 
-    println0!(id, "\nFinishing:\n");
+    println0!(id, "\nMPC matching:");
+    let res = iris
+        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
+        .await?;
+    println0!(id, "...done. Result is {res}\n");
     print_stats(&iris)?;
+
     iris.finish().await?;
 
     Ok(())
