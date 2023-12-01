@@ -99,5 +99,65 @@ pub trait BinaryMpcTrait<T: Sharable> {
         Ok(Self::xor(s_, g))
     }
 
+    async fn binary_add_3_many(
+        &mut self,
+        x1: Vec<Share<T>>,
+        x2: Vec<Share<T>>,
+        x3: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        let len = x1.len();
+        if len != x2.len() || len != x3.len() {
+            return Err(Error::InvlidSizeError);
+        }
+
+        let k = T::Share::get_k();
+        let logk = ceil_log2(k);
+
+        // Full Adder
+        let x2x3 = Self::xor_many(x2, x3.to_owned()).expect("Same length");
+        let s = Self::xor_many(x1.to_owned(), x2x3.to_owned()).expect("Same length");
+        let x1x3 = Self::xor_many(x1, x3.to_owned()).expect("Same length");
+        let mut c = self.and_many(x1x3, x2x3).await?;
+        c.iter_mut().zip(x3.into_iter()).for_each(|(c_, x3_)| {
+            Self::xor_assign(c_, x3_);
+            *c_ <<= 1 // c = 2*c
+        });
+
+        // Add 2c + s via a packed Kogge-Stone adder
+
+        let mut p = Self::xor_many(s.to_owned(), c.to_owned()).expect("Same length");
+        let mut g = self.and_many(s, c).await?;
+        let s_ = p.to_owned();
+        for i in 0..logk {
+            let p_: Vec<Share<T>> = p.iter().cloned().map(|p_| p_ << (1 << i)).collect();
+            let g_: Vec<Share<T>> = g.iter().cloned().map(|g_| g_ << (1 << i)).collect();
+
+            // TODO Maybe work with Bits in the inner loop to have less communication?
+
+            // build inputs
+            let mut a = p.to_owned();
+            a.extend(p);
+            let mut b = g_.to_owned();
+            b.extend(p_);
+
+            let res = self.and_many(a, b).await?;
+            p = res[len..].to_vec(); // p = p & p_
+            g.iter_mut()
+                .zip(res[0..len].to_vec())
+                .for_each(|(g_, r_)| Self::xor_assign(g_, r_)); // g = g ^ (p & g_)
+        }
+        g.iter_mut().for_each(|g_| *g_ <<= 1);
+
+        let res = s_
+            .into_iter()
+            .zip(g.into_iter())
+            .map(|(s_, g_)| Self::xor(s_, g_))
+            .collect();
+
+        Ok(res)
+    }
+
     async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error>;
+    async fn arithmetic_to_binary_many(&mut self, x: Vec<Share<T>>)
+        -> Result<Vec<Share<T>>, Error>;
 }

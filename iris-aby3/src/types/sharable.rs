@@ -43,7 +43,7 @@ pub trait Sharable:
     + 'static
 {
     /// Each Sharable type has a corresponding internal ABY3 representation. In the easiest cases this is just the unsigned version of the type with the same size, i.e., u32 for i32 or u32 for u32.
-    type Share: RingImpl;
+    type Share: RingImpl + Send + Sync;
 
     /// Converts the Sharable type to its ABY3 internal representation.
     fn to_sharetype(self) -> Self::Share;

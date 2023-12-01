@@ -3,7 +3,10 @@ mod iris_test {
         aby3::share::Share,
         iris::protocol::{BitArr, IrisProtocol},
         prelude::{Aby3, Aby3Network, MpcTrait, Sharable},
-        tests::{aby_config::aby3_config, iris_config::iris_config::similar_iris},
+        tests::{
+            aby_config::aby3_config,
+            iris_config::iris_config::{create_database, similar_iris},
+        },
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
@@ -290,11 +293,10 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
+            let code3 = similar_iris(&code1, &mut iris_rng);
 
-            plain_lt_tester::<T>(code1, code2).await;
-            assert!(plain_lt_tester::<T>(code3, code4).await);
+            plain_lt_tester::<T>(code1.to_owned(), code2).await;
+            assert!(plain_lt_tester::<T>(code1, code3).await);
         }
     }
 
@@ -365,10 +367,9 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
-            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code2).await;
-            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code3, code4).await);
+            let code3 = similar_iris(&code1, &mut iris_rng);
+            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
+            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
         }
 
         iris.finish().await.unwrap();
@@ -406,6 +407,41 @@ mod iris_test {
         lt_test_aby3_impl::<u16>(165).await
     }
 
+    async fn plain_cmp_many_iris_tester<T: Sharable>(
+        code1: IrisCode,
+        code2: Vec<IrisCode>,
+    ) -> Vec<bool>
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let inp1 = code1.code.iter().map(|b| T::from(*b)).collect();
+
+        let mut inp2s = Vec::with_capacity(code2.len());
+        let mut mask2 = Vec::with_capacity(code2.len());
+        let mut cmp_ = Vec::with_capacity(code2.len());
+        for code in code2 {
+            let c = code1.is_close(&code);
+            let inp2 = code.code.iter().map(|b| T::from(*b)).collect();
+            cmp_.push(c);
+            inp2s.push(inp2);
+            mask2.push(code.mask);
+        }
+
+        let cmp = iris
+            .compare_iris_many(inp1, inp2s, &code1.mask, &mask2)
+            .await
+            .unwrap();
+
+        assert_eq!(cmp, cmp_);
+        cmp
+    }
+
     async fn plain_cmp_iris_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
     where
         Standard: Distribution<T>,
@@ -441,17 +477,79 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
+            let code3 = similar_iris(&code1, &mut iris_rng);
 
-            plain_cmp_iris_tester::<T>(code1, code2).await;
-            assert!(plain_cmp_iris_tester::<T>(code3, code4).await);
+            let c1 = plain_cmp_iris_tester::<T>(code1.to_owned(), code2.to_owned()).await;
+            let c2 = plain_cmp_iris_tester::<T>(code1.to_owned(), code3.to_owned()).await;
+            let c3 = plain_cmp_many_iris_tester::<T>(code1, vec![code2, code3]).await;
+            assert_eq!(c1, c3[0]);
+            assert_eq!(c2, c3[1]);
+            assert!(c2);
         }
     }
 
     #[tokio::test]
     async fn plain_cmp_iris_test() {
         plain_cmp_iris_test_inner::<u16>().await
+    }
+
+    async fn cmp_many_iris_tester_aby3<
+        T: Sharable,
+        R: Rng,
+        Mpc: MpcTrait<T, Share<T>, Share<Bit>>,
+    >(
+        protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
+        rng: &mut R,
+        code1: IrisCode,
+        code2: Vec<IrisCode>,
+    ) -> Vec<bool>
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let id = protocol.get_id();
+
+        let mut shared_code1 = Vec::with_capacity(code1.code.len());
+
+        for bit in code1.code.iter() {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+            shared_code1.push(shares[id].to_owned());
+        }
+
+        let mut shared_codes2 = Vec::with_capacity(code2.len());
+        let mut mask2 = Vec::with_capacity(code2.len());
+        let mut cmp_ = Vec::with_capacity(code2.len());
+
+        for code in code2 {
+            let c = code1.is_close(&code);
+            let mut shared_code2 = Vec::with_capacity(code.code.len());
+            for bit in code.code.iter() {
+                // We simulate the parties already knowing the shares of the code.
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng).await;
+                shared_code2.push(shares[id].to_owned());
+            }
+            cmp_.push(c);
+            shared_codes2.push(shared_code2);
+            mask2.push(code.mask);
+        }
+
+        let share_cmp = protocol
+            .compare_iris_many(shared_code1, shared_codes2, &code1.mask, &mask2)
+            .await
+            .unwrap();
+
+        let cmp = protocol
+            .get_mpc_mut()
+            .open_bit_many(share_cmp)
+            .await
+            .unwrap();
+
+        assert_eq!(cmp, cmp_);
+        cmp
     }
 
     async fn cmp_iris_tester_aby3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
@@ -516,10 +614,32 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = IrisCode::random_rng(&mut iris_rng);
-            let code4 = similar_iris(&code3, &mut iris_rng);
-            cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code2).await;
-            assert!(cmp_iris_tester_aby3::<T, _, _>(&mut iris, &mut rng, code3, code4).await);
+            let code3 = similar_iris(&code1, &mut iris_rng);
+
+            let c1 = cmp_iris_tester_aby3::<T, _, _>(
+                &mut iris,
+                &mut rng,
+                code1.to_owned(),
+                code2.to_owned(),
+            )
+            .await;
+            let c2 = cmp_iris_tester_aby3::<T, _, _>(
+                &mut iris,
+                &mut rng,
+                code1.to_owned(),
+                code3.to_owned(),
+            )
+            .await;
+            let c3 = cmp_many_iris_tester_aby3::<T, _, _>(
+                &mut iris,
+                &mut rng,
+                code1,
+                vec![code2, code3],
+            )
+            .await;
+            assert_eq!(c1, c3[0]);
+            assert_eq!(c2, c3[1]);
+            assert!(c2);
         }
 
         iris.finish().await.unwrap();
@@ -555,5 +675,171 @@ mod iris_test {
     #[serial]
     async fn cmp_iris_test_aby3() {
         cmp_iris_test_aby3_impl::<u16>(125).await
+    }
+
+    async fn plain_full_test_inner<T: Sharable>()
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        T: Mul<T::Share, Output = T>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut rng = SmallRng::from_entropy();
+
+        // gen db and iris
+        let db = create_database(DB_SIZE, &mut rng);
+        let iris1 = IrisCode::random_rng(&mut rng);
+        let iris2 = similar_iris(&db[0], &mut rng);
+
+        let mut db_t = Vec::with_capacity(db.len());
+        let mut masks = Vec::with_capacity(db.len());
+        let mut is_in1 = false;
+        let mut is_in2 = false;
+
+        // get plain result and share database
+        for iris in db {
+            is_in1 |= iris1.is_close(&iris);
+            is_in2 |= iris2.is_close(&iris);
+
+            let iris_t = iris.code.iter().map(|b| T::from(*b)).collect();
+            db_t.push(iris_t);
+            masks.push(iris.mask);
+        }
+
+        // share iris1 and iris2
+        let iris1_ = iris1.code.iter().map(|b| T::from(*b)).collect();
+        let iris2_ = iris2.code.iter().map(|b| T::from(*b)).collect();
+
+        // calculate
+        let protocol = Plain::default();
+        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+
+        let res1 = iris
+            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .await
+            .unwrap();
+
+        let res2 = iris
+            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .await
+            .unwrap();
+
+        assert_eq!(res1, is_in1);
+        assert_eq!(res2, is_in2);
+        assert!(res2);
+    }
+
+    #[tokio::test]
+    async fn plain_full_test() {
+        plain_full_test_inner::<u16>().await
+    }
+
+    async fn full_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+        id: usize,
+        port_offset: u16,
+        seed: R::Seed,
+        iris_seed: R::Seed,
+    ) where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let protocol = aby3_config::get_protocol::<T>(id, port_offset).await;
+        let mut iris = IrisProtocol::new(protocol).unwrap();
+
+        iris.preprocessing().await.unwrap();
+
+        let mut iris_rng = R::from_seed(iris_seed);
+        let mut rng = R::from_seed(seed);
+
+        // gen db and iris
+        let db = create_database(DB_SIZE, &mut iris_rng);
+        let iris1 = IrisCode::random_rng(&mut rng);
+        let iris2 = similar_iris(&db[0], &mut rng);
+
+        let mut db_t = Vec::with_capacity(db.len());
+        let mut masks = Vec::with_capacity(db.len());
+        let mut is_in1 = false;
+        let mut is_in2 = false;
+
+        // get plain result and share database
+        for iris in db {
+            is_in1 |= iris1.is_close(&iris);
+            is_in2 |= iris2.is_close(&iris);
+
+            let mut iris_t = Vec::with_capacity(iris.code.len());
+            for bit in iris.code.iter() {
+                // We simulate the parties already knowing the shares of the code.
+                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+                iris_t.push(shares[id].to_owned());
+            }
+
+            db_t.push(iris_t);
+            masks.push(iris.mask);
+        }
+
+        // share iris1 and iris2
+        let mut iris1_ = Vec::with_capacity(iris1.code.len());
+        let mut iris2_ = Vec::with_capacity(iris2.code.len());
+        for bit in iris1.code.iter() {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            iris1_.push(shares[id].to_owned());
+        }
+        for bit in iris2.code.iter() {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng).await;
+            iris2_.push(shares[id].to_owned());
+        }
+        // calculate
+        let res1 = iris
+            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .await
+            .unwrap();
+
+        let res2 = iris
+            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .await
+            .unwrap();
+
+        iris.finish().await.unwrap();
+
+        assert_eq!(res1, is_in1);
+        assert_eq!(res2, is_in2);
+        assert!(res2);
+    }
+
+    async fn full_test_aby3_impl<T: Sharable>(port_offset: u16)
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let mut tasks = Vec::with_capacity(NUM_PARTIES);
+
+        let mut rng = SmallRng::from_entropy();
+        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+
+        for i in 0..NUM_PARTIES {
+            let t = tokio::spawn(async move {
+                full_test_aby3_impl_inner::<T, SmallRng>(i, port_offset, seed, iris_seed).await
+            });
+            tasks.push(t);
+        }
+
+        for t in tasks {
+            t.await.expect("Task exited normally");
+        }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn full_test_aby3() {
+        full_test_aby3_impl::<u16>(200).await
     }
 }
