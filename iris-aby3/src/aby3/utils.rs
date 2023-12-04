@@ -1,5 +1,9 @@
 use super::random::prf::PrfSeed;
-use crate::{error::Error, traits::network_trait::NetworkTrait};
+use crate::{
+    error::Error,
+    traits::network_trait::NetworkTrait,
+    types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes, RingImpl},
+};
 use bytes::{Buf, Bytes, BytesMut};
 use std::io::Error as IOError;
 

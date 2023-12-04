@@ -1,4 +1,4 @@
-mod iris_test {
+mod iris_aby3_test {
     use crate::{
         aby3::share::Share,
         iris::protocol::IrisProtocol,
