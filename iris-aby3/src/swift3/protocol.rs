@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use super::{
     random::prf::{Prf, PrfSeed},
     share::Share,
@@ -11,11 +9,13 @@ use crate::{
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::BytesMut;
+use num_traits::Zero;
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
+use std::ops::Mul;
 
 pub struct Swift3<N: NetworkTrait> {
     network: N,
@@ -252,7 +252,50 @@ where
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
-        todo!()
+        let mut alpha1 = T::Share::zero();
+        let mut alpha2 = T::Share::zero();
+        let mut gamma = T::Share::zero();
+        let mut beta = T::Share::zero();
+
+        let self_id = self.get_id();
+        if id == self_id && input.is_none() {
+            return Err(Error::ValueError("Cannot share None".to_string()));
+        }
+
+        let share = match id {
+            0 => {
+                gamma = self.prf.gen_p::<T::Share>();
+                if id == 0 {
+                    alpha1 = self.prf.gen_1::<T::Share>();
+                    alpha2 = self.prf.gen_2::<T::Share>();
+                    let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
+                    // send beta
+                    Share::new(alpha1, alpha2, beta + &gamma)
+                } else if id == 1 {
+                    alpha1 = self.prf.gen_1::<T::Share>();
+                    // Receive beta
+                    Share::new(alpha1, beta, beta + &gamma)
+                } else if id == 2 {
+                    alpha2 = self.prf.gen_1::<T::Share>();
+                    // Receive beta
+                    Share::new(alpha2, beta, beta + &gamma)
+                } else {
+                    unreachable!()
+                }
+            }
+            1 => {
+                alpha2 = self.prf.gen_p::<T::Share>();
+                todo!()
+            }
+            2 => {
+                alpha1 = self.prf.gen_p::<T::Share>();
+                todo!()
+            }
+            _ => {
+                unreachable!()
+            }
+        };
+        Ok(share)
     }
 
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {

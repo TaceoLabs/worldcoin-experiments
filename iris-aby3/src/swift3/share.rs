@@ -16,6 +16,11 @@ use std::{
     },
 };
 
+// A share of x is represented as
+//   P_0: (a1, a2, b + c)
+//   P_1: (a1, b, c)
+//   P_2: (a2, b, c)
+// where b = x + a1 + a2
 #[derive(Clone, Debug, PartialEq, Default, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Share<T: Sharable> {
     pub(crate) a: T::Share,
@@ -32,10 +37,6 @@ impl<T: Sharable> Share<T> {
             c,
             sharetype: PhantomData,
         }
-    }
-
-    pub fn get_a(self) -> T::Share {
-        self.a
     }
 
     pub fn get_abc(self) -> (T::Share, T::Share, T::Share) {

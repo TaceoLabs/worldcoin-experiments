@@ -33,4 +33,25 @@ impl Prf {
         let mut rng = ChaCha12Rng::from_entropy();
         rng.gen::<PrfSeed>()
     }
+
+    pub fn gen_1<T>(&mut self) -> T
+    where
+        Standard: Distribution<T>,
+    {
+        self.prf_1.gen::<T>()
+    }
+
+    pub fn gen_2<T>(&mut self) -> T
+    where
+        Standard: Distribution<T>,
+    {
+        self.prf_2.gen::<T>()
+    }
+
+    pub fn gen_p<T>(&mut self) -> T
+    where
+        Standard: Distribution<T>,
+    {
+        self.prf_p.gen::<T>()
+    }
 }
