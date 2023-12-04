@@ -1,6 +1,6 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use sha2::{digest::Output, Digest, Sha512};
+use sha2::{Digest, Sha512};
 
 use crate::types::ring_element::{ring_vec_to_bytes, RingImpl};
 

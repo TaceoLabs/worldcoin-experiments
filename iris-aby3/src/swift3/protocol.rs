@@ -260,7 +260,21 @@ where
     }
 
     fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
-        todo!()
+        let alpha1 = rng.gen::<T::Share>();
+        let alpha2 = rng.gen::<T::Share>();
+        let gamma = rng.gen::<T::Share>();
+
+        let beta = input.to_sharetype() + &alpha1 + &alpha2;
+
+        let share1 = Share::new(
+            alpha1.to_owned(),
+            alpha2.to_owned(),
+            beta.to_owned() + &gamma,
+        );
+        let share2 = Share::new(alpha1, beta.to_owned(), gamma.to_owned());
+        let share3 = Share::new(alpha2, beta, gamma);
+
+        vec![share1, share2, share3]
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
@@ -280,19 +294,31 @@ where
     }
 
     fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {
-        todo!()
+        a + b
     }
 
     fn sub(&self, a: Share<T>, b: Share<T>) -> Share<T> {
-        todo!()
+        a - b
     }
 
     fn add_const(&self, a: Share<T>, b: T) -> Share<T> {
-        todo!()
+        a.add_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
     }
 
     fn sub_const(&self, a: Share<T>, b: T) -> Share<T> {
-        todo!()
+        a.sub_const(
+            &b.to_sharetype(),
+            self.network
+                .get_id()
+                .try_into()
+                .expect("ID is checked during establishing connection"),
+        )
     }
 
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
@@ -300,7 +326,7 @@ where
     }
 
     fn mul_const(&self, a: Share<T>, b: T) -> Share<T> {
-        todo!()
+        a * b.to_sharetype()
     }
 
     async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {

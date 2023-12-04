@@ -52,33 +52,29 @@ impl<T: Sharable> Share<T> {
     }
 
     pub(crate) fn add_const(mut self, other: &T::Share, id: PartyID) -> Self {
-        todo!()
-        // self.add_assign_const(other, id);
-        // self
+        self.add_assign_const(other, id);
+        self
     }
 
     pub(crate) fn add_assign_const(&mut self, other: &T::Share, id: PartyID) {
-        todo!()
-        // match id {
-        //     PartyID::ID0 => self.a += other,
-        //     PartyID::ID1 => self.b += other,
-        //     PartyID::ID2 => {}
-        // }
+        match id {
+            PartyID::ID0 => self.c += other,
+            PartyID::ID1 => self.b += other,
+            PartyID::ID2 => self.b += other,
+        }
     }
 
     pub(crate) fn sub_const(mut self, other: &T::Share, id: PartyID) -> Self {
-        todo!()
-        // self.sub_assign_const(other, id);
-        // self
+        self.sub_assign_const(other, id);
+        self
     }
 
     pub(crate) fn sub_assign_const(&mut self, other: &T::Share, id: PartyID) {
-        todo!()
-        // match id {
-        //     PartyID::ID0 => self.a -= other,
-        //     PartyID::ID1 => self.b -= other,
-        //     PartyID::ID2 => {}
-        // }
+        match id {
+            PartyID::ID0 => self.c -= other,
+            PartyID::ID1 => self.b -= other,
+            PartyID::ID2 => self.b -= other,
+        }
     }
 }
 
@@ -86,12 +82,12 @@ impl<T: Sharable> Add for Share<T> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: self.a + rhs.a,
-        //     b: self.b + rhs.b,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
+            c: self.c + rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -99,28 +95,28 @@ impl<T: Sharable> Add<&Share<T>> for Share<T> {
     type Output = Self;
 
     fn add(self, rhs: &Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: self.a + &rhs.a,
-        //     b: self.b + &rhs.b,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a + &rhs.a,
+            b: self.b + &rhs.b,
+            c: self.c + &rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
 impl<T: Sharable> AddAssign for Share<T> {
     fn add_assign(&mut self, rhs: Self) {
-        todo!()
-        //     self.a += &rhs.a;
-        //     self.b += &rhs.b;
+        self.a += &rhs.a;
+        self.b += &rhs.b;
+        self.c += &rhs.c;
     }
 }
 
 impl<T: Sharable> AddAssign<&Share<T>> for Share<T> {
     fn add_assign(&mut self, rhs: &Self) {
-        todo!()
-        //     self.a += &rhs.a;
-        //     self.b += &rhs.b;
+        self.a += &rhs.a;
+        self.b += &rhs.b;
+        self.c += &rhs.c;
     }
 }
 
@@ -128,12 +124,12 @@ impl<T: Sharable> Sub for Share<T> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        todo!()
-        //     Share {
-        //         a: self.a - rhs.a,
-        //         b: self.b - rhs.b,
-        //         sharetype: PhantomData,
-        //     }
+        Share {
+            a: self.a - rhs.a,
+            b: self.b - rhs.b,
+            c: self.c - rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -141,12 +137,12 @@ impl<T: Sharable> Sub<&Share<T>> for Share<T> {
     type Output = Self;
 
     fn sub(self, rhs: &Self) -> Self::Output {
-        todo!()
-        //     Share {
-        //         a: self.a - &rhs.a,
-        //         b: self.b - &rhs.b,
-        //         sharetype: PhantomData,
-        //     }
+        Share {
+            a: self.a - &rhs.a,
+            b: self.b - &rhs.b,
+            c: self.c - &rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -155,9 +151,9 @@ where
     for<'a> T::Share: SubAssign<&'a T::Share>,
 {
     fn sub_assign(&mut self, rhs: Self) {
-        todo!()
-        // self.a -= &rhs.a;
-        // self.b -= &rhs.b;
+        self.a -= &rhs.a;
+        self.b -= &rhs.b;
+        self.c -= &rhs.c;
     }
 }
 
@@ -168,6 +164,7 @@ where
     fn sub_assign(&mut self, rhs: &Self) {
         self.a -= &rhs.a;
         self.b -= &rhs.b;
+        self.c -= &rhs.c;
     }
 }
 
@@ -178,12 +175,12 @@ where
     type Output = Self;
 
     fn mul(self, rhs: RingElement<U>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: self.a * &rhs,
-        //     b: self.b * &rhs,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a * &rhs,
+            b: self.b * &rhs,
+            c: self.c * &rhs,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -194,12 +191,12 @@ where
     type Output = Self;
 
     fn mul(self, rhs: &RingElement<U>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: self.a * rhs,
-        //     b: self.b * rhs,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a * rhs,
+            b: self.b * rhs,
+            c: self.c * rhs,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -208,9 +205,9 @@ where
     for<'a> T::Share: MulAssign<&'a RingElement<U>>,
 {
     fn mul_assign(&mut self, rhs: RingElement<U>) {
-        todo!()
-        // self.a *= &rhs;
-        // self.b *= &rhs;
+        self.a *= &rhs;
+        self.b *= &rhs;
+        self.c *= &rhs;
     }
 }
 
@@ -219,9 +216,9 @@ where
     for<'a> T::Share: MulAssign<&'a RingElement<U>>,
 {
     fn mul_assign(&mut self, rhs: &RingElement<U>) {
-        todo!()
-        // self.a *= rhs;
-        // self.b *= rhs;
+        self.a *= rhs;
+        self.b *= rhs;
+        self.c *= rhs;
     }
 }
 
@@ -232,12 +229,12 @@ where
     type Output = Share<T>;
 
     fn mul(self, rhs: Share<T>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: rhs.a * &self,
-        //     b: rhs.b * &self,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: rhs.a * &self,
+            b: rhs.b * &self,
+            c: rhs.c * &self,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -248,12 +245,12 @@ where
     type Output = Share<T>;
 
     fn mul(self, rhs: &Share<T>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: rhs.a.to_owned() * &self,
-        //     b: rhs.b.to_owned() * &self,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: rhs.a.to_owned() * &self,
+            b: rhs.b.to_owned() * &self,
+            c: rhs.c.to_owned() * &self,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -311,12 +308,12 @@ impl<T: Sharable> Neg for Share<T> {
     type Output = Self;
 
     fn neg(self) -> Self {
-        todo!()
-        // Share {
-        //     a: self.a.neg(),
-        //     b: self.b.neg(),
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a.neg(),
+            b: self.b.neg(),
+            c: self.c.neg(),
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -330,12 +327,12 @@ impl<T: Sharable> BitXor for Share<T> {
     type Output = Self;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: self.a ^ rhs.a,
-        //     b: self.b ^ rhs.b,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a ^ rhs.a,
+            b: self.b ^ rhs.b,
+            c: self.c ^ rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -343,28 +340,28 @@ impl<T: Sharable> BitXor<&Self> for Share<T> {
     type Output = Self;
 
     fn bitxor(self, rhs: &Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: self.a ^ &rhs.a,
-        //     b: self.b ^ &rhs.b,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a ^ &rhs.a,
+            b: self.b ^ &rhs.b,
+            c: self.c ^ &rhs.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
 impl<T: Sharable> BitXorAssign for Share<T> {
     fn bitxor_assign(&mut self, rhs: Self) {
-        todo!()
-        // self.a ^= rhs.a;
-        // self.b ^= rhs.b;
+        self.a ^= rhs.a;
+        self.b ^= rhs.b;
+        self.c ^= rhs.c;
     }
 }
 
 impl<T: Sharable> BitXorAssign<&Self> for Share<T> {
     fn bitxor_assign(&mut self, rhs: &Self) {
-        todo!()
-        // self.a ^= &rhs.a;
-        // self.b ^= &rhs.b;
+        self.a ^= &rhs.a;
+        self.b ^= &rhs.b;
+        self.c ^= &rhs.c;
     }
 }
 
@@ -425,12 +422,12 @@ where
     type Output = Self;
 
     fn bitand(self, rhs: RingElement<U>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: self.a & &rhs,
-        //     b: self.b & &rhs,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a & &rhs,
+            b: self.b & &rhs,
+            c: self.c & &rhs,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -441,12 +438,12 @@ where
     type Output = Self;
 
     fn bitand(self, rhs: &RingElement<U>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: self.a & rhs,
-        //     b: self.b & rhs,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: self.a & rhs,
+            b: self.b & rhs,
+            c: self.c & rhs,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -455,9 +452,9 @@ where
     for<'a> T::Share: BitAndAssign<&'a RingElement<U>>,
 {
     fn bitand_assign(&mut self, rhs: RingElement<U>) {
-        todo!()
-        // self.a &= &rhs;
-        // self.b &= &rhs;
+        self.a &= &rhs;
+        self.b &= &rhs;
+        self.c &= &rhs;
     }
 }
 
@@ -466,9 +463,9 @@ where
     for<'a> T::Share: BitAndAssign<&'a RingElement<U>>,
 {
     fn bitand_assign(&mut self, rhs: &RingElement<U>) {
-        todo!()
-        // self.a &= rhs;
-        // self.b &= rhs;
+        self.a &= rhs;
+        self.b &= rhs;
+        self.c &= rhs;
     }
 }
 
@@ -479,12 +476,12 @@ where
     type Output = Share<T>;
 
     fn bitand(self, rhs: Share<T>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: rhs.a & &self,
-        //     b: rhs.b & &self,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: rhs.a & &self,
+            b: rhs.b & &self,
+            c: rhs.c & &self,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -495,12 +492,12 @@ where
     type Output = Share<T>;
 
     fn bitand(self, rhs: &Share<T>) -> Share<T> {
-        todo!()
-        // Share {
-        //     a: rhs.a.to_owned() & &self,
-        //     b: rhs.b.to_owned() & &self,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: rhs.a.to_owned() & &self,
+            b: rhs.b.to_owned() & &self,
+            c: rhs.c.to_owned() & &self,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -508,12 +505,12 @@ impl<T: Sharable> Not for Share<T> {
     type Output = Self;
 
     fn not(self) -> Self {
-        todo!()
-        // Share {
-        //     a: !self.a,
-        //     b: !self.b,
-        //     sharetype: PhantomData,
-        // }
+        Share {
+            a: !self.a,
+            b: !self.b,
+            c: !self.c,
+            sharetype: PhantomData,
+        }
     }
 }
 
@@ -521,20 +518,20 @@ impl<T: Sharable> Shl<u32> for Share<T> {
     type Output = Self;
 
     fn shl(self, rhs: u32) -> Self::Output {
-        todo!()
-        // Self {
-        //     a: self.a << rhs,
-        //     b: self.b << rhs,
-        //     sharetype: PhantomData,
-        // }
+        Self {
+            a: self.a << rhs,
+            b: self.b << rhs,
+            c: self.c << rhs,
+            sharetype: PhantomData,
+        }
     }
 }
 
 impl<T: Sharable> ShlAssign<u32> for Share<T> {
     fn shl_assign(&mut self, rhs: u32) {
-        todo!()
-        // self.a <<= rhs;
-        // self.b <<= rhs;
+        self.a <<= rhs;
+        self.b <<= rhs;
+        self.c <<= rhs;
     }
 }
 
