@@ -1,10 +1,10 @@
 use clap::Parser;
 use color_eyre::{eyre::Context, Result};
-use iris_aby3::prelude::{Aby3, Aby3Network, BitArr, Error, IrisMpc, MpcTrait, Sharable, Share};
+use iris_aby3::prelude::{Aby3, Aby3Network, Error, IrisMpc, MpcTrait, Sharable, Share};
 use mpc_net::config::{NetworkConfig, NetworkParty};
-use plain_reference::{IrisCode, IRIS_CODE_SIZE};
+use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
-    distributions::{Bernoulli, Distribution, Standard},
+    distributions::{Distribution, Standard},
     rngs::SmallRng,
     SeedableRng,
 };
@@ -86,13 +86,13 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
     shares: Vec<Vec<Share<T>>>,
-    masks: Vec<BitArr>,
+    masks: Vec<IrisCodeArray>,
 }
 
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
     shares: Vec<Share<T>>,
-    mask: BitArr,
+    mask: IrisCodeArray,
 }
 
 fn open_database(database_file: &PathBuf) -> Result<Connection> {
@@ -116,19 +116,16 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     let mut rows = stmt.query([])?;
 
     while let Some(row) = rows.next()? {
-        let mut mask = BitArr::default();
+        let mut mask = IrisCodeArray::default();
         mask.as_raw_mut_slice()
             .copy_from_slice(&row.get::<_, Vec<u8>>(2)?);
         let share_a: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(0)?)?;
         let share_b: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(1)?)?;
 
-        if share_a.len() != IRIS_CODE_SIZE
-            || share_b.len() != IRIS_CODE_SIZE
-            || mask.len() != IRIS_CODE_SIZE
-        {
+        if share_a.len() != IrisCode::IRIS_CODE_SIZE || share_b.len() != IrisCode::IRIS_CODE_SIZE {
             Err(Error::InvlidCodeSizeError)?;
         }
-        let mut share = Vec::with_capacity(IRIS_CODE_SIZE);
+        let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for (a, b) in share_a.into_iter().zip(share_b) {
             share.push(Share::new(a, b));
         }
@@ -161,18 +158,7 @@ where
                     .as_raw_mut_slice()
                     .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
 
-                // flip a few bits in mask and code (like 5%)
-                let dist = Bernoulli::new(0.05).unwrap();
-                for mut b in res.code.as_mut_bitslice() {
-                    if dist.sample(&mut rng) {
-                        b.set(!*b);
-                    }
-                }
-                for mut b in res.mask.as_mut_bitslice() {
-                    if dist.sample(&mut rng) {
-                        b.set(!*b);
-                    }
-                }
+                res = res.get_similar_iris(&mut rng);
 
                 Ok(res)
             },
@@ -186,9 +172,9 @@ where
         .as_raw_mut_slice()
         .copy_from_slice(iris.mask.as_raw_slice());
 
-    for bit in iris.code.iter() {
+    for i in 0..IrisCode::IRIS_CODE_SIZE {
         // We simulate the parties already knowing the shares of the code.
-        let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
+        let shares = Aby3::<Aby3Network>::share(T::from(iris.code.get_bit(i)), &mut rng);
         if args.party > 2 {
             Err(Error::IdError(args.party))?;
         }

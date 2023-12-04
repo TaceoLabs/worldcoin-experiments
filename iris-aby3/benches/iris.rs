@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iris_aby3::prelude::{
-    Aby3, BitArr, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, Share, TestNetwork3p,
+    Aby3, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, Share, TestNetwork3p,
 };
-use plain_reference::IrisCode;
+use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
     distributions::{Distribution, Standard},
     rngs::SmallRng,
@@ -14,9 +14,9 @@ use tokio::runtime;
 async fn iris_aby3_task<T: Sharable>(
     net: PartyTestNetwork,
     code: Vec<Share<T>>,
-    mask: BitArr,
+    mask: IrisCodeArray,
     shared_db: Vec<Vec<Share<T>>>,
-    masks: Vec<BitArr>,
+    masks: Vec<IrisCodeArray>,
 ) -> bool
 where
     Standard: Distribution<T::Share>,
@@ -39,7 +39,7 @@ where
 fn iris_aby3<T: Sharable, R: Rng>(
     c: &mut Criterion,
     shared_code: &[Vec<Vec<Share<T>>>],
-    masks: &Vec<BitArr>,
+    masks: &Vec<IrisCodeArray>,
     rng: &mut R,
 ) where
     Standard: Distribution<T::Share>,
@@ -52,15 +52,18 @@ fn iris_aby3<T: Sharable, R: Rng>(
     assert_eq!(db_size, shared_code[1].len());
     assert_eq!(db_size, shared_code[2].len());
 
-    let rt = runtime::Builder::new_current_thread().build().unwrap();
+    let rt = runtime::Builder::new_multi_thread()
+        .worker_threads(3)
+        .build()
+        .unwrap();
 
     // share an iris
     let iris = IrisCode::random_rng(rng);
-    let mut code_a = Vec::with_capacity(iris.code.len());
-    let mut code_b = Vec::with_capacity(iris.code.len());
-    let mut code_c = Vec::with_capacity(iris.code.len());
-    for bit in iris.code {
-        let shares = Aby3::<PartyTestNetwork>::share(T::from(bit), rng);
+    let mut code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    for i in 0..IrisCode::IRIS_CODE_SIZE {
+        let shares = Aby3::<PartyTestNetwork>::share(T::from(iris.code.get_bit(i)), rng);
         assert_eq!(shares.len(), 3);
         code_a.push(shares[0].to_owned());
         code_b.push(shares[1].to_owned());
@@ -126,7 +129,7 @@ fn create_db<R: Rng>(num_items: usize, rng: &mut R) -> Vec<IrisCode> {
 fn share_db<T: Sharable, R: Rng>(
     db: Vec<IrisCode>,
     rng: &mut R,
-) -> (Vec<Vec<Vec<Share<T>>>>, Vec<BitArr>)
+) -> (Vec<Vec<Vec<Share<T>>>>, Vec<IrisCodeArray>)
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
@@ -137,11 +140,11 @@ where
     let mut masks = Vec::with_capacity(db.len());
 
     for code in db {
-        let mut code_a = Vec::with_capacity(code.code.len());
-        let mut code_b = Vec::with_capacity(code.code.len());
-        let mut code_c = Vec::with_capacity(code.code.len());
-        for bit in code.code {
-            let shares = Aby3::<PartyTestNetwork>::share(T::from(bit), rng);
+        let mut code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        for i in 0..IrisCode::IRIS_CODE_SIZE {
+            let shares = Aby3::<PartyTestNetwork>::share(T::from(code.code.get_bit(i)), rng);
             assert_eq!(shares.len(), 3);
             code_a.push(shares[0].to_owned());
             code_b.push(shares[1].to_owned());
@@ -168,7 +171,7 @@ fn iris_benches(c: &mut Criterion, db_size: usize) {
 }
 
 fn criterion_benchmark_iris_mpc(c: &mut Criterion) {
-    let db_sizes = [1000];
+    let db_sizes = [10000];
 
     for s in db_sizes {
         iris_benches(c, s);

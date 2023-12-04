@@ -1,13 +1,13 @@
 mod iris_test {
     use crate::{
         aby3::share::Share,
-        iris::protocol::{BitArr, IrisProtocol},
+        iris::protocol::IrisProtocol,
         prelude::{Aby3, Aby3Network, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
-        tests::iris_config::iris_config::{create_database, similar_iris},
+        tests::iris_config::iris_config::create_database,
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
-    use plain_reference::IrisCode;
+    use plain_reference::{IrisCode, IrisCodeArray};
     use rand::{
         distributions::{Distribution, Standard},
         rngs::SmallRng,
@@ -19,11 +19,39 @@ mod iris_test {
     const DB_SIZE: usize = 128;
     const TESTRUNS: usize = 5;
 
+    fn iris_code_plain_type<T: Sharable>(code: &IrisCode) -> Vec<T> {
+        let mut res = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        for i in 0..IrisCode::IRIS_CODE_SIZE {
+            res.push(T::from(code.code.get_bit(i)));
+        }
+        res
+    }
+
+    fn share_iris_code<T: Sharable, R: Rng>(
+        code: &IrisCode,
+        id: usize,
+        rng: &mut R,
+    ) -> Vec<Share<T>>
+    where
+        Standard: Distribution<T>,
+        Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
+        Share<T>: Mul<T::Share, Output = Share<T>>,
+    {
+        let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        for i in 0..IrisCode::IRIS_CODE_SIZE {
+            // We simulate the parties already knowing the shares of the code.
+            let shares = Aby3::<Aby3Network>::share(T::from(code.code.get_bit(i)), rng);
+            shared_code.push(shares[id].to_owned());
+        }
+        shared_code
+    }
+
     async fn mask_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
-    ) -> Vec<BitArr>
+    ) -> Vec<IrisCodeArray>
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -43,20 +71,16 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code = IrisCode::random_rng(&mut iris_rng);
 
-            let mut shared_code = Vec::with_capacity(code.code.len());
-            for bit in code.code.iter() {
-                // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-                shared_code.push(shares[id].to_owned());
-            }
+            let shared_code = share_iris_code(&code, id, &mut rng);
 
             let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
             let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
 
-            let mut bitarr = BitArr::default();
-            for (mut bit, code_bit) in bitarr.iter_mut().zip(open_masked_code.into_iter()) {
+            let mut bitarr = IrisCodeArray::default();
+            for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
+                let code_bit = open_masked_code[i];
                 assert!(code_bit.is_zero() || code_bit.is_one());
-                bit.set(code_bit == T::one());
+                bitarr.set_bit(i, code_bit == T::one());
             }
             results.push(bitarr);
         }
@@ -138,18 +162,8 @@ mod iris_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
 
-            let mut shared_code1 = Vec::with_capacity(code1.code.len());
-            let mut shared_code2 = Vec::with_capacity(code2.code.len());
-            for bit in code1.code.iter() {
-                // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-                shared_code1.push(shares[id].to_owned());
-            }
-            for bit in code2.code.iter() {
-                // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-                shared_code2.push(shares[id].to_owned());
-            }
+            let shared_code1 = share_iris_code(&code1, id, &mut rng);
+            let shared_code2 = share_iris_code(&code2, id, &mut rng);
 
             let hwd = iris
                 .hamming_distance(shared_code1, shared_code2)
@@ -232,8 +246,8 @@ mod iris_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
 
-            let a = code1.code.iter().map(|b| T::from(*b)).collect();
-            let b = code2.code.iter().map(|b| T::from(*b)).collect();
+            let a = iris_code_plain_type(&code1);
+            let b = iris_code_plain_type(&code2);
             let distance = iris.hamming_distance(a, b).await.unwrap();
 
             let combined_code = code1.code ^ code2.code;
@@ -267,13 +281,15 @@ mod iris_test {
 
         let distance = masked_code.count_ones();
         let threshold =
-            (combined_mask.len() as f64 * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
+            ((combined_mask.count_ones() as f64) * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
         let cmp_ = distance < threshold;
+        println!("Distance: {}", distance);
+        println!("Threshold: {}", threshold);
 
         let distance = distance.try_into().expect("Overflow should not happen");
 
         let cmp = iris
-            .compare_threshold(distance, combined_mask.len())
+            .compare_threshold(distance, combined_mask.count_ones())
             .await
             .unwrap();
 
@@ -293,7 +309,7 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = similar_iris(&code1, &mut iris_rng);
+            let code3 = code1.get_similar_iris(&mut iris_rng);
 
             plain_lt_tester::<T>(code1.to_owned(), code2).await;
             assert!(plain_lt_tester::<T>(code1, code3).await);
@@ -326,7 +342,7 @@ mod iris_test {
 
         let distance = masked_code.count_ones();
         let threshold =
-            (combined_mask.len() as f64 * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
+            ((combined_mask.count_ones() as f64) * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
         let cmp_ = distance < threshold;
 
         let distance = distance.try_into().expect("Overflow should not happen");
@@ -335,7 +351,7 @@ mod iris_test {
         let share = Aby3::<Aby3Network>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
-            .compare_threshold(share, combined_mask.len())
+            .compare_threshold(share, combined_mask.count_ones())
             .await
             .unwrap();
 
@@ -366,7 +382,7 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = similar_iris(&code1, &mut iris_rng);
+            let code3 = code1.get_similar_iris(&mut iris_rng);
             lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
             assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
         }
@@ -421,14 +437,14 @@ mod iris_test {
         let protocol = Plain::default();
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
 
-        let inp1 = code1.code.iter().map(|b| T::from(*b)).collect();
+        let inp1 = iris_code_plain_type(&code1);
 
         let mut inp2s = Vec::with_capacity(code2.len());
         let mut mask2 = Vec::with_capacity(code2.len());
         let mut cmp_ = Vec::with_capacity(code2.len());
         for code in code2 {
             let c = code1.is_close(&code);
-            let inp2 = code.code.iter().map(|b| T::from(*b)).collect();
+            let inp2 = iris_code_plain_type(&code);
             cmp_.push(c);
             inp2s.push(inp2);
             mask2.push(code.mask);
@@ -453,8 +469,8 @@ mod iris_test {
         let protocol = Plain::default();
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
 
-        let inp1 = code1.code.iter().map(|b| T::from(*b)).collect();
-        let inp2 = code2.code.iter().map(|b| T::from(*b)).collect();
+        let inp1 = iris_code_plain_type(&code1);
+        let inp2 = iris_code_plain_type(&code2);
 
         let cmp = iris
             .compare_iris(inp1, inp2, &code1.mask, &code2.mask)
@@ -478,7 +494,7 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = similar_iris(&code1, &mut iris_rng);
+            let code3 = code1.get_similar_iris(&mut iris_rng);
 
             let c1 = plain_cmp_iris_tester::<T>(code1.to_owned(), code2.to_owned()).await;
             let c2 = plain_cmp_iris_tester::<T>(code1.to_owned(), code3.to_owned()).await;
@@ -513,26 +529,14 @@ mod iris_test {
     {
         let id = protocol.get_id();
 
-        let mut shared_code1 = Vec::with_capacity(code1.code.len());
-
-        for bit in code1.code.iter() {
-            // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
-            shared_code1.push(shares[id].to_owned());
-        }
-
+        let shared_code1 = share_iris_code(&code1, id, rng);
         let mut shared_codes2 = Vec::with_capacity(code2.len());
         let mut mask2 = Vec::with_capacity(code2.len());
         let mut cmp_ = Vec::with_capacity(code2.len());
 
         for code in code2 {
             let c = code1.is_close(&code);
-            let mut shared_code2 = Vec::with_capacity(code.code.len());
-            for bit in code.code.iter() {
-                // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
-                shared_code2.push(shares[id].to_owned());
-            }
+            let shared_code2 = share_iris_code(&code, id, rng);
             cmp_.push(c);
             shared_codes2.push(shared_code2);
             mask2.push(code.mask);
@@ -568,18 +572,8 @@ mod iris_test {
     {
         let id = protocol.get_id();
 
-        let mut shared_code1 = Vec::with_capacity(code1.code.len());
-        let mut shared_code2 = Vec::with_capacity(code2.code.len());
-        for bit in code1.code.iter() {
-            // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
-            shared_code1.push(shares[id].to_owned());
-        }
-        for bit in code2.code.iter() {
-            // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), rng);
-            shared_code2.push(shares[id].to_owned());
-        }
+        let shared_code1 = share_iris_code(&code1, id, rng);
+        let shared_code2 = share_iris_code(&code2, id, rng);
 
         let share_cmp = protocol
             .compare_iris(shared_code1, shared_code2, &code1.mask, &code2.mask)
@@ -614,7 +608,7 @@ mod iris_test {
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
-            let code3 = similar_iris(&code1, &mut iris_rng);
+            let code3 = code1.get_similar_iris(&mut iris_rng);
 
             let c1 = cmp_iris_tester_aby3::<T, _, _>(
                 &mut iris,
@@ -691,7 +685,7 @@ mod iris_test {
         // gen db and iris
         let db = create_database(DB_SIZE, &mut rng);
         let iris1 = IrisCode::random_rng(&mut rng);
-        let iris2 = similar_iris(&db[0], &mut rng);
+        let iris2 = db[0].get_similar_iris(&mut rng);
 
         let mut db_t = Vec::with_capacity(db.len());
         let mut masks = Vec::with_capacity(db.len());
@@ -703,14 +697,14 @@ mod iris_test {
             is_in1 |= iris1.is_close(&iris);
             is_in2 |= iris2.is_close(&iris);
 
-            let iris_t = iris.code.iter().map(|b| T::from(*b)).collect();
+            let iris_t = iris_code_plain_type(&iris);
             db_t.push(iris_t);
             masks.push(iris.mask);
         }
 
         // share iris1 and iris2
-        let iris1_ = iris1.code.iter().map(|b| T::from(*b)).collect();
-        let iris2_ = iris2.code.iter().map(|b| T::from(*b)).collect();
+        let iris1_ = iris_code_plain_type(&iris1);
+        let iris2_ = iris_code_plain_type(&iris2);
 
         // calculate
         let protocol = Plain::default();
@@ -759,7 +753,7 @@ mod iris_test {
         // gen db and iris
         let db = create_database(DB_SIZE, &mut iris_rng);
         let iris1 = IrisCode::random_rng(&mut rng);
-        let iris2 = similar_iris(&db[0], &mut rng);
+        let iris2 = db[0].get_similar_iris(&mut rng);
 
         let mut db_t = Vec::with_capacity(db.len());
         let mut masks = Vec::with_capacity(db.len());
@@ -771,30 +765,15 @@ mod iris_test {
             is_in1 |= iris1.is_close(&iris);
             is_in2 |= iris2.is_close(&iris);
 
-            let mut iris_t = Vec::with_capacity(iris.code.len());
-            for bit in iris.code.iter() {
-                // We simulate the parties already knowing the shares of the code.
-                let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-                iris_t.push(shares[id].to_owned());
-            }
+            let iris_t = share_iris_code(&iris, id, &mut rng);
 
             db_t.push(iris_t);
             masks.push(iris.mask);
         }
 
         // share iris1 and iris2
-        let mut iris1_ = Vec::with_capacity(iris1.code.len());
-        let mut iris2_ = Vec::with_capacity(iris2.code.len());
-        for bit in iris1.code.iter() {
-            // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-            iris1_.push(shares[id].to_owned());
-        }
-        for bit in iris2.code.iter() {
-            // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(T::from(*bit), &mut rng);
-            iris2_.push(shares[id].to_owned());
-        }
+        let iris1_ = share_iris_code(&iris1, id, &mut rng);
+        let iris2_ = share_iris_code(&iris2, id, &mut rng);
         // calculate
         let res1 = iris
             .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)

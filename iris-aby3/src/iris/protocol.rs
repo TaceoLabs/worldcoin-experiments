@@ -2,15 +2,15 @@ use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Error, MpcTrait, Sharable, Share};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
-use bitvec::{prelude::Lsb0, BitArr};
-use std::{marker::PhantomData, ops::Mul, usize};
+use num_traits::Zero;
+use plain_reference::{IrisCode, IrisCodeArray};
+use std::{marker::PhantomData, usize};
 
-const IRIS_CODE_SIZE: usize = plain_reference::IRIS_CODE_SIZE;
+const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
-const PACK_SIZE: usize = 8; // TODO adjust
+const PACK_SIZE: usize = 256; // TODO adjust
 
-pub type BitArr = BitArr!(for IRIS_CODE_SIZE, in u8, Lsb0);
 pub type IrisMpc<T, Mpc> = IrisProtocol<T, Share<T>, Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
@@ -23,7 +23,7 @@ pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bs
 impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
-    Ashare: Mul<T::Share, Output = Ashare>,
+    Ashare: Zero,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
@@ -67,8 +67,12 @@ where
         self.mpc.finish().await
     }
 
-    pub(crate) fn combine_masks(&self, mask_a: &BitArr, mask_b: &BitArr) -> Result<BitArr, Error> {
-        let combined_mask = *mask_a & mask_b;
+    pub(crate) fn combine_masks(
+        &self,
+        mask_a: &IrisCodeArray,
+        mask_b: &IrisCodeArray,
+    ) -> Result<IrisCodeArray, Error> {
+        let combined_mask = *mask_a & *mask_b;
         let combined_mask_len = combined_mask.count_ones();
         // TODO: is this check needed?
         if combined_mask_len < MASK_THRESHOLD {
@@ -79,18 +83,19 @@ where
 
     pub(crate) fn apply_mask(
         &self,
-        code: Vec<Ashare>,
-        mask: &BitArr,
+        mut code: Vec<Ashare>,
+        mask: &IrisCodeArray,
     ) -> Result<Vec<Ashare>, Error> {
         if code.len() != IRIS_CODE_SIZE {
             return Err(Error::InvlidCodeSizeError);
         }
 
-        let mut masked_code = Vec::with_capacity(IRIS_CODE_SIZE);
-        for (c, m) in code.into_iter().zip(mask.iter()) {
-            masked_code.push(c * T::Share::from(*m));
+        for (i, c) in code.iter_mut().enumerate() {
+            if !mask.get_bit(i) {
+                *c = Ashare::zero();
+            }
         }
-        Ok(masked_code)
+        Ok(code)
     }
 
     fn hamming_distance_post(
@@ -145,8 +150,8 @@ where
         Ok(res)
     }
 
-    fn get_cmp_diff(&self, hwd: Ashare, mask_len: usize) -> Ashare {
-        let threshold = (mask_len as f64 * MATCH_THRESHOLD_RATIO) as usize;
+    fn get_cmp_diff(&self, hwd: Ashare, mask_ones: usize) -> Ashare {
+        let threshold = (mask_ones as f64 * MATCH_THRESHOLD_RATIO) as usize;
         self.mpc.sub_const(
             hwd,
             threshold
@@ -159,11 +164,11 @@ where
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
-        mask_len: usize,
+        mask_ones: usize,
     ) -> Result<Bshare, Error> {
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
-        let diff = self.get_cmp_diff(hwd, mask_len);
+        let diff = self.get_cmp_diff(hwd, mask_ones);
         self.mpc.get_msb(diff).await
     }
 
@@ -191,23 +196,24 @@ where
         &mut self,
         a: Vec<Ashare>,
         b: Vec<Ashare>,
-        mask_a: &BitArr,
-        mask_b: &BitArr,
+        mask_a: &IrisCodeArray,
+        mask_b: &IrisCodeArray,
     ) -> Result<Bshare, Error> {
         let mask = self.combine_masks(mask_a, mask_b)?;
         let a = self.apply_mask(a, &mask)?;
         let b = self.apply_mask(b, &mask)?;
 
         let hwd = self.hamming_distance(a, b).await?;
-        self.compare_threshold(hwd, mask.len()).await
+
+        self.compare_threshold(hwd, mask.count_ones()).await
     }
 
     pub(crate) async fn compare_iris_many(
         &mut self,
         a: Vec<Ashare>,
         b: Vec<Vec<Ashare>>,
-        mask_a: &BitArr,
-        mask_b: &[BitArr],
+        mask_a: &IrisCodeArray,
+        mask_b: &[IrisCodeArray],
     ) -> Result<Vec<Bshare>, Error> {
         let amount = b.len();
         if (amount != mask_b.len()) || (amount == 0) {
@@ -224,7 +230,7 @@ where
 
             a_vec.push(iris_a);
             b_vec.push(iris_b);
-            mask_lens.push(mask.len());
+            mask_lens.push(IrisCode::IRIS_CODE_SIZE);
         }
 
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
@@ -235,8 +241,8 @@ where
         &mut self,
         iris: Vec<Ashare>,
         db: &[Vec<Ashare>],
-        mask_iris: &BitArr,
-        mask_db: &[BitArr],
+        mask_iris: &IrisCodeArray,
+        mask_db: &[IrisCodeArray],
     ) -> Result<bool, Error> {
         let amount = db.len();
         if (amount != mask_db.len()) || (amount == 0) {

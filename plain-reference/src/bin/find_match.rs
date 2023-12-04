@@ -43,14 +43,12 @@ fn main() -> Result<()> {
                 .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
             // flip a few bits in mask and code (like 5%)
             let dist = Bernoulli::new(0.05).unwrap();
-            for mut b in res.code.as_mut_bitslice() {
+            for i in 0..IrisCode::IRIS_CODE_SIZE {
                 if dist.sample(&mut rand::thread_rng()) {
-                    b.set(!*b);
+                    res.code.flip_bit(i);
                 }
-            }
-            for mut b in res.mask.as_mut_bitslice() {
                 if dist.sample(&mut rand::thread_rng()) {
-                    b.set(!*b);
+                    res.mask.flip_bit(i);
                 }
             }
 

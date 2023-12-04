@@ -59,12 +59,12 @@ fn main() -> Result<()> {
     let mut stmt = transaction.prepare("INSERT INTO iris_codes (code, mask, share_a, share_b, share_c) VALUES (?1, ?2, ?3, ?4, ?5)")?;
 
     for code in codes {
-        let mut shared_code_a = Vec::with_capacity(code.code.len());
-        let mut shared_code_b = Vec::with_capacity(code.code.len());
-        let mut shared_code_c = Vec::with_capacity(code.code.len());
-        for bit in code.code.iter() {
+        let mut shared_code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut shared_code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut shared_code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(u16::from(*bit), &mut rng);
+            let shares = Aby3::<Aby3Network>::share(u16::from(code.code.get_bit(i)), &mut rng);
             shared_code_a.push(shares[0].to_owned().get_a());
             shared_code_b.push(shares[1].to_owned().get_a());
             shared_code_c.push(shares[2].to_owned().get_a());

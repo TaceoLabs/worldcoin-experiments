@@ -56,9 +56,9 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
-        if id == self.id.next_id().into() {
+        if id == usize::from(self.id.next_id()) {
             self.channel_send.send(data).await
-        } else if id == self.id.prev_id().into() {
+        } else if id == usize::from(self.id.prev_id()) {
             self.channel_recv.send(data).await
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"))
@@ -70,9 +70,9 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
-        let buf = if id == self.id.prev_id().into() {
+        let buf = if id == usize::from(self.id.prev_id()) {
             self.channel_send.next().await
-        } else if id == self.id.next_id().into() {
+        } else if id == usize::from(self.id.next_id()) {
             self.channel_recv.next().await
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
@@ -103,12 +103,12 @@ impl NetworkTrait for Aby3Network {
     async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
         let mut result = Vec::with_capacity(3);
         for id in 0..3 {
-            if id != self.id.into() {
+            if id != usize::from(self.id) {
                 self.send(id, data.clone()).await?;
             }
         }
         for id in 0..3 {
-            if id == self.id.into() {
+            if id == usize::from(self.id) {
                 result.push(BytesMut::from(data.as_ref()));
             } else {
                 result.push(self.receive(id).await?);
