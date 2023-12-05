@@ -8,12 +8,13 @@ use crate::{
     traits::{network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes, RingElement, RingImpl},
 };
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
+use sha2::{digest::Output, Digest, Sha512};
 use std::ops::Mul;
 
 pub struct Swift3<N: NetworkTrait> {
@@ -136,15 +137,16 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(())
     }
 
-    #[inline(always)]
     async fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
+        // I should receive from id, and later the hash from the third party
         let value: T::Share = self.receive_value(id).await?;
 
         let my_id = self.network.get_id();
+        // if id==next_id, i should recv from prev and vice versa
         if id == (my_id + 1) % 3 {
-            value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
-        } else if id == (my_id + 2) % 3 {
             value.to_owned().add_to_bytes(&mut self.rcv_queue_prev);
+        } else if id == (my_id + 2) % 3 {
+            value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
         } else {
             return Err(Error::IdError(id));
         }
@@ -152,28 +154,65 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(value)
     }
 
-    #[inline(always)]
     async fn jmp_receive_many<T: Sharable>(
         &mut self,
         id: usize,
         len: usize,
     ) -> Result<Vec<T::Share>, Error> {
+        // I should receive from id, and later the hash from the third party
         let values: Vec<T::Share> = self.receive_vec(id, len).await?;
 
         let my_id = self.network.get_id();
+        // if id==next_id, i should recv from prev and vice versa
         if id == (my_id + 1) % 3 {
             for value in values.iter().cloned() {
-                value.add_to_bytes(&mut self.rcv_queue_next);
+                value.add_to_bytes(&mut self.rcv_queue_prev);
             }
         } else if id == (my_id + 2) % 3 {
             for value in values.iter().cloned() {
-                value.add_to_bytes(&mut self.rcv_queue_prev);
+                value.add_to_bytes(&mut self.rcv_queue_next);
             }
         } else {
             return Err(Error::IdError(id));
         }
 
         Ok(values)
+    }
+
+    fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
+        let mut swap = BytesMut::new();
+        std::mem::swap(&mut swap, data);
+        let bytes = swap.freeze();
+        let mut hasher = Sha512::new();
+        hasher.update(bytes);
+        hasher.finalize()
+    }
+
+    async fn jmp_verify(&mut self) -> Result<(), Error> {
+        let id = self.network.get_id();
+        let next_id = (id + 1) % 3;
+        let prev_id = (id + 2) % 3;
+
+        let send_next = Self::clear_and_hash(&mut self.send_queue_next);
+        let send_prev = Self::clear_and_hash(&mut self.send_queue_prev);
+        let hash_next = Self::clear_and_hash(&mut self.rcv_queue_next);
+        let hash_prev = Self::clear_and_hash(&mut self.rcv_queue_prev);
+
+        self.network
+            .send(next_id, Bytes::from(send_next.to_vec()))
+            .await?;
+        self.network
+            .send(prev_id, Bytes::from(send_prev.to_vec()))
+            .await?;
+
+        let rcv_prev = self.network.receive(prev_id).await?;
+        let rcv_next = self.network.receive(next_id).await?;
+
+        if rcv_prev.as_ref() != hash_prev.as_slice() || rcv_next.as_ref() != hash_next.as_slice() {
+            return Err(Error::JmpVerifyError);
+        }
+
+        Ok(())
     }
 
     async fn send_seed_opening(
@@ -485,9 +524,9 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        let id = self.network.get_id();
-        // TODO verify jmp sends from before
+        self.jmp_verify().await?;
 
+        let id = self.network.get_id();
         let (a, b, c) = share.get_abc();
 
         let rcv = if id == 0 {
@@ -506,7 +545,7 @@ where
             unreachable!()
         };
 
-        // TODO verify jmp sends from now
+        self.jmp_verify().await?;
 
         let output = match id {
             0 => c - a - b - rcv,
@@ -518,9 +557,9 @@ where
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
-        let id = self.network.get_id();
-        // TODO verify jmp sends from before
+        self.jmp_verify().await?;
 
+        let id = self.network.get_id();
         let len = shares.len();
         let mut a = Vec::with_capacity(len);
         let mut b = Vec::with_capacity(len);
@@ -549,7 +588,7 @@ where
             unreachable!()
         };
 
-        // TODO verify jmp sends from now
+        self.jmp_verify().await?;
 
         let mut output = Vec::with_capacity(len);
 

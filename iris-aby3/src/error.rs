@@ -21,6 +21,9 @@ pub enum Error {
     /// Commit was invalid
     #[error("Commit was invalid: Party {0}")]
     InvalidCommitment(usize),
+    /// JMP verify failed Error
+    #[error("JMP verify failed")]
+    JmpVerifyError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,
