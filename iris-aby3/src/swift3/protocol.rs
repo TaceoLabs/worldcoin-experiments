@@ -102,12 +102,10 @@ impl<N: NetworkTrait> Swift3<N> {
             // TODO save for jmp verify
             None
         } else if id == recv_id {
-            Some(self.receive_value(recv_id).await?)
+            Some(self.receive_value(send_id1).await?)
         } else {
             unreachable!()
         };
-
-        // TODO packed jmp verify!!!! at the end
 
         Ok(result)
     }
@@ -450,9 +448,9 @@ where
         // TODO verify jmp sends from now
 
         let output = match id {
-            0 => c - a - b - r1.ok_or(Error::ValueError("None received".to_string()))?,
+            0 => c - a - b - r3.ok_or(Error::ValueError("None received".to_string()))?,
             1 => b - a - r2.ok_or(Error::ValueError("None received".to_string()))?,
-            2 => b - a - r3.ok_or(Error::ValueError("None received".to_string()))?,
+            2 => b - a - r1.ok_or(Error::ValueError("None received".to_string()))?,
             _ => unreachable!(),
         };
         Ok(T::from_sharetype(output))
