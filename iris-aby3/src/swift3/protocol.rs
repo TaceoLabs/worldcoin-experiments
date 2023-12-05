@@ -76,38 +76,42 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(())
     }
 
-    async fn jmp_send<T: Sharable>(
+    #[inline(always)]
+    async fn jmp_send<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
+        self.send_value(value, id).await
+    }
+
+    #[inline(always)]
+    async fn jmp_send_many<T: Sharable>(
         &mut self,
-        send_id1: usize,
-        send_id2: usize,
-        recv_id: usize,
-        value: Option<T::Share>,
-    ) -> Result<Option<T::Share>, Error> {
-        if send_id1 > 2 || send_id2 > 2 || recv_id > 2 {
-            return Err(Error::ValueError("JMP IDs out of range".to_string()));
-        }
-        if send_id1 == send_id2 || send_id1 == recv_id || send_id2 == recv_id {
-            return Err(Error::ValueError("JMP IDs equal".to_string()));
-        }
+        values: Vec<T::Share>,
+        id: usize,
+    ) -> Result<(), Error> {
+        self.send_vec(values, id).await
+    }
 
-        let id = self.network.get_id();
-        if (id == send_id1 || id == send_id2) && value.is_none() {
-            return Err(Error::ValueError("Cannot share None".to_string()));
-        }
+    fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) {
+        // TODO add to queue
+    }
 
-        let result = if id == send_id1 {
-            self.send_value(value.unwrap(), recv_id).await?;
-            None
-        } else if id == send_id2 {
-            // TODO save for jmp verify
-            None
-        } else if id == recv_id {
-            Some(self.receive_value(send_id1).await?)
-        } else {
-            unreachable!()
-        };
+    fn jmp_queue_many<T: Sharable>(&mut self, values: Vec<T::Share>, id: usize) {
+        // TODO add to queue
+    }
 
-        Ok(result)
+    #[inline(always)]
+    async fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
+        // TODO add to queue
+        self.receive_value(id).await
+    }
+
+    #[inline(always)]
+    async fn jmp_receive_many<T: Sharable>(
+        &mut self,
+        id: usize,
+        len: usize,
+    ) -> Result<Vec<T::Share>, Error> {
+        // TODO add to queue
+        self.receive_vec(id, len).await
     }
 
     async fn send_seed_opening(
@@ -320,18 +324,16 @@ where
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
                     self.send_value(beta.to_owned(), 1).await?;
-                    self.jmp_send::<T>(0, 1, 2, Some(beta.to_owned())).await?;
+                    self.jmp_send::<T>(beta.to_owned(), 2).await?;
                     Share::new(alpha1, alpha2, beta + &gamma)
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let beta = self.receive_value::<T::Share>(0).await?;
-                    self.jmp_send::<T>(0, 1, 2, Some(beta.to_owned())).await?;
-                    // Receive beta
+                    self.jmp_queue::<T>(beta.to_owned(), 2);
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
-                    let beta = self.jmp_send::<T>(0, 1, 2, None).await?;
-                    let beta = beta.ok_or(Error::ValueError("None received".to_string()))?;
+                    let beta = self.jmp_receive::<T>(0).await?;
                     Share::new(alpha2, beta, gamma)
                 } else {
                     unreachable!()
@@ -341,23 +343,19 @@ where
                 let alpha2 = self.prf.gen_p::<T::Share>();
                 if self_id == 0 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
-                    let beta_gamma = self.jmp_send::<T>(1, 2, 0, None).await?;
-                    let beta_gamma =
-                        beta_gamma.ok_or(Error::ValueError("None received".to_string()))?;
+                    let beta_gamma = self.jmp_receive::<T>(1).await?;
                     Share::new(alpha1, alpha2, beta_gamma)
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
                     self.send_value(beta.to_owned(), 2).await?;
-                    self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
-                        .await?;
+                    self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = self.receive_value::<T::Share>(1).await?;
-                    self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
-                        .await?;
+                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0);
                     Share::new(alpha2, beta, gamma)
                 } else {
                     unreachable!()
@@ -367,23 +365,19 @@ where
                 let alpha1 = self.prf.gen_p::<T::Share>();
                 if self_id == 0 {
                     let alpha2 = self.prf.gen_2::<T::Share>();
-                    let beta_gamma = self.jmp_send::<T>(1, 2, 0, None).await?;
-                    let beta_gamma =
-                        beta_gamma.ok_or(Error::ValueError("None received".to_string()))?;
+                    let beta_gamma = self.jmp_receive::<T>(1).await?;
                     Share::new(alpha1, alpha2, beta_gamma)
                 } else if self_id == 1 {
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = self.receive_value::<T::Share>(2).await?;
-                    self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
-                        .await?;
+                    self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
                     self.send_value(beta.to_owned(), 1).await?;
-                    self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
-                        .await?;
+                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0);
                     Share::new(alpha2, beta, gamma)
                 } else {
                     unreachable!()
@@ -433,24 +427,29 @@ where
         // TODO verify jmp sends from before
 
         let (a, b, c) = share.get_abc();
-        let inputs = match id {
-            0 => (Some(a.to_owned()), Some(b.to_owned()), None),
-            1 => (Some(a.to_owned()), None, Some(c.to_owned())),
-            2 => (None, Some(a.to_owned()), Some(c.to_owned())),
-            _ => unreachable!(),
-        };
 
-        // Todo jmp_send_many?
-        let r1 = self.jmp_send::<T>(0, 1, 2, inputs.0).await?;
-        let r2 = self.jmp_send::<T>(0, 2, 1, inputs.1).await?;
-        let r3 = self.jmp_send::<T>(1, 2, 0, inputs.2).await?;
+        let rcv = if id == 0 {
+            self.jmp_send::<T>(a.to_owned(), 2).await?;
+            self.jmp_send::<T>(b.to_owned(), 1).await?;
+            self.jmp_receive::<T>(1).await?
+        } else if id == 1 {
+            self.jmp_send::<T>(c.to_owned(), 0).await?;
+            self.jmp_queue::<T>(a.to_owned(), 2);
+            self.jmp_receive::<T>(0).await?
+        } else if id == 2 {
+            self.jmp_queue::<T>(c.to_owned(), 0);
+            self.jmp_queue::<T>(a.to_owned(), 1);
+            self.jmp_receive::<T>(0).await?
+        } else {
+            unreachable!()
+        };
 
         // TODO verify jmp sends from now
 
         let output = match id {
-            0 => c - a - b - r3.ok_or(Error::ValueError("None received".to_string()))?,
-            1 => b - a - r2.ok_or(Error::ValueError("None received".to_string()))?,
-            2 => b - a - r1.ok_or(Error::ValueError("None received".to_string()))?,
+            0 => c - a - b - rcv,
+            1 => b - a - rcv,
+            2 => b - a - rcv,
             _ => unreachable!(),
         };
         Ok(T::from_sharetype(output))
