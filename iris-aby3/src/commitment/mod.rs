@@ -1,4 +1,4 @@
-use crate::types::ring_element::{ring_vec_to_bytes, RingImpl};
+use crate::{aby3::utils::ring_vec_to_bytes, types::ring_element::RingImpl};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};

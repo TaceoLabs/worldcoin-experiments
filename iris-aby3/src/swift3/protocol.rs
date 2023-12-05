@@ -3,10 +3,11 @@ use super::{
     share::Share,
 };
 use crate::{
+    aby3::utils,
     commitment::{CommitOpening, Commitment},
-    prelude::{Bit, Error, MpcTrait, Sharable},
+    prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
     traits::{network_trait::NetworkTrait, security::MaliciousAbort},
-    types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes, RingElement, RingImpl},
+    types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
 use rand::{
@@ -49,24 +50,6 @@ impl<N: NetworkTrait> Swift3<N> {
         }
     }
 
-    async fn send_value<R: RingImpl>(&mut self, value: R, id: usize) -> Result<(), Error> {
-        Ok(self.network.send(id, value.to_bytes()).await?)
-    }
-
-    async fn receive_value<R: RingImpl>(&mut self, id: usize) -> Result<R, Error> {
-        let response = self.network.receive(id).await?;
-        R::from_bytes_mut(response)
-    }
-
-    async fn send_vec<R: RingImpl>(&mut self, value: Vec<R>, id: usize) -> Result<(), Error> {
-        Ok(self.network.send(id, ring_vec_to_bytes(value)).await?)
-    }
-
-    async fn receive_vec<R: RingImpl>(&mut self, id: usize, len: usize) -> Result<Vec<R>, Error> {
-        let response = self.network.receive(id).await?;
-        ring_vec_from_bytes(response, len)
-    }
-
     async fn send_seed_commitment(
         &mut self,
         comm1: &[u8],
@@ -93,7 +76,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
     #[inline(always)]
     async fn jmp_send<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
-        self.send_value(value, id).await
+        utils::send_value(&mut self.network, value, id).await
     }
 
     #[inline(always)]
@@ -102,7 +85,7 @@ impl<N: NetworkTrait> Swift3<N> {
         values: Vec<T::Share>,
         id: usize,
     ) -> Result<(), Error> {
-        self.send_vec(values, id).await
+        utils::send_vec(&mut self.network, values, id).await
     }
 
     fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
@@ -137,9 +120,28 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(())
     }
 
+    async fn aby_mul<T: Sharable>(
+        &mut self,
+        d: Aby3Share<T>,
+        e: Aby3Share<T>,
+    ) -> Result<Aby3Share<T>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        // TODO this is just semi honest!!!!!
+        let rand = self.prf.gen_aby_zero_share::<T>();
+        let mut c = d * e;
+        c.a += rand;
+
+        // Network: reshare
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+
+        Ok(c)
+    }
+
     async fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
         // I should receive from id, and later the hash from the third party
-        let value: T::Share = self.receive_value(id).await?;
+        let value: T::Share = utils::receive_value(&mut self.network, id).await?;
 
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
@@ -160,7 +162,7 @@ impl<N: NetworkTrait> Swift3<N> {
         len: usize,
     ) -> Result<Vec<T::Share>, Error> {
         // I should receive from id, and later the hash from the third party
-        let values: Vec<T::Share> = self.receive_vec(id, len).await?;
+        let values: Vec<T::Share> = utils::receive_vec(&mut self.network, id, len).await?;
 
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
@@ -424,12 +426,12 @@ where
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
-                    self.send_value(beta.to_owned(), 1).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
                     self.jmp_send::<T>(beta.to_owned(), 2).await?;
                     Share::new(alpha1, alpha2, beta + &gamma)
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
-                    let beta = self.receive_value::<T::Share>(0).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 0).await?;
                     self.jmp_queue::<T>(beta.to_owned(), 2)?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
@@ -450,12 +452,12 @@ where
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
-                    self.send_value(beta.to_owned(), 2).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 2).await?;
                     self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let gamma = self.prf.gen_2::<T::Share>();
-                    let beta = self.receive_value::<T::Share>(1).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 1).await?;
                     self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
                     Share::new(alpha2, beta, gamma)
                 } else {
@@ -470,14 +472,14 @@ where
                     Share::new(alpha1, alpha2, beta_gamma)
                 } else if self_id == 1 {
                     let gamma = self.prf.gen_2::<T::Share>();
-                    let beta = self.receive_value::<T::Share>(2).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 2).await?;
                     self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
-                    self.send_value(beta.to_owned(), 1).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
                     self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
                     Share::new(alpha2, beta, gamma)
                 } else {
@@ -646,7 +648,80 @@ where
     }
 
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
-        todo!()
+        let id = self.get_id();
+
+        let (x_a, x_b, x_c) = a.get_abc();
+        let (y_a, y_b, y_c) = b.get_abc();
+
+        // ABY3 Sharing:
+        // P0: (alpha1, alpha2)
+        // P1: (gamma, alpha1)
+        // P2: (alpha2, gamma)
+        let (d, e) = match id {
+            0 => {
+                let d = Aby3Share::new(x_a.to_owned(), x_b.to_owned());
+                let e = Aby3Share::new(y_a.to_owned(), y_b.to_owned());
+                (d, e)
+            }
+            1 => {
+                let d = Aby3Share::new(x_c.to_owned(), x_a.to_owned());
+                let e = Aby3Share::new(y_c.to_owned(), y_a.to_owned());
+                (d, e)
+            }
+            2 => {
+                let d = Aby3Share::new(x_a.to_owned(), x_c.to_owned());
+                let e = Aby3Share::new(y_a.to_owned(), y_c.to_owned());
+                (d, e)
+            }
+            _ => unreachable!(),
+        };
+
+        let de = self.aby_mul::<T>(d, e).await?;
+
+        let share = match id {
+            0 => {
+                let alpha1 = self.prf.gen_1::<T::Share>();
+                let alpha2 = self.prf.gen_2::<T::Share>();
+                let (xi1, xi2) = de.get_ab();
+                let beta_z1 = -x_c.to_owned() * y_a - y_c.to_owned() * x_a + &alpha1 + xi1;
+                let beta_z2 = -x_c * y_b - y_c * x_b + &alpha2 + xi2;
+                self.jmp_send::<T>(beta_z1, 2).await?;
+                self.jmp_send::<T>(beta_z2, 1).await?;
+                let c = self.jmp_receive::<T>(1).await?;
+                Share::new(alpha1, alpha2, c)
+            }
+            1 => {
+                let alpha1 = self.prf.gen_1::<T::Share>();
+                let gamma = self.prf.gen_2::<T::Share>();
+                let (psi, xi1) = de.get_ab();
+                let psi = psi - x_c.to_owned() * &y_c;
+                let beta_gamma_x = x_c + &x_b;
+                let beta_gamma_y = y_c + &y_b;
+                let beta_z1 = -beta_gamma_x * y_a - beta_gamma_y.to_owned() * x_a + &alpha1 + xi1;
+                self.jmp_queue::<T>(beta_z1.to_owned(), 2)?;
+                let beta_z2 = self.jmp_receive::<T>(0).await?;
+                let beta_z = beta_z1 + beta_z2 + x_b * y_b + psi;
+                self.jmp_send::<T>(beta_z.to_owned(), 0).await?;
+                Share::new(alpha1, beta_z, gamma)
+            }
+            2 => {
+                let alpha2 = self.prf.gen_1::<T::Share>();
+                let gamma = self.prf.gen_2::<T::Share>();
+                let (xi2, psi) = de.get_ab();
+                let psi = psi - x_c.to_owned() * &y_c;
+                let beta_gamma_x = x_c + &x_b;
+                let beta_gamma_y = y_c + &y_b;
+                let beta_z2 = -beta_gamma_x * y_a - beta_gamma_y.to_owned() * x_a + &alpha2 + xi2;
+                self.jmp_queue::<T>(beta_z2.to_owned(), 1)?;
+                let beta_z1 = self.jmp_receive::<T>(0).await?;
+                let beta_z = beta_z1 + beta_z2 + x_b * y_b + psi;
+                self.jmp_queue::<T>(beta_z.to_owned(), 0)?;
+                Share::new(alpha2, beta_z, gamma)
+            }
+            _ => unreachable!(),
+        };
+
+        Ok(share)
     }
 
     fn mul_const(&self, a: Share<T>, b: T) -> Share<T> {

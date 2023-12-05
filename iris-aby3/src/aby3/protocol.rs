@@ -7,8 +7,7 @@ use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
 use crate::types::bit::Bit;
-use crate::types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes};
-use crate::types::ring_element::{RingElement, RingImpl};
+use crate::types::ring_element::RingElement;
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
 use num_traits::Zero;
@@ -46,18 +45,6 @@ impl<N: NetworkTrait> Aby3<N> {
     pub async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
-    }
-
-    async fn send_and_receive_value<R: RingImpl>(&mut self, value: R) -> Result<R, Error> {
-        let response = utils::send_and_receive(&mut self.network, value.to_bytes()).await?;
-        R::from_bytes_mut(response)
-    }
-
-    async fn send_and_receive_vec<R: RingImpl>(&mut self, values: Vec<R>) -> Result<Vec<R>, Error> {
-        let len = values.len();
-        let response =
-            utils::send_and_receive(&mut self.network, ring_vec_to_bytes(values)).await?;
-        ring_vec_from_bytes(response, len)
     }
 
     fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
@@ -264,7 +251,7 @@ where
         }
 
         // Network: reshare
-        let share_b = self.send_and_receive_value(share_a.to_owned()).await?;
+        let share_b = utils::send_and_receive_value(&mut self.network, share_a.to_owned()).await?;
 
         Ok(Share::new(share_a, share_b))
     }
@@ -283,7 +270,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = self.send_and_receive_vec(shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
 
         let mut shares = Vec::with_capacity(3);
         for (share_a, share_b) in shares_a.into_iter().zip(shares_b.into_iter()) {
@@ -306,13 +293,13 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        let c = self.send_and_receive_value(share.b.to_owned()).await?;
+        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = self.send_and_receive_vec(shares_b).await?;
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -322,13 +309,13 @@ where
     }
 
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
-        let c = self.send_and_receive_value(share.b.to_owned()).await?;
+        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = self.send_and_receive_vec(shares_b).await?;
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -371,7 +358,7 @@ where
         c.a += rand;
 
         // Network: reshare
-        c.b = self.send_and_receive_value(c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
 
         Ok(c)
     }
@@ -392,7 +379,7 @@ where
         }
 
         // Network: reshare
-        c.b = self.send_and_receive_value(c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
 
         Ok(c)
     }
@@ -420,7 +407,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = self.send_and_receive_vec(shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
 
         let res = shares_a
             .into_iter()
@@ -463,7 +450,7 @@ where
         c.a ^= rand;
 
         // Network: reshare
-        c.b = self.send_and_receive_value(c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
 
         Ok(c)
     }
@@ -485,7 +472,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = self.send_and_receive_vec(shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
 
         let res = shares_a
             .into_iter()
