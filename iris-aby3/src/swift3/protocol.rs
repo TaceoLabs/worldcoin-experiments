@@ -759,11 +759,10 @@ where
 
         self.jmp_verify().await?;
 
-        let output = match id {
-            0 => c - a - b - rcv,
-            1 => b - a - rcv,
-            2 => b - a - rcv,
-            _ => unreachable!(),
+        let output = if id == 0 {
+            c - a - b - rcv
+        } else {
+            b - a - rcv
         };
         Ok(T::from_sharetype(output))
     }
@@ -810,23 +809,96 @@ where
             {
                 output.push(T::from_sharetype(c_ - a_ - b_ - rcv_));
             }
-        } else if id < 3 {
+        } else {
             for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
                 output.push(T::from_sharetype(b_ - a_ - rcv_));
             }
-        } else {
-            unreachable!()
         }
 
         Ok(output)
     }
 
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
-        todo!()
+        self.jmp_verify().await?;
+
+        let id = self.network.get_id();
+        let (a, b, c) = share.get_abc();
+
+        let rcv = if id == 0 {
+            self.jmp_send::<Bit>(a.to_owned(), 2).await?;
+            self.jmp_send::<Bit>(b.to_owned(), 1).await?;
+            self.jmp_receive::<Bit>(1).await?
+        } else if id == 1 {
+            self.jmp_send::<Bit>(c.to_owned(), 0).await?;
+            self.jmp_queue::<Bit>(a.to_owned(), 2)?;
+            self.jmp_receive::<Bit>(0).await?
+        } else if id == 2 {
+            self.jmp_queue::<Bit>(c.to_owned(), 0)?;
+            self.jmp_queue::<Bit>(a.to_owned(), 1)?;
+            self.jmp_receive::<Bit>(0).await?
+        } else {
+            unreachable!()
+        };
+
+        self.jmp_verify().await?;
+
+        let output = if id == 0 {
+            c ^ a ^ b ^ rcv
+        } else {
+            b ^ a ^ rcv
+        };
+        Ok(output.convert().convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
-        todo!()
+        self.jmp_verify().await?;
+
+        let id = self.network.get_id();
+        let len = shares.len();
+        let mut a = Vec::with_capacity(len);
+        let mut b = Vec::with_capacity(len);
+        let mut c = Vec::with_capacity(len);
+
+        for share in shares {
+            let (a_, b_, c_) = share.get_abc();
+            a.push(a_);
+            b.push(b_);
+            c.push(c_);
+        }
+
+        let rcv = if id == 0 {
+            self.jmp_send_many::<Bit>(a.to_owned(), 2).await?;
+            self.jmp_send_many::<Bit>(b.to_owned(), 1).await?;
+            self.jmp_receive_many::<Bit>(1, len).await?
+        } else if id == 1 {
+            self.jmp_send_many::<Bit>(c.to_owned(), 0).await?;
+            self.jmp_queue_many::<Bit>(a.to_owned(), 2)?;
+            self.jmp_receive_many::<Bit>(0, len).await?
+        } else if id == 2 {
+            self.jmp_queue_many::<Bit>(c.to_owned(), 0)?;
+            self.jmp_queue_many::<Bit>(a.to_owned(), 1)?;
+            self.jmp_receive_many::<Bit>(0, len).await?
+        } else {
+            unreachable!()
+        };
+
+        self.jmp_verify().await?;
+
+        let mut output = Vec::with_capacity(len);
+
+        if id == 0 {
+            for (rcv_, (a_, (b_, c_))) in
+                rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c)))
+            {
+                output.push((c_ - a_ - b_ - rcv_).convert().convert());
+            }
+        } else {
+            for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
+                output.push((b_ - a_ - rcv_).convert().convert());
+            }
+        }
+
+        Ok(output)
     }
 
     fn add(&self, a: Share<T>, b: Share<T>) -> Share<T> {
