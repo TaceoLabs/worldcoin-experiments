@@ -19,6 +19,10 @@ use std::ops::Mul;
 pub struct Swift3<N: NetworkTrait> {
     network: N,
     prf: Prf,
+    send_queue_next: BytesMut,
+    send_queue_prev: BytesMut,
+    rcv_queue_next: BytesMut,
+    rcv_queue_prev: BytesMut,
 }
 
 // TODO Plan is to compute everything on the fly and just implement abort. Thus rec has no prep phase and all the other subprotocols are not split into prep/online
@@ -29,8 +33,19 @@ impl<N: NetworkTrait> MaliciousAbort for Swift3<N> {}
 impl<N: NetworkTrait> Swift3<N> {
     pub fn new(network: N) -> Self {
         let prf = Prf::default();
+        let send_queue_next = BytesMut::new();
+        let send_queue_prev = BytesMut::new();
+        let rcv_queue_next = BytesMut::new();
+        let rcv_queue_prev = BytesMut::new();
 
-        Self { network, prf }
+        Self {
+            network,
+            prf,
+            send_queue_next,
+            send_queue_prev,
+            rcv_queue_next,
+            rcv_queue_prev,
+        }
     }
 
     async fn send_value<R: RingImpl>(&mut self, value: R, id: usize) -> Result<(), Error> {
@@ -89,18 +104,52 @@ impl<N: NetworkTrait> Swift3<N> {
         self.send_vec(values, id).await
     }
 
-    fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) {
-        // TODO add to queue
+    fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
+        let my_id = self.network.get_id();
+        if id == (my_id + 1) % 3 {
+            value.add_to_bytes(&mut self.send_queue_next);
+        } else if id == (my_id + 2) % 3 {
+            value.add_to_bytes(&mut self.send_queue_prev);
+        } else {
+            return Err(Error::IdError(id));
+        }
+        Ok(())
     }
 
-    fn jmp_queue_many<T: Sharable>(&mut self, values: Vec<T::Share>, id: usize) {
-        // TODO add to queue
+    fn jmp_queue_many<T: Sharable>(
+        &mut self,
+        values: Vec<T::Share>,
+        id: usize,
+    ) -> Result<(), Error> {
+        let my_id = self.network.get_id();
+        if id == (my_id + 1) % 3 {
+            for value in values {
+                value.add_to_bytes(&mut self.send_queue_next);
+            }
+        } else if id == (my_id + 2) % 3 {
+            for value in values {
+                value.add_to_bytes(&mut self.send_queue_prev);
+            }
+        } else {
+            return Err(Error::IdError(id));
+        }
+        Ok(())
     }
 
     #[inline(always)]
     async fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
-        // TODO add to queue
-        self.receive_value(id).await
+        let value: T::Share = self.receive_value(id).await?;
+
+        let my_id = self.network.get_id();
+        if id == (my_id + 1) % 3 {
+            value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
+        } else if id == (my_id + 2) % 3 {
+            value.to_owned().add_to_bytes(&mut self.rcv_queue_prev);
+        } else {
+            return Err(Error::IdError(id));
+        }
+
+        Ok(value)
     }
 
     #[inline(always)]
@@ -109,8 +158,22 @@ impl<N: NetworkTrait> Swift3<N> {
         id: usize,
         len: usize,
     ) -> Result<Vec<T::Share>, Error> {
-        // TODO add to queue
-        self.receive_vec(id, len).await
+        let values: Vec<T::Share> = self.receive_vec(id, len).await?;
+
+        let my_id = self.network.get_id();
+        if id == (my_id + 1) % 3 {
+            for value in values.iter().cloned() {
+                value.add_to_bytes(&mut self.rcv_queue_next);
+            }
+        } else if id == (my_id + 2) % 3 {
+            for value in values.iter().cloned() {
+                value.add_to_bytes(&mut self.rcv_queue_prev);
+            }
+        } else {
+            return Err(Error::IdError(id));
+        }
+
+        Ok(values)
     }
 
     async fn send_seed_opening(
@@ -328,7 +391,7 @@ where
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let beta = self.receive_value::<T::Share>(0).await?;
-                    self.jmp_queue::<T>(beta.to_owned(), 2);
+                    self.jmp_queue::<T>(beta.to_owned(), 2)?;
                     Share::new(alpha1, beta, gamma)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
@@ -354,7 +417,7 @@ where
                 } else if self_id == 2 {
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = self.receive_value::<T::Share>(1).await?;
-                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0);
+                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
                     Share::new(alpha2, beta, gamma)
                 } else {
                     unreachable!()
@@ -376,7 +439,7 @@ where
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
                     self.send_value(beta.to_owned(), 1).await?;
-                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0);
+                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
                     Share::new(alpha2, beta, gamma)
                 } else {
                     unreachable!()
@@ -433,11 +496,11 @@ where
             self.jmp_receive::<T>(1).await?
         } else if id == 1 {
             self.jmp_send::<T>(c.to_owned(), 0).await?;
-            self.jmp_queue::<T>(a.to_owned(), 2);
+            self.jmp_queue::<T>(a.to_owned(), 2)?;
             self.jmp_receive::<T>(0).await?
         } else if id == 2 {
-            self.jmp_queue::<T>(c.to_owned(), 0);
-            self.jmp_queue::<T>(a.to_owned(), 1);
+            self.jmp_queue::<T>(c.to_owned(), 0)?;
+            self.jmp_queue::<T>(a.to_owned(), 1)?;
             self.jmp_receive::<T>(0).await?
         } else {
             unreachable!()
@@ -476,11 +539,11 @@ where
             self.jmp_receive_many::<T>(1, len).await?
         } else if id == 1 {
             self.jmp_send_many::<T>(c.to_owned(), 0).await?;
-            self.jmp_queue_many::<T>(a.to_owned(), 2);
+            self.jmp_queue_many::<T>(a.to_owned(), 2)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else if id == 2 {
-            self.jmp_queue_many::<T>(c.to_owned(), 0);
-            self.jmp_queue_many::<T>(a.to_owned(), 1);
+            self.jmp_queue_many::<T>(c.to_owned(), 0)?;
+            self.jmp_queue_many::<T>(a.to_owned(), 1)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else {
             unreachable!()
