@@ -10,7 +10,6 @@ use crate::{
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
-use num_traits::Zero;
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
@@ -234,7 +233,7 @@ impl<N: NetworkTrait> Swift3<N> {
         } else {
             let alpha = self.prf.gen_1::<T::Share>();
             let gamma = self.prf.gen_2::<T::Share>();
-            let (mut psi, xi) = if id == 1 {
+            let (psi, xi) = if id == 1 {
                 de.get_ab()
             } else {
                 let (xi, psi) = de.get_ab();
@@ -603,7 +602,6 @@ impl<N: NetworkTrait> Swift3<N> {
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N>
 where
     Standard: Distribution<T::Share>,
-    Share<T>: Mul<Output = Share<T>>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
 {
     fn get_id(&self) -> usize {

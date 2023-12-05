@@ -23,7 +23,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -78,7 +77,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -127,7 +125,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -182,7 +179,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -239,7 +235,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -307,7 +302,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -372,7 +366,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -430,7 +423,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
@@ -495,7 +487,6 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
-        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
         let mut protocol = Swift3::<PartyTestNetwork>::new(net);
