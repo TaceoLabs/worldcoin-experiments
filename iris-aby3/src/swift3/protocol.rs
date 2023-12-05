@@ -9,7 +9,6 @@ use crate::{
     types::ring_element::{ring_vec_from_bytes, ring_vec_to_bytes, RingElement, RingImpl},
 };
 use bytes::BytesMut;
-use num_traits::Zero;
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
@@ -22,7 +21,7 @@ pub struct Swift3<N: NetworkTrait> {
     prf: Prf,
 }
 
-// TODO Plan is to compute everything on the fly and just implement abort. Thus recv has no prep phase and all the other subprotocols are not split into prep/online
+// TODO Plan is to compute everything on the fly and just implement abort. Thus rec has no prep phase and all the other subprotocols are not split into prep/online
 // TODO first implement MUL without triple checks, see if everything works and add it later
 
 impl<N: NetworkTrait> MaliciousAbort for Swift3<N> {}
@@ -456,7 +455,56 @@ where
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
-        todo!()
+        let id = self.network.get_id();
+        // TODO verify jmp sends from before
+
+        let len = shares.len();
+        let mut a = Vec::with_capacity(len);
+        let mut b = Vec::with_capacity(len);
+        let mut c = Vec::with_capacity(len);
+
+        for share in shares {
+            let (a_, b_, c_) = share.get_abc();
+            a.push(a_);
+            b.push(b_);
+            c.push(c_);
+        }
+
+        let rcv = if id == 0 {
+            self.jmp_send_many::<T>(a.to_owned(), 2).await?;
+            self.jmp_send_many::<T>(b.to_owned(), 1).await?;
+            self.jmp_receive_many::<T>(1, len).await?
+        } else if id == 1 {
+            self.jmp_send_many::<T>(c.to_owned(), 0).await?;
+            self.jmp_queue_many::<T>(a.to_owned(), 2);
+            self.jmp_receive_many::<T>(0, len).await?
+        } else if id == 2 {
+            self.jmp_queue_many::<T>(c.to_owned(), 0);
+            self.jmp_queue_many::<T>(a.to_owned(), 1);
+            self.jmp_receive_many::<T>(0, len).await?
+        } else {
+            unreachable!()
+        };
+
+        // TODO verify jmp sends from now
+
+        let mut output = Vec::with_capacity(len);
+
+        if id == 0 {
+            for (rcv_, (a_, (b_, c_))) in
+                rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c)))
+            {
+                output.push(T::from_sharetype(c_ - a_ - b_ - rcv_));
+            }
+        } else if id < 3 {
+            for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
+                output.push(T::from_sharetype(b_ - a_ - rcv_));
+            }
+        } else {
+            unreachable!()
+        }
+
+        Ok(output)
     }
 
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
