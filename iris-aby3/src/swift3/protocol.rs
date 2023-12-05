@@ -431,7 +431,31 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        todo!()
+        let id = self.network.get_id();
+        // TODO verify jmp sends from before
+
+        let (a, b, c) = share.get_abc();
+        let inputs = match id {
+            0 => (Some(a.to_owned()), Some(b.to_owned()), None),
+            1 => (Some(a.to_owned()), None, Some(c.to_owned())),
+            2 => (None, Some(a.to_owned()), Some(c.to_owned())),
+            _ => unreachable!(),
+        };
+
+        // Todo jmp_send_many?
+        let r1 = self.jmp_send::<T>(0, 1, 2, inputs.0).await?;
+        let r2 = self.jmp_send::<T>(0, 2, 1, inputs.1).await?;
+        let r3 = self.jmp_send::<T>(1, 2, 0, inputs.2).await?;
+
+        // TODO verify jmp sends from now
+
+        let output = match id {
+            0 => c - a - b - r1.ok_or(Error::ValueError("None received".to_string()))?,
+            1 => b - a - r2.ok_or(Error::ValueError("None received".to_string()))?,
+            2 => b - a - r3.ok_or(Error::ValueError("None received".to_string()))?,
+            _ => unreachable!(),
+        };
+        Ok(T::from_sharetype(output))
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
