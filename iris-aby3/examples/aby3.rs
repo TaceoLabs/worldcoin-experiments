@@ -1,6 +1,6 @@
 use clap::Parser;
 use color_eyre::{eyre::Context, Result};
-use iris_aby3::prelude::{Aby3, Aby3Network, Error, IrisMpc, MpcTrait, Sharable, Share};
+use iris_aby3::prelude::{Aby3, Aby3Network, Aby3Share, Error, IrisAby3, MpcTrait, Sharable};
 use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -53,9 +53,9 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisMpc<T, Aby3<Aby3Network>>) -> Result<()>
+fn print_stats<T: Sharable>(iris: &IrisAby3<T, Aby3<Aby3Network>>) -> Result<()>
 where
-    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     Standard: Distribution<T::Share>,
 {
@@ -85,13 +85,13 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
 
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
-    shares: Vec<Vec<Share<T>>>,
+    shares: Vec<Vec<Aby3Share<T>>>,
     masks: Vec<IrisCodeArray>,
 }
 
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
-    shares: Vec<Share<T>>,
+    shares: Vec<Aby3Share<T>>,
     mask: IrisCodeArray,
 }
 
@@ -127,7 +127,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         }
         let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for (a, b) in share_a.into_iter().zip(share_b) {
-            share.push(Share::new(a, b));
+            share.push(Aby3Share::new(a, b));
         }
 
         res.shares.push(share);
@@ -139,7 +139,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
 
 fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
 where
-    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     Standard: Distribution<T::Share>,
 {
     let mut rng = SmallRng::seed_from_u64(args.iris_seed);
@@ -210,7 +210,7 @@ async fn main() -> Result<()> {
     println0!(id, "\nInitialize protocol:");
     let start = Instant::now();
     let protocol = Aby3::new(network);
-    let mut iris = IrisMpc::<u16, _>::new(protocol)?;
+    let mut iris = IrisAby3::<u16, _>::new(protocol)?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
     print_stats(&iris)?;

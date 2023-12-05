@@ -1,5 +1,5 @@
 use crate::aby3::utils::ceil_log2;
-use crate::prelude::{Error, MpcTrait, Sharable, Share};
+use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
@@ -11,7 +11,7 @@ const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 const PACK_SIZE: usize = 256; // TODO adjust
 
-pub type IrisMpc<T, Mpc> = IrisProtocol<T, Share<T>, Share<Bit>, Mpc>;
+pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,

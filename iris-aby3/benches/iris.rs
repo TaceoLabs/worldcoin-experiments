@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iris_aby3::prelude::{
-    Aby3, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, Share, TestNetwork3p,
+    Aby3, Aby3Share, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p,
 };
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -13,15 +13,15 @@ use tokio::runtime;
 
 async fn iris_aby3_task<T: Sharable>(
     net: PartyTestNetwork,
-    code: Vec<Share<T>>,
+    code: Vec<Aby3Share<T>>,
     mask: IrisCodeArray,
-    shared_db: Vec<Vec<Share<T>>>,
+    shared_db: Vec<Vec<Aby3Share<T>>>,
     masks: Vec<IrisCodeArray>,
 ) -> bool
 where
     Standard: Distribution<T::Share>,
-    Share<T>: Mul<Output = Share<T>>,
-    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Aby3Share<T>: Mul<Output = Aby3Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let protocol = Aby3::<PartyTestNetwork>::new(net);
@@ -38,13 +38,13 @@ where
 
 fn iris_aby3<T: Sharable, R: Rng>(
     c: &mut Criterion,
-    shared_code: &[Vec<Vec<Share<T>>>],
+    shared_code: &[Vec<Vec<Aby3Share<T>>>],
     masks: &Vec<IrisCodeArray>,
     rng: &mut R,
 ) where
     Standard: Distribution<T::Share>,
-    Share<T>: Mul<Output = Share<T>>,
-    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Aby3Share<T>: Mul<Output = Aby3Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     assert_eq!(shared_code.len(), 3);
@@ -129,10 +129,10 @@ fn create_db<R: Rng>(num_items: usize, rng: &mut R) -> Vec<IrisCode> {
 fn share_db<T: Sharable, R: Rng>(
     db: Vec<IrisCode>,
     rng: &mut R,
-) -> (Vec<Vec<Vec<Share<T>>>>, Vec<IrisCodeArray>)
+) -> (Vec<Vec<Vec<Aby3Share<T>>>>, Vec<IrisCodeArray>)
 where
     Standard: Distribution<T::Share>,
-    Share<T>: Mul<T::Share, Output = Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
 {
     let mut shares_a = Vec::with_capacity(db.len());
     let mut shares_b = Vec::with_capacity(db.len());

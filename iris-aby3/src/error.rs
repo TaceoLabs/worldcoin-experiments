@@ -15,6 +15,15 @@ pub enum Error {
     /// Code size is invalid
     #[error("Code size is invalid")]
     InvlidCodeSizeError,
+    /// Message size is invalid
+    #[error("Message size is invalid")]
+    InvalidMessageSize,
+    /// Commit was invalid
+    #[error("Commit was invalid: Party {0}")]
+    InvalidCommitment(usize),
+    /// JMP verify failed Error
+    #[error("JMP verify failed")]
+    JmpVerifyError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,

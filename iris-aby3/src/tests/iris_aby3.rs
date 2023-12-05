@@ -1,4 +1,4 @@
-mod iris_test {
+mod iris_aby3_test {
     use crate::{
         aby3::share::Share,
         iris::protocol::IrisProtocol,
@@ -77,8 +77,7 @@ mod iris_test {
             let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
 
             let mut bitarr = IrisCodeArray::default();
-            for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
-                let code_bit = open_masked_code[i];
+            for (i, code_bit) in open_masked_code.into_iter().enumerate() {
                 assert!(code_bit.is_zero() || code_bit.is_one());
                 bitarr.set_bit(i, code_bit == T::one());
             }

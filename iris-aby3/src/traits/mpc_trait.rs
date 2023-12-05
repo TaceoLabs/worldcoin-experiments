@@ -13,7 +13,9 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Ashare, Error>;
+
     // Each party inputs an arithmetic share
+    #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Ashare>, Error>;
     fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Ashare>;
 
@@ -67,6 +69,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         input.ok_or(Error::ValueError("Cannot share None".to_string()))
     }
 
+    #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<T>, Error> {
         Ok(vec![input])
     }
