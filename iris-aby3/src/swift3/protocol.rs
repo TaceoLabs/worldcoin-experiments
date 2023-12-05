@@ -10,6 +10,7 @@ use crate::{
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
+use num_traits::Zero;
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
@@ -268,6 +269,103 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(share)
     }
 
+    async fn dot_post_many<T: Sharable>(
+        &mut self,
+        a: Vec<Vec<Share<T>>>,
+        b: Vec<Vec<Share<T>>>,
+        de: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        let len = a.len();
+        debug_assert_eq!(len, b.len());
+        debug_assert_eq!(len, de.len());
+        let id = self.network.get_id();
+
+        let mut shares = Vec::with_capacity(len);
+        if id == 0 {
+            let mut betas_z1 = Vec::with_capacity(len);
+            let mut betas_z2 = Vec::with_capacity(len);
+
+            for ((a, b), de) in a.into_iter().zip(b.into_iter()).zip(de.into_iter()) {
+                let alpha1 = self.prf.gen_1::<T::Share>();
+                let alpha2 = self.prf.gen_2::<T::Share>();
+                let (xi1, xi2) = de.get_ab();
+                let mut beta_z1 = xi1 + &alpha1;
+                let mut beta_z2 = xi2 + &alpha2;
+
+                for (a, b) in a.into_iter().zip(b.into_iter()) {
+                    let (x_a, x_b, x_c) = a.get_abc();
+                    let (y_a, y_b, y_c) = b.get_abc();
+                    beta_z1 -= x_c.to_owned() * y_a + y_c.to_owned() * x_a;
+                    beta_z2 -= x_c * y_b + y_c * x_b;
+                }
+                betas_z1.push(beta_z1);
+                betas_z2.push(beta_z2);
+                shares.push(Share::new(alpha1, alpha2, T::Share::zero()));
+            }
+            self.jmp_send_many::<T>(betas_z1, 2).await?;
+            self.jmp_send_many::<T>(betas_z2, 1).await?;
+            let c = self.jmp_receive_many::<T>(1, len).await?;
+
+            for (share, c) in shares.iter_mut().zip(c.into_iter()) {
+                share.c = c;
+            }
+        } else {
+            let mut betas_z1 = Vec::with_capacity(len);
+            let mut betas_z = Vec::with_capacity(len);
+
+            for ((a, b), de) in a.into_iter().zip(b.into_iter()).zip(de.into_iter()) {
+                let alpha = self.prf.gen_1::<T::Share>();
+                let gamma = self.prf.gen_2::<T::Share>();
+                let (psi, xi) = if id == 1 {
+                    de.get_ab()
+                } else {
+                    let (xi, psi) = de.get_ab();
+                    (psi, xi)
+                };
+
+                let mut beta_z1 = xi + &alpha;
+                let mut beta_z = psi;
+
+                for (a, b) in a.into_iter().zip(b.into_iter()) {
+                    let (x_a, x_b, x_c) = a.get_abc();
+                    let (y_a, y_b, y_c) = b.get_abc();
+
+                    beta_z -= x_c.to_owned() * &y_c;
+                    let beta_gamma_x = x_c + &x_b;
+                    let beta_gamma_y = y_c + &y_b;
+                    beta_z1 -= beta_gamma_x * y_a + beta_gamma_y * x_a;
+                    beta_z += x_b * y_b;
+                }
+                betas_z1.push(beta_z1);
+                betas_z.push(beta_z);
+                shares.push(Share::new(alpha, T::Share::zero(), gamma));
+            }
+
+            self.jmp_queue_many::<T>(betas_z1.to_owned(), 3 - id)?;
+            let betas_z2 = self.jmp_receive_many::<T>(0, len).await?;
+            for ((a, s), (b, c)) in betas_z
+                .iter_mut()
+                .zip(shares.iter_mut())
+                .zip(betas_z1.into_iter().zip(betas_z2.into_iter()))
+            {
+                *a += b + c;
+                s.b = a.to_owned();
+                *a += &s.c; // + gamma for sending
+            }
+
+            if id == 1 {
+                self.jmp_send_many::<T>(betas_z, 0).await?;
+            } else {
+                self.jmp_queue_many::<T>(betas_z, 0)?;
+            }
+        }
+
+        Ok(shares)
+    }
+
     async fn aby_mul<T: Sharable>(
         &mut self,
         a: Aby3Share<T>,
@@ -311,7 +409,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(c)
     }
 
-    async fn dot_many<T: Sharable>(
+    async fn aby_dot_many<T: Sharable>(
         &mut self,
         a: Vec<Vec<Aby3Share<T>>>,
         b: Vec<Vec<Aby3Share<T>>>,
@@ -327,9 +425,8 @@ impl<N: NetworkTrait> Swift3<N> {
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
             let mut rand = self.prf.gen_aby_zero_share::<T>(id);
-            if a_.len() != b_.len() {
-                return Err(Error::InvlidSizeError);
-            }
+            debug_assert_eq!(a_.len(), b_.len());
+
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
                 rand += (a__ * b__).a;
             }
@@ -961,11 +1058,30 @@ where
         a: Vec<Vec<Share<T>>>,
         b: Vec<Vec<Share<T>>>,
     ) -> Result<Vec<Share<T>>, Error> {
-        if a.len() != b.len() {
+        let len = a.len();
+        if len != b.len() {
             return Err(Error::InvlidSizeError);
         }
 
-        todo!()
+        let mut shares_d = Vec::with_capacity(len);
+        let mut shares_e = Vec::with_capacity(len);
+
+        for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
+            let mut d = Vec::with_capacity(len);
+            let mut e = Vec::with_capacity(len);
+
+            for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
+                let (d_, e_) = self.mul_pre(a__, b__);
+                d.push(d_);
+                e.push(e_);
+            }
+
+            shares_d.push(d);
+            shares_e.push(e);
+        }
+
+        let de = self.aby_dot_many::<T>(shares_d, shares_e).await?;
+        self.dot_post_many(a, b, de).await
     }
 
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
