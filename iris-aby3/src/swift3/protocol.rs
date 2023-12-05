@@ -129,7 +129,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_zero_share::<T>();
+        let rand = self.prf.gen_aby_zero_share::<T>(self.network.get_id());
         let mut c = d * e;
         c.a += rand;
 
