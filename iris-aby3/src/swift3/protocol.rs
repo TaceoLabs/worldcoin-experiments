@@ -317,20 +317,20 @@ where
         let share = match id {
             0 => {
                 let gamma = self.prf.gen_p::<T::Share>();
-                if id == 0 {
+                if self_id == 0 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
                     self.send_value(beta.to_owned(), 1).await?;
                     self.jmp_send::<T>(0, 1, 2, Some(beta.to_owned())).await?;
                     Share::new(alpha1, alpha2, beta + &gamma)
-                } else if id == 1 {
+                } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let beta = self.receive_value::<T::Share>(0).await?;
                     self.jmp_send::<T>(0, 1, 2, Some(beta.to_owned())).await?;
                     // Receive beta
                     Share::new(alpha1, beta, gamma)
-                } else if id == 2 {
+                } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
                     let beta = self.jmp_send::<T>(0, 1, 2, None).await?;
                     let beta = beta.ok_or(Error::ValueError("None received".to_string()))?;
@@ -341,13 +341,13 @@ where
             }
             1 => {
                 let alpha2 = self.prf.gen_p::<T::Share>();
-                if id == 0 {
+                if self_id == 0 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let beta_gamma = self.jmp_send::<T>(1, 2, 0, None).await?;
                     let beta_gamma =
                         beta_gamma.ok_or(Error::ValueError("None received".to_string()))?;
                     Share::new(alpha1, alpha2, beta_gamma)
-                } else if id == 1 {
+                } else if self_id == 1 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
@@ -355,7 +355,7 @@ where
                     self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
                         .await?;
                     Share::new(alpha1, beta, gamma)
-                } else if id == 2 {
+                } else if self_id == 2 {
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = self.receive_value::<T::Share>(1).await?;
                     self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
@@ -367,19 +367,19 @@ where
             }
             2 => {
                 let alpha1 = self.prf.gen_p::<T::Share>();
-                if id == 0 {
+                if self_id == 0 {
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let beta_gamma = self.jmp_send::<T>(1, 2, 0, None).await?;
                     let beta_gamma =
                         beta_gamma.ok_or(Error::ValueError("None received".to_string()))?;
                     Share::new(alpha1, alpha2, beta_gamma)
-                } else if id == 1 {
+                } else if self_id == 1 {
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = self.receive_value::<T::Share>(2).await?;
                     self.jmp_send::<T>(1, 2, 0, Some(beta.to_owned() + &gamma))
                         .await?;
                     Share::new(alpha1, beta, gamma)
-                } else if id == 2 {
+                } else if self_id == 2 {
                     let alpha2 = self.prf.gen_1::<T::Share>();
                     let gamma = self.prf.gen_2::<T::Share>();
                     let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
@@ -398,8 +398,18 @@ where
         Ok(share)
     }
 
+    #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
-        todo!()
+        // Since this is only for testing we perform a bad one
+        let mut inputs = [None; 3];
+        inputs[self.get_id()] = Some(input);
+        let mut shares = Vec::with_capacity(3);
+
+        for (i, inp) in inputs.into_iter().enumerate() {
+            shares.push(self.input(inp.to_owned(), i).await?);
+        }
+
+        Ok(shares)
     }
 
     fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {

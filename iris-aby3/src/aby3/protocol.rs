@@ -269,6 +269,7 @@ where
         Ok(Share::new(share_a, share_b))
     }
 
+    #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
         let mut shares_a = Vec::with_capacity(3);
         for i in 0..3 {
