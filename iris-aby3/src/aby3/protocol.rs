@@ -1,8 +1,8 @@
-use super::binary_trait::BinaryMpcTrait;
 use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
 use crate::error::Error;
+use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
@@ -168,7 +168,7 @@ impl<N: NetworkTrait> Aby3<N> {
         let mut k = K;
         while k != 1 {
             k >>= 1;
-            decomp = <Self as BinaryMpcTrait<Bit>>::or_many(
+            decomp = <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or_many(
                 self,
                 decomp[..k].to_vec(),
                 decomp[k..].to_vec(),
@@ -430,7 +430,7 @@ where
     }
 
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
-        <Self as BinaryMpcTrait<Bit>>::or(self, a, b).await
+        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
     }
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
@@ -440,7 +440,7 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T> for Aby3<N>
+impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
 {
