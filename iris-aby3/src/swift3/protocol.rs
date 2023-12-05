@@ -701,7 +701,7 @@ where
                 self.jmp_queue::<T>(beta_z1.to_owned(), 2)?;
                 let beta_z2 = self.jmp_receive::<T>(0).await?;
                 let beta_z = beta_z1 + beta_z2 + x_b * y_b + psi;
-                self.jmp_send::<T>(beta_z.to_owned(), 0).await?;
+                self.jmp_send::<T>(beta_z.to_owned() + &gamma, 0).await?;
                 Share::new(alpha1, beta_z, gamma)
             }
             2 => {
@@ -715,7 +715,7 @@ where
                 self.jmp_queue::<T>(beta_z2.to_owned(), 1)?;
                 let beta_z1 = self.jmp_receive::<T>(0).await?;
                 let beta_z = beta_z1 + beta_z2 + x_b * y_b + psi;
-                self.jmp_queue::<T>(beta_z.to_owned(), 0)?;
+                self.jmp_queue::<T>(beta_z.to_owned() + &gamma, 0)?;
                 Share::new(alpha2, beta_z, gamma)
             }
             _ => unreachable!(),
