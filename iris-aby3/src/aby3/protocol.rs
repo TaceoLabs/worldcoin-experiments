@@ -60,11 +60,6 @@ impl<N: NetworkTrait> Aby3<N> {
         Ok(())
     }
 
-    pub async fn finish(self) -> Result<(), Error> {
-        self.network.shutdown().await?;
-        Ok(())
-    }
-
     fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
         let (a, b) = x.get_ab();
 

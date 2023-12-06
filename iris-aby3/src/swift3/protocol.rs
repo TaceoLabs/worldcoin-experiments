@@ -67,6 +67,34 @@ impl<N: NetworkTrait> Swift3<N> {
         }
     }
 
+    fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
+        // TODO wrong?
+        let (a, b, c) = x.get_abc();
+
+        let mut x1 = Share::<T>::zero();
+        let mut x2 = Share::<T>::zero();
+        let mut x3 = Share::<T>::zero();
+
+        match self.network.get_id() {
+            0 => {
+                x2.a = -a;
+                x3.b = -b;
+            }
+            1 => {
+                x1.b = b.to_owned();
+                // x1.c = b;
+                x2.a = -a;
+            }
+            2 => {
+                x1.b = b.to_owned();
+                // x1.c = b;
+                x3.b = -a;
+            }
+            _ => unreachable!(),
+        }
+        (x1, x2, x3)
+    }
+
     async fn send_seed_commitment(
         &mut self,
         comm1: &[u8],
@@ -1253,11 +1281,11 @@ where
             for (rcv_, (a_, (b_, c_))) in
                 rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c)))
             {
-                output.push((c_ - a_ - b_ - rcv_).convert().convert());
+                output.push((c_ ^ a_ ^ b_ ^ rcv_).convert().convert());
             }
         } else {
             for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
-                output.push((b_ - a_ - rcv_).convert().convert());
+                output.push((b_ ^ a_ ^ rcv_).convert().convert());
             }
         }
 
@@ -1408,27 +1436,25 @@ where
     }
 
     async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
-        // let (x1, x2, x3) = self.a2b_pre(x);
-        // self.binary_add_3(x1, x2, x3).await
-        todo!()
+        let (x1, x2, x3) = self.a2b_pre(x);
+        self.binary_add_3(x1, x2, x3).await
     }
 
     async fn arithmetic_to_binary_many(
         &mut self,
         x: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
-        // let len = x.len();
-        // let mut x1 = Vec::with_capacity(len);
-        // let mut x2 = Vec::with_capacity(len);
-        // let mut x3 = Vec::with_capacity(len);
+        let len = x.len();
+        let mut x1 = Vec::with_capacity(len);
+        let mut x2 = Vec::with_capacity(len);
+        let mut x3 = Vec::with_capacity(len);
 
-        // for x_ in x {
-        //     let (x1_, x2_, x3_) = self.a2b_pre(x_);
-        //     x1.push(x1_);
-        //     x2.push(x2_);
-        //     x3.push(x3_);
-        // }
-        // self.binary_add_3_many(x1, x2, x3).await
-        todo!()
+        for x_ in x {
+            let (x1_, x2_, x3_) = self.a2b_pre(x_);
+            x1.push(x1_);
+            x2.push(x2_);
+            x3.push(x3_);
+        }
+        self.binary_add_3_many(x1, x2, x3).await
     }
 }
