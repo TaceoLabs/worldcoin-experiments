@@ -578,9 +578,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         // TODO this is just semi honest!!!!!
-        let rand = self
-            .prf
-            .gen_aby_binary_zero_share::<T>(self.network.get_id());
+        let rand = self.prf.gen_aby_binary_zero_share::<T>();
         let mut c = a & b;
         c.a ^= rand;
 
@@ -603,9 +601,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
         let mut shares_a = Vec::with_capacity(a.len());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let rand = self
-                .prf
-                .gen_aby_binary_zero_share::<T>(self.network.get_id());
+            let rand = self.prf.gen_aby_binary_zero_share::<T>();
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
