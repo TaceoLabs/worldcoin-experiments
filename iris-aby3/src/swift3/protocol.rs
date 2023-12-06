@@ -559,7 +559,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_zero_share::<T>(self.network.get_id());
+        let rand = self.prf.gen_aby_zero_share::<T>();
         let mut c = a * b;
         c.a += rand;
 
@@ -578,9 +578,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         // TODO this is just semi honest!!!!!
-        let rand = self
-            .prf
-            .gen_aby_binary_zero_share::<T>(self.network.get_id());
+        let rand = self.prf.gen_aby_binary_zero_share::<T>();
         let mut c = a & b;
         c.a ^= rand;
 
@@ -603,9 +601,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
         let mut shares_a = Vec::with_capacity(a.len());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let rand = self
-                .prf
-                .gen_aby_binary_zero_share::<T>(self.network.get_id());
+            let rand = self.prf.gen_aby_binary_zero_share::<T>();
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
@@ -634,7 +630,7 @@ impl<N: NetworkTrait> Swift3<N> {
         debug_assert_eq!(a.len(), b.len());
 
         // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_zero_share::<T>(self.network.get_id());
+        let rand = self.prf.gen_aby_zero_share::<T>();
 
         let mut c = Aby3Share::new(rand, T::zero().to_sharetype());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
@@ -658,11 +654,10 @@ impl<N: NetworkTrait> Swift3<N> {
         debug_assert_eq!(a.len(), b.len());
         // TODO this is just semi honest!!!!!
 
-        let id = self.network.get_id();
         let mut shares_a = Vec::with_capacity(a.len());
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let mut rand = self.prf.gen_aby_zero_share::<T>(id);
+            let mut rand = self.prf.gen_aby_zero_share::<T>();
             debug_assert_eq!(a_.len(), b_.len());
 
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
@@ -928,7 +923,11 @@ impl<N: NetworkTrait> Swift3<N> {
             *r = b ^ a ^ c;
         }
 
-        self.prf = Prf::new(seed1, seed2, seed3);
+        if id == 1 {
+            self.prf = Prf::new(seed2, seed1, seed3);
+        } else {
+            self.prf = Prf::new(seed1, seed2, seed3);
+        }
 
         Ok(())
     }
@@ -1022,75 +1021,83 @@ where
 
         let share = match id {
             0 => {
-                let gamma = self.prf.gen_p::<T::Share>();
                 if self_id == 0 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
-                    let alpha2 = self.prf.gen_2::<T::Share>();
-                    let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
+                    let alpha2 = self.prf.gen_p::<T::Share>();
+                    let alpha3 = self.prf.gen_2::<T::Share>();
+                    let alpha = alpha2 + &alpha1 + &alpha3;
+                    let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
                     self.jmp_send::<T>(beta.to_owned(), 2).await?;
-                    Share::new(alpha1, alpha2, beta + &gamma)
+                    Share::new(alpha1, alpha3, beta)
                 } else if self_id == 1 {
-                    let alpha1 = self.prf.gen_1::<T::Share>();
+                    let alpha1 = self.prf.gen_2::<T::Share>();
+                    let alpha2 = self.prf.gen_p::<T::Share>();
                     let beta: T::Share = utils::receive_value(&mut self.network, 0).await?;
                     self.jmp_queue::<T>(beta.to_owned(), 2)?;
-                    Share::new(alpha1, beta, gamma)
+                    Share::new(alpha2, alpha1, beta)
                 } else if self_id == 2 {
-                    let alpha2 = self.prf.gen_1::<T::Share>();
+                    let alpha2 = self.prf.gen_p::<T::Share>();
+                    let alpha3 = self.prf.gen_1::<T::Share>();
                     let beta = self.jmp_receive::<T>(0).await?;
-                    Share::new(alpha2, beta, gamma)
+                    Share::new(alpha3, alpha2, beta)
                 } else {
                     unreachable!()
                 }
             }
             1 => {
-                let alpha2 = self.prf.gen_p::<T::Share>();
-                if self_id == 0 {
-                    let alpha1 = self.prf.gen_1::<T::Share>();
-                    let beta_gamma = self.jmp_receive::<T>(1).await?;
-                    Share::new(alpha1, alpha2, beta_gamma)
-                } else if self_id == 1 {
-                    let alpha1 = self.prf.gen_1::<T::Share>();
-                    let gamma = self.prf.gen_2::<T::Share>();
-                    let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
+                if self_id == 1 {
+                    let alpha1 = self.prf.gen_2::<T::Share>();
+                    let alpha2 = self.prf.gen_1::<T::Share>();
+                    let alpha3 = self.prf.gen_p::<T::Share>();
+                    let alpha = alpha3 + &alpha1 + &alpha2;
+                    let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 2).await?;
-                    self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
-                    Share::new(alpha1, beta, gamma)
+                    self.jmp_send::<T>(beta.to_owned(), 0).await?;
+                    Share::new(alpha2, alpha1, beta)
                 } else if self_id == 2 {
-                    let gamma = self.prf.gen_2::<T::Share>();
+                    let alpha2 = self.prf.gen_2::<T::Share>();
+                    let alpha3 = self.prf.gen_p::<T::Share>();
                     let beta: T::Share = utils::receive_value(&mut self.network, 1).await?;
-                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
-                    Share::new(alpha2, beta, gamma)
+                    self.jmp_queue::<T>(beta.to_owned(), 0)?;
+                    Share::new(alpha3, alpha2, beta)
+                } else if self_id == 0 {
+                    let alpha1 = self.prf.gen_1::<T::Share>();
+                    let alpha3 = self.prf.gen_p::<T::Share>();
+                    let beta = self.jmp_receive::<T>(1).await?;
+                    Share::new(alpha1, alpha3, beta)
                 } else {
                     unreachable!()
                 }
             }
             2 => {
-                let alpha1 = self.prf.gen_p::<T::Share>();
-                if self_id == 0 {
+                if self_id == 2 {
+                    let alpha1 = self.prf.gen_p::<T::Share>();
                     let alpha2 = self.prf.gen_2::<T::Share>();
-                    let beta_gamma = self.jmp_receive::<T>(1).await?;
-                    Share::new(alpha1, alpha2, beta_gamma)
-                } else if self_id == 1 {
-                    let gamma = self.prf.gen_2::<T::Share>();
-                    let beta: T::Share = utils::receive_value(&mut self.network, 2).await?;
-                    self.jmp_send::<T>(beta.to_owned() + &gamma, 0).await?;
-                    Share::new(alpha1, beta, gamma)
-                } else if self_id == 2 {
-                    let alpha2 = self.prf.gen_1::<T::Share>();
-                    let gamma = self.prf.gen_2::<T::Share>();
-                    let beta = input.unwrap().to_sharetype() + &alpha1 + &alpha2;
+                    let alpha3 = self.prf.gen_1::<T::Share>();
+                    let alpha = alpha1 + &alpha2 + &alpha3;
+                    let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
-                    self.jmp_queue::<T>(beta.to_owned() + &gamma, 0)?;
-                    Share::new(alpha2, beta, gamma)
+                    self.jmp_send::<T>(beta.to_owned(), 0).await?;
+                    Share::new(alpha3, alpha2, beta)
+                } else if self_id == 1 {
+                    let alpha1 = self.prf.gen_p::<T::Share>();
+                    let alpha2 = self.prf.gen_1::<T::Share>();
+                    let beta: T::Share = utils::receive_value(&mut self.network, 2).await?;
+                    self.jmp_queue::<T>(beta.to_owned(), 0)?;
+                    Share::new(alpha2, alpha1, beta)
+                } else if self_id == 0 {
+                    let alpha1 = self.prf.gen_p::<T::Share>();
+                    let alpha3 = self.prf.gen_2::<T::Share>();
+                    let beta = self.jmp_receive::<T>(2).await?;
+                    Share::new(alpha1, alpha3, beta)
                 } else {
                     unreachable!()
                 }
             }
-            _ => {
-                unreachable!()
-            }
+            _ => unreachable!(),
         };
+
         Ok(share)
     }
 
@@ -1111,17 +1118,13 @@ where
     fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
         let alpha1 = rng.gen::<T::Share>();
         let alpha2 = rng.gen::<T::Share>();
-        let gamma = rng.gen::<T::Share>();
+        let alpha3 = rng.gen::<T::Share>();
 
-        let beta = input.to_sharetype() + &alpha1 + &alpha2;
+        let beta = input.to_sharetype() + &alpha1 + &alpha2 + &alpha3;
 
-        let share1 = Share::new(
-            alpha1.to_owned(),
-            alpha2.to_owned(),
-            beta.to_owned() + &gamma,
-        );
-        let share2 = Share::new(alpha1, beta.to_owned(), gamma.to_owned());
-        let share3 = Share::new(alpha2, beta, gamma);
+        let share1 = Share::new(alpha1.to_owned(), alpha3.to_owned(), beta.to_owned());
+        let share2 = Share::new(alpha2.to_owned(), alpha1, beta.to_owned());
+        let share3 = Share::new(alpha3, alpha2, beta);
 
         vec![share1, share2, share3]
     }
@@ -1137,11 +1140,11 @@ where
             self.jmp_send::<T>(b.to_owned(), 1).await?;
             self.jmp_receive::<T>(1).await?
         } else if id == 1 {
-            self.jmp_send::<T>(c.to_owned(), 0).await?;
-            self.jmp_queue::<T>(a.to_owned(), 2)?;
+            self.jmp_send::<T>(a.to_owned(), 0).await?;
+            self.jmp_queue::<T>(b.to_owned(), 2)?;
             self.jmp_receive::<T>(0).await?
         } else if id == 2 {
-            self.jmp_queue::<T>(c.to_owned(), 0)?;
+            self.jmp_queue::<T>(b.to_owned(), 0)?;
             self.jmp_queue::<T>(a.to_owned(), 1)?;
             self.jmp_receive::<T>(0).await?
         } else {
@@ -1150,12 +1153,7 @@ where
 
         self.jmp_verify().await?;
 
-        let output = if id == 0 {
-            c - a - b - rcv
-        } else {
-            b - a - rcv
-        };
-        Ok(T::from_sharetype(output))
+        Ok(T::from_sharetype(c - a - b - rcv))
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
@@ -1179,11 +1177,11 @@ where
             self.jmp_send_many::<T>(b.to_owned(), 1).await?;
             self.jmp_receive_many::<T>(1, len).await?
         } else if id == 1 {
-            self.jmp_send_many::<T>(c.to_owned(), 0).await?;
-            self.jmp_queue_many::<T>(a.to_owned(), 2)?;
+            self.jmp_send_many::<T>(a.to_owned(), 0).await?;
+            self.jmp_queue_many::<T>(b.to_owned(), 2)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else if id == 2 {
-            self.jmp_queue_many::<T>(c.to_owned(), 0)?;
+            self.jmp_queue_many::<T>(b.to_owned(), 0)?;
             self.jmp_queue_many::<T>(a.to_owned(), 1)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else {
@@ -1194,16 +1192,8 @@ where
 
         let mut output = Vec::with_capacity(len);
 
-        if id == 0 {
-            for (rcv_, (a_, (b_, c_))) in
-                rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c)))
-            {
-                output.push(T::from_sharetype(c_ - a_ - b_ - rcv_));
-            }
-        } else {
-            for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
-                output.push(T::from_sharetype(b_ - a_ - rcv_));
-            }
+        for (rcv_, (a_, (b_, c_))) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c))) {
+            output.push(T::from_sharetype(c_ - a_ - b_ - rcv_));
         }
 
         Ok(output)
@@ -1220,11 +1210,11 @@ where
             self.jmp_send::<Bit>(b.to_owned(), 1).await?;
             self.jmp_receive::<Bit>(1).await?
         } else if id == 1 {
-            self.jmp_send::<Bit>(c.to_owned(), 0).await?;
-            self.jmp_queue::<Bit>(a.to_owned(), 2)?;
+            self.jmp_send::<Bit>(a.to_owned(), 0).await?;
+            self.jmp_queue::<Bit>(b.to_owned(), 2)?;
             self.jmp_receive::<Bit>(0).await?
         } else if id == 2 {
-            self.jmp_queue::<Bit>(c.to_owned(), 0)?;
+            self.jmp_queue::<Bit>(b.to_owned(), 0)?;
             self.jmp_queue::<Bit>(a.to_owned(), 1)?;
             self.jmp_receive::<Bit>(0).await?
         } else {
@@ -1233,12 +1223,7 @@ where
 
         self.jmp_verify().await?;
 
-        let output = if id == 0 {
-            c ^ a ^ b ^ rcv
-        } else {
-            b ^ a ^ rcv
-        };
-        Ok(output.convert().convert())
+        Ok((c ^ a ^ b ^ rcv).convert().convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
@@ -1262,11 +1247,11 @@ where
             self.jmp_send_many::<Bit>(b.to_owned(), 1).await?;
             self.jmp_receive_many::<Bit>(1, len).await?
         } else if id == 1 {
-            self.jmp_send_many::<Bit>(c.to_owned(), 0).await?;
-            self.jmp_queue_many::<Bit>(a.to_owned(), 2)?;
+            self.jmp_send_many::<Bit>(a.to_owned(), 0).await?;
+            self.jmp_queue_many::<Bit>(b.to_owned(), 2)?;
             self.jmp_receive_many::<Bit>(0, len).await?
         } else if id == 2 {
-            self.jmp_queue_many::<Bit>(c.to_owned(), 0)?;
+            self.jmp_queue_many::<Bit>(b.to_owned(), 0)?;
             self.jmp_queue_many::<Bit>(a.to_owned(), 1)?;
             self.jmp_receive_many::<Bit>(0, len).await?
         } else {
@@ -1277,16 +1262,8 @@ where
 
         let mut output = Vec::with_capacity(len);
 
-        if id == 0 {
-            for (rcv_, (a_, (b_, c_))) in
-                rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c)))
-            {
-                output.push((c_ ^ a_ ^ b_ ^ rcv_).convert().convert());
-            }
-        } else {
-            for (rcv_, (a_, b_)) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter())) {
-                output.push((b_ ^ a_ ^ rcv_).convert().convert());
-            }
+        for (rcv_, (a_, (b_, c_))) in rcv.into_iter().zip(a.into_iter().zip(b.into_iter().zip(c))) {
+            output.push((c_ ^ a_ ^ b_ ^ rcv_).convert().convert());
         }
 
         Ok(output)
@@ -1301,23 +1278,11 @@ where
     }
 
     fn add_const(&self, a: Share<T>, b: T) -> Share<T> {
-        a.add_const(
-            &b.to_sharetype(),
-            self.network
-                .get_id()
-                .try_into()
-                .expect("ID is checked during establishing connection"),
-        )
+        a.add_const(&b.to_sharetype())
     }
 
     fn sub_const(&self, a: Share<T>, b: T) -> Share<T> {
-        a.sub_const(
-            &b.to_sharetype(),
-            self.network
-                .get_id()
-                .try_into()
-                .expect("ID is checked during establishing connection"),
-        )
+        a.sub_const(&b.to_sharetype())
     }
 
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
