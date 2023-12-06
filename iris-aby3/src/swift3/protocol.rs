@@ -6,7 +6,7 @@ use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
     prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
-    traits::{network_trait::NetworkTrait, security::MaliciousAbort},
+    traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
@@ -28,10 +28,26 @@ pub struct Swift3<N: NetworkTrait> {
     rcv_queue_prev: BytesMut,
 }
 
-// TODO Plan is to compute everything on the fly and just implement abort. Thus rec has no prep phase and all the other subprotocols are not split into prep/online
-// TODO first implement MUL without triple checks, see if everything works and add it later
-
 impl<N: NetworkTrait> MaliciousAbort for Swift3<N> {}
+
+macro_rules! reduce_or {
+    ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
+        $(
+            async fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
+                let (a, b, c) = a.get_abc();
+                let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
+                let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
+                let (c1, c2) = utils::split::<$typ_a, $typ_b>(c);
+
+                let share_a = Share::new(a1, b1, c1);
+                let share_b = Share::new(a2, b2, c2);
+
+                let out = self.or(share_a, share_b).await?;
+                self.$name_b(out).await
+            }
+        )*
+    };
+}
 
 impl<N: NetworkTrait> Swift3<N> {
     pub fn new(network: N) -> Self {
@@ -694,6 +710,64 @@ impl<N: NetworkTrait> Swift3<N> {
 
         Ok(())
     }
+
+    fn pack<T: Sharable>(&self, a: Vec<Share<Bit>>) -> Vec<Share<T>> {
+        let outlen = (a.len() + T::Share::get_k() - 1) / T::Share::get_k();
+        let mut out = Vec::with_capacity(outlen);
+
+        for a_ in a.chunks(T::Share::get_k()) {
+            let mut share_a = T::Share::zero();
+            let mut share_b = T::Share::zero();
+            let mut share_c = T::Share::zero();
+            for (i, bit) in a_.iter().enumerate() {
+                let (bit_a, bit_b, bit_c) = bit.to_owned().get_abc();
+                share_a |= T::Share::from(bit_a.convert().convert()) << (i as u32);
+                share_b |= T::Share::from(bit_b.convert().convert()) << (i as u32);
+                share_c |= T::Share::from(bit_c.convert().convert()) << (i as u32);
+            }
+            let share = Share::new(share_a, share_b, share_c);
+            out.push(share);
+        }
+
+        out
+    }
+
+    reduce_or!(
+        [u128, u64, reduce_or_u128, reduce_or_u64],
+        [u64, u32, reduce_or_u64, reduce_or_u32],
+        [u32, u16, reduce_or_u32, reduce_or_u16],
+        [u16, u8, reduce_or_u16, reduce_or_u8]
+    );
+
+    async fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
+        const K: usize = 8;
+
+        let mut decomp: Vec<Share<Bit>> = Vec::with_capacity(K);
+        for i in 0..K as u32 {
+            let bit_a = ((a.a.to_owned() >> i) & RingElement(1)) == RingElement(1);
+            let bit_b = ((a.b.to_owned() >> i) & RingElement(1)) == RingElement(1);
+            let bit_c = ((a.c.to_owned() >> i) & RingElement(1)) == RingElement(1);
+
+            decomp.push(Share::new(
+                <Bit as Sharable>::Share::from(bit_a),
+                <Bit as Sharable>::Share::from(bit_b),
+                <Bit as Sharable>::Share::from(bit_c),
+            ));
+        }
+
+        let mut k = K;
+        while k != 1 {
+            k >>= 1;
+            decomp = <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or_many(
+                self,
+                decomp[..k].to_vec(),
+                decomp[k..].to_vec(),
+            )
+            .await?;
+        }
+
+        Ok(decomp[0].to_owned())
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N>
@@ -1085,18 +1159,95 @@ where
     }
 
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
-        todo!()
+        let bits = self.arithmetic_to_binary(a).await?;
+        Ok(bits.get_msb())
     }
 
     async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
-        todo!()
+        let bits = self.arithmetic_to_binary_many(a).await?;
+        let res = bits.into_iter().map(|a| a.get_msb()).collect();
+        Ok(res)
     }
 
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
-        todo!()
+        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
     }
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
+        let packed = self.pack(a);
+        let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
+        self.reduce_or_u128(reduced).await
+    }
+}
+
+impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Swift3<N>
+where
+    Standard: Distribution<T::Share>,
+{
+    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        // let rand = self.prf.gen_binary_zero_share::<T>();
+        // let mut c = a & b;
+        // c.a ^= rand;
+
+        // // Network: reshare
+        // c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+
+        // Ok(c)
+        todo!()
+    }
+
+    async fn and_many(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        // if a.len() != b.len() {
+        //     return Err(Error::InvlidSizeError);
+        // }
+        // let mut shares_a = Vec::with_capacity(a.len());
+        // for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        //     let rand = self.prf.gen_binary_zero_share::<T>();
+        //     let mut c = a_ & b_;
+        //     c.a ^= rand;
+        //     shares_a.push(c.a);
+        // }
+
+        // // Network: reshare
+        // let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+
+        // let res = shares_a
+        //     .into_iter()
+        //     .zip(shares_b.into_iter())
+        //     .map(|(a_, b_)| Share::new(a_, b_))
+        //     .collect();
+
+        // Ok(res)
+
+        todo!()
+    }
+
+    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
+        // let (x1, x2, x3) = self.a2b_pre(x);
+        // self.binary_add_3(x1, x2, x3).await
+        todo!()
+    }
+
+    async fn arithmetic_to_binary_many(
+        &mut self,
+        x: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error> {
+        // let len = x.len();
+        // let mut x1 = Vec::with_capacity(len);
+        // let mut x2 = Vec::with_capacity(len);
+        // let mut x3 = Vec::with_capacity(len);
+
+        // for x_ in x {
+        //     let (x1_, x2_, x3_) = self.a2b_pre(x_);
+        //     x1.push(x1_);
+        //     x2.push(x2_);
+        //     x3.push(x3_);
+        // }
+        // self.binary_add_3_many(x1, x2, x3).await
         todo!()
     }
 }
