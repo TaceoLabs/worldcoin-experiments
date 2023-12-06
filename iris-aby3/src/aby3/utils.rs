@@ -3,9 +3,13 @@ use crate::{
     error::Error,
     prelude::Sharable,
     traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait},
-    types::ring_element::RingImpl,
+    types::{
+        int_ring::IntRing2k,
+        ring_element::{RingElement, RingImpl},
+    },
 };
 use bytes::{Buf, Bytes, BytesMut};
+use num_traits::AsPrimitive;
 use std::{
     io::Error as IOError,
     ops::{BitXor, BitXorAssign},
@@ -161,4 +165,19 @@ where
 
     let output = inputs[0].to_owned();
     Ok(output)
+}
+
+pub(crate) fn split<T: IntRing2k, U: IntRing2k>(
+    a: RingElement<T>,
+) -> (RingElement<U>, RingElement<U>)
+where
+    T: AsPrimitive<U>,
+{
+    debug_assert_eq!(T::get_k(), 2 * U::get_k());
+    let shift = U::get_k();
+
+    let a1 = RingElement((a.0).as_());
+    let a2 = RingElement((a.0 >> shift).as_());
+
+    (a1, a2)
 }

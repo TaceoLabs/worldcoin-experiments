@@ -7,11 +7,10 @@ use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
 use crate::types::bit::Bit;
-use crate::types::int_ring::IntRing2k;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
-use num_traits::{AsPrimitive, Zero};
+use num_traits::Zero;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 use std::ops::Mul;
@@ -28,8 +27,8 @@ macro_rules! reduce_or {
         $(
             async fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
                 let (a, b) = a.get_ab();
-                let (a1, a2) = Self::split::<$typ_a, $typ_b>(a);
-                let (b1, b2) = Self::split::<$typ_a, $typ_b>(b);
+                let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
+                let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
 
                 let share_a = Share::new(a1, b1);
                 let share_b = Share::new(a2, b2);
@@ -108,19 +107,6 @@ impl<N: NetworkTrait> Aby3<N> {
         }
 
         out
-    }
-
-    fn split<T: IntRing2k, U: IntRing2k>(a: RingElement<T>) -> (RingElement<U>, RingElement<U>)
-    where
-        T: AsPrimitive<U>,
-    {
-        debug_assert_eq!(T::get_k(), 2 * U::get_k());
-        let shift = U::get_k();
-
-        let a1 = RingElement((a.0).as_());
-        let a2 = RingElement((a.0 >> shift).as_());
-
-        (a1, a2)
     }
 
     reduce_or!(
