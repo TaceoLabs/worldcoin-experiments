@@ -1,7 +1,15 @@
 use super::random::prf::PrfSeed;
-use crate::{error::Error, traits::network_trait::NetworkTrait, types::ring_element::RingImpl};
+use crate::{
+    error::Error,
+    prelude::Sharable,
+    traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait},
+    types::ring_element::RingImpl,
+};
 use bytes::{Buf, Bytes, BytesMut};
-use std::io::Error as IOError;
+use std::{
+    io::Error as IOError,
+    ops::{BitXor, BitXorAssign},
+};
 
 pub(crate) fn bytes_to_seed(mut bytes: BytesMut) -> Result<PrfSeed, Error> {
     if bytes.len() != 32 {
@@ -108,4 +116,49 @@ where
         v.add_to_bytes(&mut out);
     }
     out.freeze()
+}
+
+pub(crate) async fn or_tree<T, Mpc, Share>(
+    engine: &mut Mpc,
+    mut inputs: Vec<Share>,
+) -> Result<Share, Error>
+where
+    T: Sharable,
+    Mpc: BinaryMpcTrait<T, Share>,
+    Share: Clone
+        + BitXorAssign
+        + BitXor<Output = Share>
+        + std::ops::ShlAssign<u32>
+        + std::ops::Shl<u32, Output = Share>
+        + Send
+        + Sync
+        + 'static,
+{
+    const PACK_SIZE: usize = 256; // TODO Move
+
+    let mut num = inputs.len();
+
+    while num > 1 {
+        let mod_ = num & 1;
+        num >>= 1;
+
+        let a_vec = &inputs[0..num];
+        let b_vec = &inputs[num..2 * num];
+
+        let mut res = Vec::with_capacity(num + mod_);
+        for (tmp_a, tmp_b) in a_vec.chunks(PACK_SIZE).zip(b_vec.chunks(PACK_SIZE)) {
+            let r = engine.or_many(tmp_a.to_vec(), tmp_b.to_vec()).await?;
+            res.extend(r);
+        }
+
+        for leftover in inputs.into_iter().skip(2 * num) {
+            res.push(leftover);
+        }
+        inputs = res;
+
+        num += mod_;
+    }
+
+    let output = inputs[0].to_owned();
+    Ok(output)
 }
