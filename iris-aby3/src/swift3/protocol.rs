@@ -166,31 +166,16 @@ impl<N: NetworkTrait> Swift3<N> {
     }
 
     fn mul_pre<T: Sharable>(&self, a: Share<T>, b: Share<T>) -> (Aby3Share<T>, Aby3Share<T>) {
-        let (x_a, x_b, x_c) = a.get_abc();
-        let (y_a, y_b, y_c) = b.get_abc();
+        let (x_a, x_b, _) = a.get_abc();
+        let (y_a, y_b, _) = b.get_abc();
 
         // ABY3 Sharing:
-        // P0: (alpha1, alpha2)
-        // P1: (gamma, alpha1)
-        // P2: (alpha2, gamma)
-        let (d, e) = match self.network.get_id() {
-            0 => {
-                let d = Aby3Share::new(x_a, x_b);
-                let e = Aby3Share::new(y_a, y_b);
-                (d, e)
-            }
-            1 => {
-                let d = Aby3Share::new(x_c, x_a);
-                let e = Aby3Share::new(y_c, y_a);
-                (d, e)
-            }
-            2 => {
-                let d = Aby3Share::new(x_a, x_c);
-                let e = Aby3Share::new(y_a, y_c);
-                (d, e)
-            }
-            _ => unreachable!(),
-        };
+        // P0: (alpha1, alpha3)
+        // P1: (alpha2, alpha1)
+        // P2: (alpha3, alpha2)
+
+        let d = Aby3Share::new(x_a, x_b);
+        let e = Aby3Share::new(y_a, y_b);
 
         (d, e)
     }
@@ -208,42 +193,48 @@ impl<N: NetworkTrait> Swift3<N> {
 
         let (x_a, x_b, x_c) = a.get_abc();
         let (y_a, y_b, y_c) = b.get_abc();
+        let (de_a, de_b) = de.get_ab();
 
-        let share = if id == 0 {
-            let alpha1 = self.prf.gen_1::<T::Share>();
-            let alpha2 = self.prf.gen_2::<T::Share>();
-            let (xi1, xi2) = de.get_ab();
-            let beta_z1 = -x_c.to_owned() * y_a - y_c.to_owned() * x_a + &alpha1 + xi1;
-            let beta_z2 = -x_c * y_b - y_c * x_b + &alpha2 + xi2;
-            self.jmp_send::<T>(beta_z1, 2).await?;
-            self.jmp_send::<T>(beta_z2, 1).await?;
-            let c = self.jmp_receive::<T>(1).await?;
-            Share::new(alpha1, alpha2, c)
-        } else {
-            let alpha = self.prf.gen_1::<T::Share>();
-            let gamma = self.prf.gen_2::<T::Share>();
-            let (psi, xi) = if id == 1 {
-                de.get_ab()
-            } else {
-                let (xi, psi) = de.get_ab();
-                (psi, xi)
-            };
-            let psi = psi - x_c.to_owned() * &y_c;
-            let beta_gamma_x = x_c + &x_b;
-            let beta_gamma_y = y_c + &y_b;
-            let beta_z1 = -beta_gamma_x * y_a - beta_gamma_y * x_a + &alpha + xi;
-            self.jmp_queue::<T>(beta_z1.to_owned(), 3 - id)?;
-            let beta_z2 = self.jmp_receive::<T>(0).await?;
-            let beta_z = beta_z1 + beta_z2 + x_b * y_b + psi;
-            if id == 1 {
-                self.jmp_send::<T>(beta_z.to_owned() + &gamma, 0).await?;
-            } else {
-                self.jmp_queue::<T>(beta_z.to_owned() + &gamma, 0)?;
+        let r1 = self.prf.gen_1::<T::Share>();
+        let r2 = self.prf.gen_2::<T::Share>();
+
+        let y_a = -x_a * &y_c - y_a * &x_c + &de_a - &r1;
+        let y_b = -x_b * &y_c - y_b * &x_c + &de_b - &r2;
+        let z_c = x_c * y_c;
+
+        let r = Share::new(r1, r2, T::Share::zero());
+
+        match id {
+            0 => {
+                let y1 = y_a;
+                let y3 = y_b;
+                self.jmp_send::<T>(y1.to_owned(), 3).await?;
+                self.jmp_send::<T>(y3.to_owned(), 2).await?;
+                // joint receive from P1 and P2
             }
-            Share::new(alpha, beta_z, gamma)
-        };
+            1 => {
+                let y2 = y_a;
+                let y1 = y_b;
+                self.jmp_queue::<T>(y1.to_owned(), 3)?;
+                let y3 = self.jmp_receive::<T>(0).await?;
+                let zr = y1 + y2 + y3 + z_c;
+                // joint share to P0
+            }
+            2 => {
+                let y3 = y_a;
+                let y2 = y_b;
+                self.jmp_queue::<T>(y3.to_owned(), 2)?;
+                let y1 = self.jmp_receive::<T>(0).await?;
+                let zr = y1 + y2 + y3 + z_c;
+                // joint share to P0
+            }
+            _ => unreachable!(),
+        }
 
-        Ok(share)
+        let r = Share::new(r1, r2, T::Share::zero());
+
+        // Ok(share)
+        todo!()
     }
 
     async fn and_post<T: Sharable>(
