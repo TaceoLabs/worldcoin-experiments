@@ -484,6 +484,10 @@ impl<N: NetworkTrait> Swift3<N> {
 
         match id {
             0 => {
+                let mut y1s = Vec::with_capacity(len);
+                let mut y3s = Vec::with_capacity(len);
+                let mut rs = Vec::with_capacity(len);
+
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
@@ -492,7 +496,6 @@ impl<N: NetworkTrait> Swift3<N> {
 
                     let mut y1 = de_a - &r1;
                     let mut y3 = de_b - &r2;
-                    let mut z_c = T::Share::zero();
 
                     for (a, b) in a.into_iter().zip(b) {
                         let (x_a, x_b, x_c) = a.get_abc();
@@ -500,16 +503,25 @@ impl<N: NetworkTrait> Swift3<N> {
 
                         y1 -= x_a * &y_c + y_a * &x_c;
                         y3 -= x_b * &y_c + y_b * &x_c;
-                        z_c += x_c * y_c;
                     }
-                    self.jmp_send::<T>(y1.to_owned(), 2).await?;
-                    self.jmp_send::<T>(y3.to_owned(), 1).await?;
-                    let share = self.jshare(None, 1, 2, 0).await?;
                     let r = Share::new(r1, r2, T::Share::zero());
+                    y1s.push(y1);
+                    y3s.push(y3);
+                    rs.push(r);
+                }
+                self.jmp_send_many::<T>(y1s, 2).await?;
+                self.jmp_send_many::<T>(y3s, 1).await?;
+
+                let resp = self.jshare_many(None, 1, 2, 0, len).await?;
+                for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
             }
             1 => {
+                let mut zr = Vec::with_capacity(len);
+                let mut y1s = Vec::with_capacity(len);
+                let mut rs = Vec::with_capacity(len);
+
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
@@ -528,15 +540,28 @@ impl<N: NetworkTrait> Swift3<N> {
                         y1 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
-                    self.jmp_queue::<T>(y1.to_owned(), 2)?;
-                    let y3 = self.jmp_receive::<T>(0).await?;
-                    let zr = y1 + y2 + y3 + z_c;
-                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
                     let r = Share::new(r1, r2, T::Share::zero());
+                    zr.push(T::from_sharetype(y2 + z_c + &y1));
+                    y1s.push(y1);
+                    rs.push(r);
+                }
+                self.jmp_queue_many::<T>(y1s, 2)?;
+                let y3s = self.jmp_receive_many::<T>(0, len).await?;
+
+                for (zr_, y3) in zr.iter_mut().zip(y3s) {
+                    *zr_ = zr_.wrapping_add(&T::from_sharetype(y3));
+                }
+
+                let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
+                for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
             }
             2 => {
+                let mut zr = Vec::with_capacity(len);
+                let mut y3s = Vec::with_capacity(len);
+                let mut rs = Vec::with_capacity(len);
+
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
@@ -555,11 +580,20 @@ impl<N: NetworkTrait> Swift3<N> {
                         y2 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
-                    self.jmp_queue::<T>(y3.to_owned(), 1)?;
-                    let y1 = self.jmp_receive::<T>(0).await?;
-                    let zr = y1 + y2 + y3 + z_c;
-                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
                     let r = Share::new(r1, r2, T::Share::zero());
+                    zr.push(T::from_sharetype(y2 + z_c + &y3));
+                    y3s.push(y3);
+                    rs.push(r);
+                }
+                self.jmp_queue_many::<T>(y3s, 1)?;
+                let y1s = self.jmp_receive_many::<T>(0, len).await?;
+
+                for (zr_, y1) in zr.iter_mut().zip(y1s) {
+                    *zr_ = zr_.wrapping_add(&T::from_sharetype(y1));
+                }
+
+                let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
+                for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
             }
@@ -819,6 +853,89 @@ impl<N: NetworkTrait> Swift3<N> {
         };
 
         Ok(share)
+    }
+
+    async fn jshare_many<T: Sharable>(
+        &mut self,
+        input: Option<Vec<T>>,
+        mut sender1: usize,
+        mut sender2: usize,
+        receiver: usize,
+        len: usize,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        if sender2 != ((sender1 + 1) % 3) {
+            std::mem::swap(&mut sender1, &mut sender2);
+        }
+
+        let self_id = self.network.get_id();
+        debug_assert!(sender1 != sender2);
+        debug_assert!(sender1 != receiver);
+        debug_assert!(sender2 != receiver);
+        if ((sender1 == self_id) || (sender2 == self_id)) && input.is_none() {
+            return Err(Error::ValueError("Cannot share None".to_string()));
+        }
+        let mut shares = Vec::with_capacity(len);
+
+        if self_id == sender1 {
+            let mut alphas_1 = Vec::with_capacity(len);
+            let mut alphas_p = Vec::with_capacity(len);
+            let mut betas = Vec::with_capacity(len);
+
+            let input = input.unwrap();
+            if input.len() != len {
+                return Err(Error::InvlidSizeError);
+            }
+            for inp in input.into_iter() {
+                let alpha_p = self.prf.gen_p::<T::Share>();
+                let alpha_1 = self.prf.gen_1::<T::Share>();
+                let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
+                let beta = alpha + inp.to_sharetype();
+                betas.push(beta);
+                alphas_1.push(alpha_1);
+                alphas_p.push(alpha_p);
+            }
+
+            self.jmp_send_many::<T>(betas.to_owned(), receiver).await?;
+            for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
+                shares.push(Share::new(alpha_1, alpha_p, beta));
+            }
+        } else if self_id == sender2 {
+            let mut alphas_1 = Vec::with_capacity(len);
+            let mut alphas_p = Vec::with_capacity(len);
+            let mut betas = Vec::with_capacity(len);
+
+            let input = input.unwrap();
+            if input.len() != len {
+                return Err(Error::InvlidSizeError);
+            }
+            for inp in input.into_iter() {
+                let alpha_p = self.prf.gen_p::<T::Share>();
+                let alpha_1 = self.prf.gen_2::<T::Share>();
+                let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
+                let beta = alpha + inp.to_sharetype();
+                betas.push(beta);
+                alphas_1.push(alpha_1);
+                alphas_p.push(alpha_p);
+            }
+
+            self.jmp_queue_many::<T>(betas.to_owned(), receiver)?;
+            for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
+                shares.push(Share::new(alpha_p, alpha_1, beta));
+            }
+        } else if self_id == receiver {
+            let betas = self.jmp_receive_many::<T>(sender1, len).await?;
+            for beta in betas {
+                let alpha_p = self.prf.gen_p::<T::Share>();
+                shares.push(Share::new(alpha_p.to_owned(), alpha_p, beta));
+            }
+        } else {
+            unreachable!()
+        };
+
+        Ok(shares)
     }
 
     async fn jshare_binary<T: Sharable>(
