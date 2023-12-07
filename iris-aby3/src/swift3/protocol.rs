@@ -77,18 +77,19 @@ impl<N: NetworkTrait> Swift3<N> {
 
         match self.network.get_id() {
             0 => {
-                x2.a = -a;
-                x3.b = -b;
+                x1.a = a;
+                x1.c = c;
+                x3.b = b;
             }
             1 => {
-                x1.b = b.to_owned();
-                // x1.c = b;
-                x2.a = -a;
+                x1.b = b;
+                x1.c = c;
+                x2.a = a;
             }
             2 => {
-                x1.b = b.to_owned();
-                // x1.c = b;
-                x3.b = -a;
+                x1.c = c;
+                x2.b = b;
+                x3.a = a;
             }
             _ => unreachable!(),
         }
