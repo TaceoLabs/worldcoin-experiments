@@ -259,7 +259,7 @@ impl<N: NetworkTrait> Swift3<N> {
                 let y3 = y_b;
                 self.jmp_send::<T>(y1.to_owned(), 2).await?;
                 self.jmp_send::<T>(y3.to_owned(), 1).await?;
-                self.jshare(None, 1, 2, 0).await?
+                self.jshare_binary(None, 1, 2, 0).await?
             }
             1 => {
                 let y2 = y_a;
@@ -267,7 +267,8 @@ impl<N: NetworkTrait> Swift3<N> {
                 self.jmp_queue::<T>(y1.to_owned(), 2)?;
                 let y3 = self.jmp_receive::<T>(0).await?;
                 let zr = y1 ^ y2 ^ y3 ^ z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
+                    .await?
             }
             2 => {
                 let y3 = y_a;
@@ -275,7 +276,8 @@ impl<N: NetworkTrait> Swift3<N> {
                 self.jmp_queue::<T>(y3.to_owned(), 1)?;
                 let y1 = self.jmp_receive::<T>(0).await?;
                 let zr = y1 ^ y2 ^ y3 ^ z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
+                    .await?
             }
             _ => unreachable!(),
         };
@@ -315,7 +317,7 @@ impl<N: NetworkTrait> Swift3<N> {
                     let y3 = x_b & &y_c ^ y_b & &x_c ^ de_b ^ &r2;
                     self.jmp_send::<T>(y1.to_owned(), 2).await?;
                     self.jmp_send::<T>(y3.to_owned(), 1).await?;
-                    let share = self.jshare(None, 1, 2, 0).await?;
+                    let share = self.jshare_binary(None, 1, 2, 0).await?;
                     let r = Share::new(r1, r2, T::Share::zero());
                     shares.push(share ^ r);
                 }
@@ -335,7 +337,9 @@ impl<N: NetworkTrait> Swift3<N> {
                     self.jmp_queue::<T>(y1.to_owned(), 2)?;
                     let y3 = self.jmp_receive::<T>(0).await?;
                     let zr = y1 ^ y2 ^ y3 ^ z_c;
-                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
+                    let share = self
+                        .jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
+                        .await?;
                     let r = Share::new(r1, r2, T::Share::zero());
                     shares.push(share ^ r);
                 }
@@ -355,7 +359,9 @@ impl<N: NetworkTrait> Swift3<N> {
                     self.jmp_queue::<T>(y3.to_owned(), 1)?;
                     let y1 = self.jmp_receive::<T>(0).await?;
                     let zr = y1 ^ y2 ^ y3 ^ z_c;
-                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
+                    let share = self
+                        .jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
+                        .await?;
                     let r = Share::new(r1, r2, T::Share::zero());
                     shares.push(share ^ r);
                 }
@@ -771,6 +777,52 @@ impl<N: NetworkTrait> Swift3<N> {
             let alpha_1 = self.prf.gen_2::<T::Share>();
             let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
             let beta = alpha + input.unwrap().to_sharetype();
+            self.jmp_queue::<T>(beta.to_owned(), receiver)?;
+            Share::new(alpha_p, alpha_1, beta)
+        } else if self_id == receiver {
+            let beta = self.jmp_receive::<T>(sender1).await?;
+            Share::new(alpha_p.to_owned(), alpha_p, beta)
+        } else {
+            unreachable!()
+        };
+
+        Ok(share)
+    }
+
+    async fn jshare_binary<T: Sharable>(
+        &mut self,
+        input: Option<T>,
+        mut sender1: usize,
+        mut sender2: usize,
+        receiver: usize,
+    ) -> Result<Share<T>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        if sender2 != ((sender1 + 1) % 3) {
+            std::mem::swap(&mut sender1, &mut sender2);
+        }
+
+        let self_id = self.network.get_id();
+        debug_assert!(sender1 != sender2);
+        debug_assert!(sender1 != receiver);
+        debug_assert!(sender2 != receiver);
+        if ((sender1 == self_id) || (sender2 == self_id)) && input.is_none() {
+            return Err(Error::ValueError("Cannot share None".to_string()));
+        }
+
+        let alpha_p = self.prf.gen_p::<T::Share>();
+
+        let share = if self_id == sender1 {
+            let alpha_1 = self.prf.gen_1::<T::Share>();
+            let alpha = alpha_1.to_owned();
+            let beta = alpha ^ input.unwrap().to_sharetype();
+            self.jmp_send::<T>(beta.to_owned(), receiver).await?;
+            Share::new(alpha_1, alpha_p, beta)
+        } else if self_id == sender2 {
+            let alpha_1 = self.prf.gen_2::<T::Share>();
+            let alpha = alpha_1.to_owned();
+            let beta = alpha ^ input.unwrap().to_sharetype();
             self.jmp_queue::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_p, alpha_1, beta)
         } else if self_id == receiver {
