@@ -38,6 +38,14 @@ impl<T: Sharable> Share<T> {
         }
     }
 
+    pub fn get_a(self) -> T::Share {
+        self.a
+    }
+
+    pub fn get_ac(self) -> (T::Share, T::Share) {
+        (self.a, self.c)
+    }
+
     pub fn get_abc(self) -> (T::Share, T::Share, T::Share) {
         (self.a, self.b, self.c)
     }

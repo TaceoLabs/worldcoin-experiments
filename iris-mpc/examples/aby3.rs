@@ -1,6 +1,6 @@
 use clap::Parser;
 use color_eyre::{eyre::Context, Result};
-use iris_aby3::prelude::{Aby3, Aby3Network, Aby3Share, Error, IrisAby3, MpcTrait, Sharable};
+use iris_mpc::prelude::{Aby3, Aby3Network, Aby3Share, Error, IrisAby3, MpcTrait, Sharable};
 use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -123,7 +123,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         let share_b: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(1)?)?;
 
         if share_a.len() != IrisCode::IRIS_CODE_SIZE || share_b.len() != IrisCode::IRIS_CODE_SIZE {
-            Err(Error::InvlidCodeSizeError)?;
+            Err(Error::InvalidCodeSizeError)?;
         }
         let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for (a, b) in share_a.into_iter().zip(share_b) {

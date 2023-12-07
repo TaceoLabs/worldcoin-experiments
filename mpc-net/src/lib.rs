@@ -1,16 +1,22 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    io,
     net::SocketAddr,
     sync::Arc,
     time::Duration,
 };
 
-use channel::Channel;
+use channel::{BytesChannel, Channel};
+use codecs::BincodeCodec;
 use color_eyre::eyre::{self, Context, Report};
 use config::NetworkConfig;
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, TransportConfig};
 use rustls::{Certificate, PrivateKey};
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
+
+pub mod codecs;
 
 pub mod channel;
 pub mod config;
@@ -151,7 +157,29 @@ impl MpcNetworkHandler {
     }
     pub async fn get_byte_channels(
         &mut self,
-    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream>>> {
+    ) -> std::io::Result<HashMap<usize, BytesChannel<RecvStream, SendStream>>> {
+        self.get_custom_channels(LengthDelimitedCodec::new()).await
+    }
+
+    pub async fn get_serde_bincode_channels<M: Serialize + DeserializeOwned>(
+        &mut self,
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, M, M, BincodeCodec<M>>>>
+    {
+        let bincodec = BincodeCodec::<M>::new();
+        self.get_custom_channels(bincodec).await
+    }
+
+    pub async fn get_custom_channels<
+        MSend,
+        MRecv,
+        C: Encoder<MSend, Error = io::Error>
+            + Decoder<Item = MRecv, Error = io::Error>
+            + 'static
+            + Clone,
+    >(
+        &mut self,
+        codec: C,
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, MSend, MRecv, C>>> {
         let mut channels = HashMap::with_capacity(self.connections.len() - 1);
         for (&id, conn) in &mut self.connections {
             if id < self.my_id {
@@ -160,7 +188,7 @@ impl MpcNetworkHandler {
                 send_stream.write_u32(self.my_id as u32).await?;
                 let their_id = recv_stream.read_u32().await?;
                 assert!(their_id == id as u32);
-                let conn = Channel::new(recv_stream, send_stream);
+                let conn = Channel::new(recv_stream, send_stream, codec.clone());
                 assert!(channels.insert(id, conn).is_none());
             } else {
                 // we are the server, so we are the sender
@@ -168,7 +196,7 @@ impl MpcNetworkHandler {
                 let their_id = recv_stream.read_u32().await?;
                 assert!(their_id == id as u32);
                 send_stream.write_u32(self.my_id as u32).await?;
-                let conn = Channel::new(recv_stream, send_stream);
+                let conn = Channel::new(recv_stream, send_stream, codec.clone());
                 assert!(channels.insert(id, conn).is_none());
             }
         }

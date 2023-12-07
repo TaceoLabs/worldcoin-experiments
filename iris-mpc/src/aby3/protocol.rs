@@ -296,7 +296,7 @@ where
 
     async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let rand = self.prf.gen_zero_share::<T>();
@@ -317,7 +317,7 @@ where
         b: Vec<Vec<Share<T>>>,
     ) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut shares_a = Vec::with_capacity(a.len());
@@ -325,7 +325,7 @@ where
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
             let mut rand = self.prf.gen_zero_share::<T>();
             if a_.len() != b_.len() {
-                return Err(Error::InvlidSizeError);
+                return Err(Error::InvalidSizeError);
             }
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
                 rand += (a__ * b__).a;
@@ -388,7 +388,7 @@ where
         b: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         let mut shares_a = Vec::with_capacity(a.len());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
