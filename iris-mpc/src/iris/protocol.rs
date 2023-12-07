@@ -88,7 +88,7 @@ where
         mask: &IrisCodeArray,
     ) -> Result<Vec<Ashare>, Error> {
         if code.len() != IRIS_CODE_SIZE {
-            return Err(Error::InvlidCodeSizeError);
+            return Err(Error::InvalidCodeSizeError);
         }
 
         for (i, c) in code.iter_mut().enumerate() {
@@ -106,7 +106,7 @@ where
         dot: Ashare,
     ) -> Result<Ashare, Error> {
         if a.is_empty() || a.len() != b.len() {
-            return Err(Error::InvlidCodeSizeError);
+            return Err(Error::InvalidCodeSizeError);
         }
 
         let sum_a = a
@@ -179,7 +179,7 @@ where
         mask_lens: Vec<usize>,
     ) -> Result<Vec<Bshare>, Error> {
         if hwds.len() != mask_lens.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
@@ -218,7 +218,7 @@ where
     ) -> Result<Vec<Bshare>, Error> {
         let amount = b.len();
         if (amount != mask_b.len()) || (amount == 0) {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         let mut a_vec = Vec::with_capacity(amount);
         let mut b_vec = Vec::with_capacity(amount);
@@ -247,7 +247,7 @@ where
     ) -> Result<bool, Error> {
         let amount = db.len();
         if (amount != mask_db.len()) || (amount == 0) {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut bool_shares = Vec::with_capacity(amount);

@@ -120,7 +120,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn dot(&mut self, a: Vec<T>, b: Vec<T>) -> Result<T, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         let mut res = T::zero();
         for (a, b) in a.into_iter().zip(b.into_iter()) {
@@ -131,7 +131,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn dot_many(&mut self, a: Vec<Vec<T>>, b: Vec<Vec<T>>) -> Result<Vec<T>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut res = Vec::with_capacity(a.len());

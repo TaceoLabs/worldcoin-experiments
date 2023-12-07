@@ -20,7 +20,7 @@ where
 
     fn xor_many(a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         let res = a
             .into_iter()
@@ -36,7 +36,7 @@ where
 
     fn xor_assign_many(a: &mut Vec<Bshare>, b: Vec<Bshare>) -> Result<(), Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         for (a_, b_) in a.iter_mut().zip(b) {
             Self::xor_assign(a_, b_);
@@ -56,7 +56,7 @@ where
 
     async fn or_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
         if a.len() != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
         let y = self.and_many(a.to_owned(), b.to_owned()).await?;
         let res = a
@@ -104,7 +104,7 @@ where
     ) -> Result<Vec<Bshare>, Error> {
         let len = x1.len();
         if len != x2.len() || len != x3.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let k = T::Share::get_k();

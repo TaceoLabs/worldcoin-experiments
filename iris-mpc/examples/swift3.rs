@@ -129,7 +129,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
             || share_b.len() != IrisCode::IRIS_CODE_SIZE
             || share_c.len() != IrisCode::IRIS_CODE_SIZE
         {
-            Err(Error::InvlidCodeSizeError)?;
+            Err(Error::InvalidCodeSizeError)?;
         }
         let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for ((a, b), c) in share_a.into_iter().zip(share_b).zip(share_c) {

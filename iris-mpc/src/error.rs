@@ -11,10 +11,10 @@ pub enum Error {
     MaskHWError,
     /// Size is invalid
     #[error("Size is invalid")]
-    InvlidSizeError,
+    InvalidSizeError,
     /// Code size is invalid
     #[error("Code size is invalid")]
-    InvlidCodeSizeError,
+    InvalidCodeSizeError,
     /// Message size is invalid
     #[error("Message size is invalid")]
     InvalidMessageSize,
@@ -42,7 +42,7 @@ pub enum Error {
     /// Error from the color_eyre crate
     #[error("ColorEyre error")]
     ColorEyreError(#[from] color_eyre::Report),
-    /// Some other error has occured.
+    /// Some other error has occurred.
     #[error("Err: {0}")]
     Other(String),
 }

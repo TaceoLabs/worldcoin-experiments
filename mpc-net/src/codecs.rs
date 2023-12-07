@@ -4,7 +4,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct BincodeCodec<M: Serialize + DeserializeOwned> {
     inner: LengthDelimitedCodec,
     phantom: std::marker::PhantomData<M>,

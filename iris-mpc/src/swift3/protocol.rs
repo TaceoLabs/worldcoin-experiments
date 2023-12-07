@@ -897,7 +897,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
             let input = input.unwrap();
             if input.len() != len {
-                return Err(Error::InvlidSizeError);
+                return Err(Error::InvalidSizeError);
             }
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
@@ -920,7 +920,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
             let input = input.unwrap();
             if input.len() != len {
-                return Err(Error::InvlidSizeError);
+                return Err(Error::InvalidSizeError);
             }
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
@@ -1026,7 +1026,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
             let input = input.unwrap();
             if input.len() != len {
-                return Err(Error::InvlidSizeError);
+                return Err(Error::InvalidSizeError);
             }
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
@@ -1049,7 +1049,7 @@ impl<N: NetworkTrait> Swift3<N> {
 
             let input = input.unwrap();
             if input.len() != len {
-                return Err(Error::InvlidSizeError);
+                return Err(Error::InvalidSizeError);
             }
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
@@ -1620,7 +1620,7 @@ where
     async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
         let len = a.len();
         if len != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut d = Vec::with_capacity(len);
@@ -1643,7 +1643,7 @@ where
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut shares_d = Vec::with_capacity(len);
@@ -1706,7 +1706,7 @@ where
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {
-            return Err(Error::InvlidSizeError);
+            return Err(Error::InvalidSizeError);
         }
 
         let mut d = Vec::with_capacity(len);
