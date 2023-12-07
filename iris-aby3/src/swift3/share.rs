@@ -1,5 +1,4 @@
 use crate::{
-    aby3::id::PartyID,
     prelude::{Bit, Sharable},
     types::{
         int_ring::IntRing2k,
@@ -17,10 +16,10 @@ use std::{
 };
 
 // A share of x is represented as
-//   P_0: (a1, a2, b + c)
-//   P_1: (a1, b, c)
-//   P_2: (a2, b, c)
-// where b = x + a1 + a2
+//   P_0: (a1, a3, b)
+//   P_1: (a2, a1, b)
+//   P_2: (a3, a2, b)
+// where b = x + a1 + a2 + a3
 #[derive(Clone, Debug, PartialEq, Default, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Share<T: Sharable> {
     pub(crate) a: T::Share,
@@ -52,30 +51,22 @@ impl<T: Sharable> Share<T> {
         }
     }
 
-    pub(crate) fn add_const(mut self, other: &T::Share, id: PartyID) -> Self {
-        self.add_assign_const(other, id);
+    pub(crate) fn add_const(mut self, other: &T::Share) -> Self {
+        self.add_assign_const(other);
         self
     }
 
-    pub(crate) fn add_assign_const(&mut self, other: &T::Share, id: PartyID) {
-        match id {
-            PartyID::ID0 => self.c += other,
-            PartyID::ID1 => self.b += other,
-            PartyID::ID2 => self.b += other,
-        }
+    pub(crate) fn add_assign_const(&mut self, other: &T::Share) {
+        self.c += other;
     }
 
-    pub(crate) fn sub_const(mut self, other: &T::Share, id: PartyID) -> Self {
-        self.sub_assign_const(other, id);
+    pub(crate) fn sub_const(mut self, other: &T::Share) -> Self {
+        self.sub_assign_const(other);
         self
     }
 
-    pub(crate) fn sub_assign_const(&mut self, other: &T::Share, id: PartyID) {
-        match id {
-            PartyID::ID0 => self.c -= other,
-            PartyID::ID1 => self.b -= other,
-            PartyID::ID2 => self.b -= other,
-        }
+    pub(crate) fn sub_assign_const(&mut self, other: &T::Share) {
+        self.c -= other;
     }
 }
 
@@ -255,56 +246,6 @@ where
     }
 }
 
-/// This is only the local part of the multiplication (so without randomness and without communication)!
-impl<T: Sharable> Mul for Share<T> {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: (self.a.to_owned() * &rhs.a) + (self.a * &rhs.b) + (self.b * &rhs.a),
-        //     b: T::Share::zero(),
-        //     sharetype: PhantomData,
-        // }
-    }
-}
-
-/// This is only the local part of the multiplication (so without randomness and without communication)!
-impl<T: Sharable> Mul<&Share<T>> for Share<T> {
-    type Output = Self;
-
-    fn mul(self, rhs: &Share<T>) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: (self.a.to_owned() * &rhs.a) + (self.a * &rhs.b) + (self.b * &rhs.a),
-        //     b: T::Share::zero(),
-        //     sharetype: PhantomData,
-        // }
-    }
-}
-
-/// This is only the local part of the multiplication (so without randomness and without communication)!
-impl<T: Sharable> MulAssign for Share<T> {
-    fn mul_assign(&mut self, rhs: Self) {
-        todo!()
-        //     self.a = (self.a.to_owned() * &rhs.a)
-        //         + (self.a.to_owned() * &rhs.b)
-        //         + (self.b.to_owned() * &rhs.a);
-        //     self.b = T::Share::zero();
-    }
-}
-
-/// This is only the local part of the multiplication (so without randomness and without communication)!
-impl<T: Sharable> MulAssign<&Share<T>> for Share<T> {
-    fn mul_assign(&mut self, rhs: &Share<T>) {
-        todo!()
-        //     self.a = (self.a.to_owned() * &rhs.a)
-        //         + (self.a.to_owned() * &rhs.b)
-        //         + (self.b.to_owned() * &rhs.a);
-        //     self.b = T::Share::zero();
-    }
-}
-
 impl<T: Sharable> Neg for Share<T> {
     type Output = Self;
 
@@ -363,56 +304,6 @@ impl<T: Sharable> BitXorAssign<&Self> for Share<T> {
         self.a ^= &rhs.a;
         self.b ^= &rhs.b;
         self.c ^= &rhs.c;
-    }
-}
-
-/// This is only the local part of the AND (so without randomness and without communication)!
-impl<T: Sharable> BitAnd for Share<T> {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: (self.a.to_owned() & &rhs.a) ^ (self.a & &rhs.b) ^ (self.b & &rhs.a),
-        //     b: T::Share::zero(),
-        //     sharetype: PhantomData,
-        // }
-    }
-}
-
-/// This is only the local part of the AND (so without randomness and without communication)!
-impl<T: Sharable> BitAnd<&Share<T>> for Share<T> {
-    type Output = Self;
-
-    fn bitand(self, rhs: &Share<T>) -> Self::Output {
-        todo!()
-        // Share {
-        //     a: (self.a.to_owned() & &rhs.a) ^ (self.a & &rhs.b) ^ (self.b & &rhs.a),
-        //     b: T::Share::zero(),
-        //     sharetype: PhantomData,
-        // }
-    }
-}
-
-/// This is only the local part of the AND (so without randomness and without communication)!
-impl<T: Sharable> BitAndAssign for Share<T> {
-    fn bitand_assign(&mut self, rhs: Self) {
-        todo!()
-        // self.a = (self.a.to_owned() & &rhs.a)
-        //     ^ (self.a.to_owned() & &rhs.b)
-        //     ^ (self.b.to_owned() & &rhs.a);
-        // self.b = T::Share::zero();
-    }
-}
-
-/// This is only the local part of the AND (so without randomness and without communication)!
-impl<T: Sharable> BitAndAssign<&Share<T>> for Share<T> {
-    fn bitand_assign(&mut self, rhs: &Share<T>) {
-        todo!()
-        // self.a = (self.a.to_owned() & &rhs.a)
-        //     ^ (self.a.to_owned() & &rhs.b)
-        //     ^ (self.b.to_owned() & &rhs.a);
-        // self.b = T::Share::zero();
     }
 }
 

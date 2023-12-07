@@ -1,14 +1,24 @@
-use super::share::Share;
-use super::utils::ceil_log2;
+use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Error, Sharable};
 use crate::types::ring_element::RingImpl;
+use std::ops::{BitXor, BitXorAssign};
 
-pub trait BinaryMpcTrait<T: Sharable> {
-    fn xor(a: Share<T>, b: Share<T>) -> Share<T> {
+pub trait BinaryMpcTrait<T: Sharable, Bshare>
+where
+    Bshare: Clone
+        + BitXorAssign
+        + BitXor<Output = Bshare>
+        + std::ops::ShlAssign<u32>
+        + std::ops::Shl<u32, Output = Bshare>
+        + Send
+        + Sync
+        + 'static,
+{
+    fn xor(a: Bshare, b: Bshare) -> Bshare {
         a ^ b
     }
 
-    fn xor_many(a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
+    fn xor_many(a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvlidSizeError);
         }
@@ -20,11 +30,11 @@ pub trait BinaryMpcTrait<T: Sharable> {
         Ok(res)
     }
 
-    fn xor_assign(a: &mut Share<T>, b: Share<T>) {
+    fn xor_assign(a: &mut Bshare, b: Bshare) {
         *a ^= b;
     }
 
-    fn xor_assign_many(a: &mut Vec<Share<T>>, b: Vec<Share<T>>) -> Result<(), Error> {
+    fn xor_assign_many(a: &mut Vec<Bshare>, b: Vec<Bshare>) -> Result<(), Error> {
         if a.len() != b.len() {
             return Err(Error::InvlidSizeError);
         }
@@ -34,25 +44,17 @@ pub trait BinaryMpcTrait<T: Sharable> {
         Ok(())
     }
 
-    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error>;
+    async fn and(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 
-    async fn and_many(
-        &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error>;
+    async fn and_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
 
-    async fn or(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+    async fn or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error> {
         let x = Self::xor(a.to_owned(), b.to_owned());
         let y = self.and(a, b).await?;
         Ok(Self::xor(x, y))
     }
 
-    async fn or_many(
-        &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    async fn or_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvlidSizeError);
         }
@@ -66,12 +68,7 @@ pub trait BinaryMpcTrait<T: Sharable> {
         Ok(res)
     }
 
-    async fn binary_add_3(
-        &mut self,
-        x1: Share<T>,
-        x2: Share<T>,
-        x3: Share<T>,
-    ) -> Result<Share<T>, Error> {
+    async fn binary_add_3(&mut self, x1: Bshare, x2: Bshare, x3: Bshare) -> Result<Bshare, Error> {
         let k = T::Share::get_k();
         let logk = ceil_log2(k);
 
@@ -101,10 +98,10 @@ pub trait BinaryMpcTrait<T: Sharable> {
 
     async fn binary_add_3_many(
         &mut self,
-        x1: Vec<Share<T>>,
-        x2: Vec<Share<T>>,
-        x3: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+        x1: Vec<Bshare>,
+        x2: Vec<Bshare>,
+        x3: Vec<Bshare>,
+    ) -> Result<Vec<Bshare>, Error> {
         let len = x1.len();
         if len != x2.len() || len != x3.len() {
             return Err(Error::InvlidSizeError);
@@ -129,8 +126,8 @@ pub trait BinaryMpcTrait<T: Sharable> {
         let mut g = self.and_many(s, c).await?;
         let s_ = p.to_owned();
         for i in 0..logk {
-            let p_: Vec<Share<T>> = p.iter().cloned().map(|p_| p_ << (1 << i)).collect();
-            let g_: Vec<Share<T>> = g.iter().cloned().map(|g_| g_ << (1 << i)).collect();
+            let p_: Vec<Bshare> = p.iter().cloned().map(|p_| p_ << (1 << i)).collect();
+            let g_: Vec<Bshare> = g.iter().cloned().map(|g_| g_ << (1 << i)).collect();
 
             // TODO Maybe work with Bits in the inner loop to have less communication?
 
@@ -157,7 +154,6 @@ pub trait BinaryMpcTrait<T: Sharable> {
         Ok(res)
     }
 
-    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error>;
-    async fn arithmetic_to_binary_many(&mut self, x: Vec<Share<T>>)
-        -> Result<Vec<Share<T>>, Error>;
+    async fn arithmetic_to_binary(&mut self, x: Bshare) -> Result<Bshare, Error>;
+    async fn arithmetic_to_binary_many(&mut self, x: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
 }
