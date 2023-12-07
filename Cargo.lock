@@ -766,6 +766,7 @@ dependencies = [
 name = "mpc-net"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "bytes",
  "clap",
  "color-eyre",

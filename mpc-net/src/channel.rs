@@ -16,10 +16,7 @@ pub struct Channel<
     W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
     MSend,
     MRecv,
-    C: Encoder<MSend, Error = io::Error>
-        + Decoder<Item = MRecv, Error = io::Error>
-        + 'static
-        + std::marker::Unpin,
+    C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
 > {
     read_conn: ReadChannel<R, C>,
     write_conn: WriteChannel<W, C>,
@@ -36,8 +33,7 @@ impl<
         C: Encoder<MSend, Error = io::Error>
             + Decoder<Item = MRecv, Error = io::Error>
             + Clone
-            + 'static
-            + std::marker::Unpin,
+            + 'static,
     > Channel<R, W, MSend, MRecv, C>
 {
     /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
@@ -84,10 +80,7 @@ impl<
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
         MSend: 'static + std::marker::Unpin,
         MRecv: 'static + std::marker::Unpin,
-        C: Encoder<MSend, Error = io::Error>
-            + Decoder<Item = MRecv, Error = io::Error>
-            + 'static
-            + std::marker::Unpin,
+        C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
     > Sink<MSend> for Channel<R, W, MSend, MRecv, C>
 where
     Self: 'static + std::marker::Unpin,
@@ -124,10 +117,7 @@ impl<
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
         MSend,
         MRecv,
-        C: Encoder<MSend, Error = io::Error>
-            + Decoder<Item = MRecv, Error = io::Error>
-            + 'static
-            + std::marker::Unpin,
+        C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
     > Stream for Channel<R, W, MSend, MRecv, C>
 where
     Self: 'static + std::marker::Unpin,

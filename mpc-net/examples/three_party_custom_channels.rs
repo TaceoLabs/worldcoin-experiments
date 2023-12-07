@@ -93,6 +93,9 @@ impl Message {
     }
 }
 
+// A codec for the message type
+// This is a very inefficient implementation of a codec, but it is just for demonstration purposes
+
 #[derive(Clone, Copy)]
 struct MessageCodec;
 
