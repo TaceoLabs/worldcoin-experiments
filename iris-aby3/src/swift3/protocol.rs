@@ -446,85 +446,89 @@ impl<N: NetworkTrait> Swift3<N> {
         let id = self.network.get_id();
 
         let mut shares = Vec::with_capacity(len);
-        if id == 0 {
-            let mut betas_z1 = Vec::with_capacity(len);
-            let mut betas_z2 = Vec::with_capacity(len);
 
-            for ((a, b), de) in a.into_iter().zip(b.into_iter()).zip(de.into_iter()) {
-                let alpha1 = self.prf.gen_1::<T::Share>();
-                let alpha2 = self.prf.gen_2::<T::Share>();
-                let (xi1, xi2) = de.get_ab();
-                let mut beta_z1 = xi1 + &alpha1;
-                let mut beta_z2 = xi2 + &alpha2;
+        match id {
+            0 => {
+                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                    let (de_a, de_b) = de.get_ab();
 
-                debug_assert_eq!(a.len(), b.len());
-                for (a, b) in a.into_iter().zip(b.into_iter()) {
-                    let (x_a, x_b, x_c) = a.get_abc();
-                    let (y_a, y_b, y_c) = b.get_abc();
-                    beta_z1 -= x_c.to_owned() * y_a + y_c.to_owned() * x_a;
-                    beta_z2 -= x_c * y_b + y_c * x_b;
+                    let r1 = self.prf.gen_1::<T::Share>();
+                    let r2 = self.prf.gen_2::<T::Share>();
+
+                    let mut y1 = de_a - &r1;
+                    let mut y3 = de_b - &r2;
+                    let mut z_c = T::Share::zero();
+
+                    for (a, b) in a.into_iter().zip(b) {
+                        let (x_a, x_b, x_c) = a.get_abc();
+                        let (y_a, y_b, y_c) = b.get_abc();
+
+                        y1 -= x_a * &y_c + y_a * &x_c;
+                        y3 -= x_b * &y_c + y_b * &x_c;
+                        z_c += x_c * y_c;
+                    }
+                    self.jmp_send::<T>(y1.to_owned(), 2).await?;
+                    self.jmp_send::<T>(y3.to_owned(), 1).await?;
+                    let share = self.jshare(None, 1, 2, 0).await?;
+                    let r = Share::new(r1, r2, T::Share::zero());
+                    shares.push(share - r);
                 }
-                betas_z1.push(beta_z1);
-                betas_z2.push(beta_z2);
-                shares.push(Share::new(alpha1, alpha2, T::Share::zero()));
             }
-            self.jmp_send_many::<T>(betas_z1, 2).await?;
-            self.jmp_send_many::<T>(betas_z2, 1).await?;
-            let c = self.jmp_receive_many::<T>(1, len).await?;
+            1 => {
+                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                    let (de_a, de_b) = de.get_ab();
 
-            for (share, c) in shares.iter_mut().zip(c.into_iter()) {
-                share.c = c;
-            }
-        } else {
-            let mut betas_z1 = Vec::with_capacity(len);
-            let mut betas_z = Vec::with_capacity(len);
+                    let r1 = self.prf.gen_1::<T::Share>();
+                    let r2 = self.prf.gen_2::<T::Share>();
 
-            for ((a, b), de) in a.into_iter().zip(b.into_iter()).zip(de.into_iter()) {
-                let alpha = self.prf.gen_1::<T::Share>();
-                let gamma = self.prf.gen_2::<T::Share>();
-                let (psi, xi) = if id == 1 {
-                    de.get_ab()
-                } else {
-                    let (xi, psi) = de.get_ab();
-                    (psi, xi)
-                };
+                    let mut y2 = de_a - &r1;
+                    let mut y1 = de_b - &r2;
+                    let mut z_c = T::Share::zero();
 
-                let mut beta_z1 = xi + &alpha;
-                let mut beta_z = psi;
+                    for (a, b) in a.into_iter().zip(b) {
+                        let (x_a, x_b, x_c) = a.get_abc();
+                        let (y_a, y_b, y_c) = b.get_abc();
 
-                debug_assert_eq!(a.len(), b.len());
-                for (a, b) in a.into_iter().zip(b.into_iter()) {
-                    let (x_a, x_b, x_c) = a.get_abc();
-                    let (y_a, y_b, y_c) = b.get_abc();
-
-                    beta_z -= x_c.to_owned() * &y_c;
-                    let beta_gamma_x = x_c + &x_b;
-                    let beta_gamma_y = y_c + &y_b;
-                    beta_z1 -= beta_gamma_x * y_a + beta_gamma_y * x_a;
-                    beta_z += x_b * y_b;
+                        y2 -= x_a * &y_c + y_a * &x_c;
+                        y1 -= x_b * &y_c + y_b * &x_c;
+                        z_c += x_c * y_c;
+                    }
+                    self.jmp_queue::<T>(y1.to_owned(), 2)?;
+                    let y3 = self.jmp_receive::<T>(0).await?;
+                    let zr = y1 + y2 + y3 + z_c;
+                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
+                    let r = Share::new(r1, r2, T::Share::zero());
+                    shares.push(share - r);
                 }
-                betas_z1.push(beta_z1);
-                betas_z.push(beta_z);
-                shares.push(Share::new(alpha, T::Share::zero(), gamma));
             }
+            2 => {
+                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                    let (de_a, de_b) = de.get_ab();
 
-            self.jmp_queue_many::<T>(betas_z1.to_owned(), 3 - id)?;
-            let betas_z2 = self.jmp_receive_many::<T>(0, len).await?;
-            for ((a, s), (b, c)) in betas_z
-                .iter_mut()
-                .zip(shares.iter_mut())
-                .zip(betas_z1.into_iter().zip(betas_z2.into_iter()))
-            {
-                *a += b + c;
-                s.b = a.to_owned();
-                *a += &s.c; // + gamma for sending
-            }
+                    let r1 = self.prf.gen_1::<T::Share>();
+                    let r2 = self.prf.gen_2::<T::Share>();
 
-            if id == 1 {
-                self.jmp_send_many::<T>(betas_z, 0).await?;
-            } else {
-                self.jmp_queue_many::<T>(betas_z, 0)?;
+                    let mut y3 = de_a - &r1;
+                    let mut y2 = de_b - &r2;
+                    let mut z_c = T::Share::zero();
+
+                    for (a, b) in a.into_iter().zip(b) {
+                        let (x_a, x_b, x_c) = a.get_abc();
+                        let (y_a, y_b, y_c) = b.get_abc();
+
+                        y3 -= x_a * &y_c + y_a * &x_c;
+                        y2 -= x_b * &y_c + y_b * &x_c;
+                        z_c += x_c * y_c;
+                    }
+                    self.jmp_queue::<T>(y3.to_owned(), 1)?;
+                    let y1 = self.jmp_receive::<T>(0).await?;
+                    let zr = y1 + y2 + y3 + z_c;
+                    let share = self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?;
+                    let r = Share::new(r1, r2, T::Share::zero());
+                    shares.push(share - r);
+                }
             }
+            _ => unreachable!(),
         }
 
         Ok(shares)
