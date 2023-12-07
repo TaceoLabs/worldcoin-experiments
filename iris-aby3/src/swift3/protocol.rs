@@ -202,39 +202,36 @@ impl<N: NetworkTrait> Swift3<N> {
         let y_b = -x_b * &y_c - y_b * &x_c + &de_b - &r2;
         let z_c = x_c * y_c;
 
-        let r = Share::new(r1, r2, T::Share::zero());
-
-        match id {
+        let share = match id {
             0 => {
                 let y1 = y_a;
                 let y3 = y_b;
-                self.jmp_send::<T>(y1.to_owned(), 3).await?;
-                self.jmp_send::<T>(y3.to_owned(), 2).await?;
-                // joint receive from P1 and P2
+                self.jmp_send::<T>(y1.to_owned(), 2).await?;
+                self.jmp_send::<T>(y3.to_owned(), 1).await?;
+                self.jshare(None, 1, 2, 0).await?
             }
             1 => {
                 let y2 = y_a;
                 let y1 = y_b;
-                self.jmp_queue::<T>(y1.to_owned(), 3)?;
+                self.jmp_queue::<T>(y1.to_owned(), 2)?;
                 let y3 = self.jmp_receive::<T>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                // joint share to P0
+                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
             }
             2 => {
                 let y3 = y_a;
                 let y2 = y_b;
-                self.jmp_queue::<T>(y3.to_owned(), 2)?;
+                self.jmp_queue::<T>(y3.to_owned(), 1)?;
                 let y1 = self.jmp_receive::<T>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                // joint share to P0
+                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
             }
             _ => unreachable!(),
-        }
+        };
 
         let r = Share::new(r1, r2, T::Share::zero());
 
-        // Ok(share)
-        todo!()
+        Ok(share - r)
     }
 
     async fn and_post<T: Sharable>(
@@ -745,6 +742,48 @@ impl<N: NetworkTrait> Swift3<N> {
         }
 
         Ok(())
+    }
+
+    async fn jshare<T: Sharable>(
+        &mut self,
+        input: Option<T>,
+        sender1: usize,
+        sender2: usize,
+        receiver: usize,
+    ) -> Result<Share<T>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        let self_id = self.network.get_id();
+        debug_assert!(sender1 != sender2);
+        debug_assert!(sender1 != receiver);
+        debug_assert!(sender2 != receiver);
+        if ((sender1 == self_id) || (sender2 == self_id)) && input.is_none() {
+            return Err(Error::ValueError("Cannot share None".to_string()));
+        }
+
+        let alpha_p = self.prf.gen_p::<T::Share>();
+
+        let share = if self_id == sender1 {
+            let alpha_1 = self.prf.gen_1::<T::Share>();
+            let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
+            let beta = alpha + input.unwrap().to_sharetype();
+            self.jmp_send::<T>(beta.to_owned(), receiver).await?;
+            Share::new(alpha_1, alpha_p, beta)
+        } else if self_id == sender2 {
+            let alpha_1 = self.prf.gen_2::<T::Share>();
+            let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
+            let beta = alpha + input.unwrap().to_sharetype();
+            self.jmp_queue::<T>(beta.to_owned(), receiver)?;
+            Share::new(alpha_p, alpha_1, beta)
+        } else if self_id == receiver {
+            let beta = self.jmp_receive::<T>(sender1).await?;
+            Share::new(alpha_p.to_owned(), alpha_p, beta)
+        } else {
+            unreachable!()
+        };
+
+        Ok(share)
     }
 
     async fn send_seed_opening(
