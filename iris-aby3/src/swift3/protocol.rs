@@ -68,8 +68,7 @@ impl<N: NetworkTrait> Swift3<N> {
     }
 
     fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
-        // TODO wrong?
-        let (a, b, c) = x.get_abc();
+        let (a, b, _) = x.get_abc();
 
         let mut x1 = Share::<T>::zero();
         let mut x2 = Share::<T>::zero();
@@ -82,13 +81,13 @@ impl<N: NetworkTrait> Swift3<N> {
             }
             1 => {
                 x1.b = b.to_owned();
-                // x1.c = b;
+                x1.c = b;
                 x2.a = -a;
             }
             2 => {
                 x1.b = b.to_owned();
-                // x1.c = b;
-                x3.b = -a;
+                x1.c = b;
+                x3.a = -a;
             }
             _ => unreachable!(),
         }
