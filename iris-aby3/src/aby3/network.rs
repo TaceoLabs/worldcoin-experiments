@@ -5,7 +5,7 @@ use crate::error::Error;
 use crate::traits::network_trait::NetworkTrait;
 use bytes::{Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
-use mpc_net::channel::Channel;
+use mpc_net::channel::BytesChannel;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
 use quinn::{RecvStream, SendStream};
@@ -13,8 +13,8 @@ use quinn::{RecvStream, SendStream};
 pub struct Aby3Network {
     handler: MpcNetworkHandler,
     id: PartyID,
-    channel_send: Channel<RecvStream, SendStream>,
-    channel_recv: Channel<RecvStream, SendStream>,
+    channel_send: BytesChannel<RecvStream, SendStream>,
+    channel_recv: BytesChannel<RecvStream, SendStream>,
 }
 
 impl Aby3Network {

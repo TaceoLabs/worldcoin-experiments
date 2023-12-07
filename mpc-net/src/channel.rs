@@ -5,36 +5,52 @@ use std::{
     pin::Pin,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LengthDelimitedCodec};
 
-pub type ReadChannel<T> = FramedRead<T, LengthDelimitedCodec>;
-pub type WriteChannel<T> = FramedWrite<T, LengthDelimitedCodec>;
+pub type ReadChannel<T, D> = FramedRead<T, D>;
+pub type WriteChannel<T, E> = FramedWrite<T, E>;
 
 #[derive(Debug)]
 pub struct Channel<
     R: AsyncReadExt + Send + 'static + std::marker::Unpin,
     W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
+    MSend,
+    MRecv,
+    C: Encoder<MSend, Error = io::Error>
+        + Decoder<Item = MRecv, Error = io::Error>
+        + 'static
+        + std::marker::Unpin,
 > {
-    read_conn: ReadChannel<R>,
-    write_conn: WriteChannel<W>,
+    read_conn: ReadChannel<R, C>,
+    write_conn: WriteChannel<W, C>,
+    _phantom: std::marker::PhantomData<(MSend, MRecv)>,
 }
+
+pub type BytesChannel<R, W> = Channel<R, W, Bytes, BytesMut, LengthDelimitedCodec>;
 
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-    > Channel<R, W>
+        MSend,
+        MRecv,
+        C: Encoder<MSend, Error = io::Error>
+            + Decoder<Item = MRecv, Error = io::Error>
+            + Clone
+            + 'static
+            + std::marker::Unpin,
+    > Channel<R, W, MSend, MRecv, C>
 {
     /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
     /// are automatically handled by [`LengthDelimitedCodec`].
-    pub fn new(read_half: R, write_half: W) -> Self {
-        let codec = LengthDelimitedCodec::new();
+    pub fn new(read_half: R, write_half: W, codec: C) -> Self {
         Channel {
             write_conn: FramedWrite::new(write_half, codec.clone()),
             read_conn: FramedRead::new(read_half, codec),
+            _phantom: std::marker::PhantomData,
         }
     }
     /// Split Connection into a ([`WriteChannel`],[`ReadChannel`]) pair.
-    pub fn split(self) -> (WriteChannel<W>, ReadChannel<R>) {
+    pub fn split(self) -> (WriteChannel<W, C>, ReadChannel<R, C>) {
         (self.write_conn, self.read_conn)
     }
 
@@ -42,6 +58,7 @@ impl<
         let Channel {
             mut read_conn,
             mut write_conn,
+            ..
         } = self;
         write_conn.flush().await?;
         write_conn.close().await?;
@@ -65,9 +82,17 @@ impl<
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-    > Sink<Bytes> for Channel<R, W>
+        MSend: 'static + std::marker::Unpin,
+        MRecv: 'static + std::marker::Unpin,
+        C: Encoder<MSend, Error = io::Error>
+            + Decoder<Item = MRecv, Error = io::Error>
+            + 'static
+            + std::marker::Unpin,
+    > Sink<MSend> for Channel<R, W, MSend, MRecv, C>
+where
+    Self: 'static + std::marker::Unpin,
 {
-    type Error = io::Error;
+    type Error = <C as Encoder<MSend>>::Error;
 
     fn poll_ready(
         mut self: std::pin::Pin<&mut Self>,
@@ -76,7 +101,7 @@ impl<
         self.write_conn.poll_ready_unpin(cx)
     }
 
-    fn start_send(mut self: std::pin::Pin<&mut Self>, item: Bytes) -> Result<(), Self::Error> {
+    fn start_send(mut self: std::pin::Pin<&mut Self>, item: MSend) -> Result<(), Self::Error> {
         self.write_conn.start_send_unpin(item)
     }
 
@@ -97,9 +122,17 @@ impl<
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-    > Stream for Channel<R, W>
+        MSend,
+        MRecv,
+        C: Encoder<MSend, Error = io::Error>
+            + Decoder<Item = MRecv, Error = io::Error>
+            + 'static
+            + std::marker::Unpin,
+    > Stream for Channel<R, W, MSend, MRecv, C>
+where
+    Self: 'static + std::marker::Unpin,
 {
-    type Item = io::Result<BytesMut>;
+    type Item = Result<MRecv, <C as Decoder>::Error>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
