@@ -300,7 +300,7 @@ fn iris_benches(c: &mut Criterion, db_size: usize) {
 }
 
 fn criterion_benchmark_iris_mpc(c: &mut Criterion) {
-    let db_sizes = [10000];
+    let db_sizes = [1000];
 
     for s in db_sizes {
         iris_benches(c, s);

@@ -24,4 +24,8 @@ mkdir -p data
 cargo run --release --example swift3 -- -p 0 -k data/key0.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args &
 cargo run --release --example swift3 -- -p 1 -k data/key1.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args &
 cargo run --release --example swift3 -- -p 2 -k data/key2.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args
+
+#RUST_LOG="trace" cargo run --release --example swift3 -- -p 0 -k data/key0.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g" > out0.log&
+#RUST_LOG="trace" cargo run --release --example swift3 -- -p 1 -k data/key1.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g"> out1.log&
+#RUST_LOG="trace" cargo run --release --example swift3 -- -p 2 -k data/key2.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g"> out2.log
 #CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --example swift3 -- -p 2 -k data/key2.der -c examples/config.yaml -d data/db1.sqlite -i 0 $args

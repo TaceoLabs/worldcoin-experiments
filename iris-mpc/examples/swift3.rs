@@ -194,6 +194,7 @@ where
 async fn main() -> Result<()> {
     let args = Args::parse();
     let id = args.party;
+    tracing_subscriber::fmt::init();
 
     println0!(id, "Reading database:");
     let start = Instant::now();

@@ -481,6 +481,7 @@ impl<N: NetworkTrait> Swift3<N> {
         let id = self.network.get_id();
 
         let mut shares = Vec::with_capacity(len);
+        tracing::debug!("starting dot post many");
 
         match id {
             0 => {
@@ -509,9 +510,12 @@ impl<N: NetworkTrait> Swift3<N> {
                     y3s.push(y3);
                     rs.push(r);
                 }
+                tracing::debug!("jmp_send_many -> 2");
                 self.jmp_send_many::<T>(y1s, 2).await?;
+                tracing::debug!("jmp_send_many -> 1");
                 self.jmp_send_many::<T>(y3s, 1).await?;
 
+                tracing::debug!("jshare_many 1,2 -> 0");
                 let resp = self.jshare_many(None, 1, 2, 0, len).await?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
@@ -545,13 +549,16 @@ impl<N: NetworkTrait> Swift3<N> {
                     y1s.push(y1);
                     rs.push(r);
                 }
+                tracing::debug!("jmp_queue_many -> 2");
                 self.jmp_queue_many::<T>(y1s, 2)?;
+                tracing::debug!("jmp_recv_many <- 0");
                 let y3s = self.jmp_receive_many::<T>(0, len).await?;
 
                 for (zr_, y3) in zr.iter_mut().zip(y3s) {
                     *zr_ = zr_.wrapping_add(&T::from_sharetype(y3));
                 }
 
+                tracing::debug!("jshare_many 1,2 -> 0");
                 let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
@@ -585,13 +592,16 @@ impl<N: NetworkTrait> Swift3<N> {
                     y3s.push(y3);
                     rs.push(r);
                 }
+                tracing::debug!("jmp_queue_many -> 1");
                 self.jmp_queue_many::<T>(y3s, 1)?;
+                tracing::debug!("jmp_recv_many <- 0");
                 let y1s = self.jmp_receive_many::<T>(0, len).await?;
 
                 for (zr_, y1) in zr.iter_mut().zip(y1s) {
                     *zr_ = zr_.wrapping_add(&T::from_sharetype(y1));
                 }
 
+                tracing::debug!("jshare_many 1,2 -> 0");
                 let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
@@ -599,6 +609,7 @@ impl<N: NetworkTrait> Swift3<N> {
             }
             _ => unreachable!(),
         }
+        tracing::debug!("done with dot post many");
 
         Ok(shares)
     }
