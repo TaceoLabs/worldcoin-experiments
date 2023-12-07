@@ -67,8 +67,7 @@ impl<N: NetworkTrait> Swift3<N> {
         }
     }
 
-    fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
-        // TODO wrong?
+    fn a2b_pre<T: Sharable>(&mut self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
         let (a, b, c) = x.get_abc();
 
         let mut x1 = Share::<T>::zero();
@@ -77,19 +76,16 @@ impl<N: NetworkTrait> Swift3<N> {
 
         match self.network.get_id() {
             0 => {
-                x1.a = a;
-                x1.c = c;
-                x3.b = b;
+                x1.a = c - a;
+                x3.b = -b;
             }
             1 => {
-                x1.b = b;
-                x1.c = c;
-                x2.a = a;
+                x1.b = c - b;
+                x2.a = -a;
             }
             2 => {
-                x1.c = c;
-                x2.b = b;
-                x3.a = a;
+                x2.b = -b;
+                x3.a = -a;
             }
             _ => unreachable!(),
         }
@@ -744,13 +740,17 @@ impl<N: NetworkTrait> Swift3<N> {
     async fn jshare<T: Sharable>(
         &mut self,
         input: Option<T>,
-        sender1: usize,
-        sender2: usize,
+        mut sender1: usize,
+        mut sender2: usize,
         receiver: usize,
     ) -> Result<Share<T>, Error>
     where
         Standard: Distribution<T::Share>,
     {
+        if sender2 != ((sender1 + 1) % 3) {
+            std::mem::swap(&mut sender1, &mut sender2);
+        }
+
         let self_id = self.network.get_id();
         debug_assert!(sender1 != sender2);
         debug_assert!(sender1 != receiver);
