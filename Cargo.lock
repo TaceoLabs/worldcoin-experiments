@@ -633,7 +633,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "iris-aby3"
+name = "iris-mpc"
 version = "0.1.0"
 dependencies = [
  "bincode",

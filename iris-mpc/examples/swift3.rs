@@ -1,6 +1,8 @@
 use clap::Parser;
 use color_eyre::{eyre::Context, Result};
-use iris_aby3::prelude::{Aby3, Aby3Network, Aby3Share, Error, IrisAby3, MpcTrait, Sharable};
+use iris_mpc::prelude::{
+    Error, IrisSwift3, MpcTrait, Sharable, Swift3, Swift3Network, Swift3Share,
+};
 use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -53,9 +55,9 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisAby3<T, Aby3<Aby3Network>>) -> Result<()>
+fn print_stats<T: Sharable>(iris: &IrisSwift3<T, Swift3<Swift3Network>>) -> Result<()>
 where
-    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Swift3Share<T>: Mul<T::Share, Output = Swift3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     Standard: Distribution<T::Share>,
 {
@@ -67,7 +69,7 @@ where
     Ok(())
 }
 
-async fn setup_network(args: Args) -> Result<Aby3Network> {
+async fn setup_network(args: Args) -> Result<Swift3Network> {
     let parties: Vec<NetworkParty> =
         serde_yaml::from_reader(File::open(args.config_file).context("opening config file")?)
             .context("parsing config file")?;
@@ -78,20 +80,20 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
         key_path: args.key_file,
     };
 
-    let network = Aby3Network::new(config).await?;
+    let network = Swift3Network::new(config).await?;
 
     Ok(network)
 }
 
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
-    shares: Vec<Vec<Aby3Share<T>>>,
+    shares: Vec<Vec<Swift3Share<T>>>,
     masks: Vec<IrisCodeArray>,
 }
 
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
-    shares: Vec<Aby3Share<T>>,
+    shares: Vec<Swift3Share<T>>,
     mask: IrisCodeArray,
 }
 
@@ -106,9 +108,9 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
 
     // read the codes from the database using rusqlite and iterate over them
     let mut stmt = match args.party {
-        0 => conn.prepare("SELECT share_a, share_c, mask from iris_codes;")?,
-        1 => conn.prepare("SELECT share_b, share_a, mask from iris_codes;")?,
-        2 => conn.prepare("SELECT share_c, share_b, mask from iris_codes;")?,
+        0 => conn.prepare("SELECT share_a, share_c, share_d, mask from iris_codes;")?,
+        1 => conn.prepare("SELECT share_b, share_a, share_d, mask from iris_codes;")?,
+        2 => conn.prepare("SELECT share_c, share_b, share_d, mask from iris_codes;")?,
         i => Err(Error::IdError(i))?,
     };
 
@@ -118,16 +120,20 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     while let Some(row) = rows.next()? {
         let mut mask = IrisCodeArray::default();
         mask.as_raw_mut_slice()
-            .copy_from_slice(&row.get::<_, Vec<u8>>(2)?);
+            .copy_from_slice(&row.get::<_, Vec<u8>>(3)?);
         let share_a: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(0)?)?;
         let share_b: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(1)?)?;
+        let share_c: Vec<T::Share> = bincode::deserialize(&row.get::<_, Vec<u8>>(2)?)?;
 
-        if share_a.len() != IrisCode::IRIS_CODE_SIZE || share_b.len() != IrisCode::IRIS_CODE_SIZE {
+        if share_a.len() != IrisCode::IRIS_CODE_SIZE
+            || share_b.len() != IrisCode::IRIS_CODE_SIZE
+            || share_c.len() != IrisCode::IRIS_CODE_SIZE
+        {
             Err(Error::InvlidCodeSizeError)?;
         }
         let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        for (a, b) in share_a.into_iter().zip(share_b) {
-            share.push(Aby3Share::new(a, b));
+        for ((a, b), c) in share_a.into_iter().zip(share_b).zip(share_c) {
+            share.push(Swift3Share::new(a, b, c));
         }
 
         res.shares.push(share);
@@ -139,7 +145,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
 
 fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
 where
-    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Swift3Share<T>: Mul<T::Share, Output = Swift3Share<T>>,
     Standard: Distribution<T::Share>,
 {
     let mut rng = SmallRng::seed_from_u64(args.iris_seed);
@@ -174,7 +180,7 @@ where
 
     for i in 0..IrisCode::IRIS_CODE_SIZE {
         // We simulate the parties already knowing the shares of the code.
-        let shares = Aby3::<Aby3Network>::share(T::from(iris.code.get_bit(i)), &mut rng);
+        let shares = Swift3::<Swift3Network>::share(T::from(iris.code.get_bit(i)), &mut rng);
         if args.party > 2 {
             Err(Error::IdError(args.party))?;
         }
@@ -209,8 +215,8 @@ async fn main() -> Result<()> {
 
     println0!(id, "\nInitialize protocol:");
     let start = Instant::now();
-    let protocol = Aby3::new(network);
-    let mut iris = IrisAby3::<u16, _>::new(protocol)?;
+    let protocol = Swift3::new(network);
+    let mut iris = IrisSwift3::<u16, _>::new(protocol)?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
     print_stats(&iris)?;

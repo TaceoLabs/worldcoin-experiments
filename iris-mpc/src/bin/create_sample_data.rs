@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::eyre::Result;
-use iris_aby3::prelude::{Aby3, Aby3Network, MpcTrait};
+use iris_mpc::prelude::{Aby3, Aby3Network, MpcTrait};
 use plain_reference::IrisCode;
 use rand::{rngs::SmallRng, SeedableRng};
 use rusqlite::Connection;

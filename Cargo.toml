@@ -1,5 +1,5 @@
 [workspace]
-members = ["plain-reference", "mpc-net", "iris-aby3"]
+members = ["plain-reference", "mpc-net", "iris-mpc"]
 resolver = "2"
 
 [workspace.package]
