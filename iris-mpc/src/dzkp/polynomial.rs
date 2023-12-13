@@ -58,6 +58,11 @@ impl<T: PolyTrait> Poly<T> {
 
         Ok((Self::from_vec(quotient), Self::from_vec(dividend)))
     }
+
+    // pub fn mod_inverse(a: &Self, modulus: &Self, prime_power: usize) -> Result<Self, Error> {
+
+    // Ok(inv)
+    // }
 }
 
 impl<T: PolyTrait> Add for Poly<T> {
@@ -212,5 +217,42 @@ impl<T: PolyTrait> Rem for Poly<T> {
     fn rem(self, rhs: Self) -> Self::Output {
         let (_, rem) = self.long_division(&rhs).expect("division should work");
         rem
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::types::{int_ring::IntRing2k, ring_element::RingElement};
+
+    use super::*;
+
+    fn test_long_division_impl<T: IntRing2k>()
+    where
+        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let vec_a = (1usize..5)
+            .map(|x| RingElement(T::try_from(x).unwrap()))
+            .collect::<Vec<_>>();
+        let vec_b = (1usize..3)
+            .map(|x| RingElement(T::try_from(x).unwrap()))
+            .collect::<Vec<_>>();
+
+        let a = Poly::<RingElement<T>>::from_vec(vec_a);
+        let b = Poly::<RingElement<T>>::from_vec(vec_b);
+        let (q, r) = a.long_division(&b).expect("division should work");
+
+        assert_eq!(q.degree(), 0);
+        assert_eq!(q.coeffs[0], RingElement(T::one()));
+
+        assert_eq!(r.degree(), 3);
+        for coeff in r.coeffs.iter().take(3) {
+            assert_eq!(*coeff, RingElement(T::zero()));
+        }
+        assert_eq!(r.coeffs[3], RingElement(T::try_from(5).unwrap()));
+    }
+
+    #[test]
+    fn test_long_division_u16() {
+        test_long_division_impl::<u16>();
     }
 }
