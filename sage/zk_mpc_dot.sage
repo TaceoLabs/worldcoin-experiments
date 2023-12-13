@@ -3,21 +3,26 @@ from Cryptodome.Hash import SHAKE128
 import random
 import math
 
-# for the MPC
 B = 2
 K = B * 8
 K2 = 1 << K
 
-m = 1 << 4
-M = K * m >> 1
-L = K * m / M
-D = math.ceil(40 + log(2 * M + 1 + 2^(-40), 2))
+m = 1 << 5
+DOT = 10
+U = 4 * DOT + 2
+M = math.floor(math.sqrt(U *  m >> 1))
+L = math.ceil(m / M)
+M = m // L # todo better parameter finding with padding?
 
-assert(L * M == K * m)
+GAMMA = int(math.ceil(math.log2(2*M)))
+D = 40 + GAMMA
 
-R = Integer
-RR = PolynomialRing(GF(2), 'x')
-POLY = RR(GF(2^D).modulus())
+assert(L * M == m)
+
+R = Integers(K2)
+RR = PolynomialRing(R, 'x')
+RR2 = PolynomialRing(GF(2), 'x')
+POLY = RR(RR2.irreducible_element(D))
 PolyR = PolynomialRing(RR, 'y')
 
 tester = SHAKE128.new()
@@ -34,7 +39,7 @@ def long_division(a, b):
     y = b
     q = 0
     while x.degree() >= y.degree():
-        factor = x.leading_coefficient() * RR.monomial(x.degree() - y.degree())
+        factor = x.leading_coefficient() * y.leading_coefficient()^(-1) * RR.monomial(x.degree() - y.degree())
         x -= factor * y
         q += factor
     r = x
@@ -56,11 +61,24 @@ def extended_euclid_rev(a,b):
 
     return r0, s0, t0
 
+def inv_mod(a, mod, prime_power):
+    if prime_power == 1:
+        aa,bb = RR2(a), RR2(mod)
+        _, inv_aa, _ = extended_euclid_rev(aa, bb)
+        return inv_aa
+    else:
+        # Rk = PolynomialRing(Integers(2^(prime_power)), 'x')
+        Rk = RR # in the general case use prime_power, but we use 2^K here
+        inv = inv_mod(a, mod, prime_power - 1)
+        g = Rk(inv)
+        f = a
+        _, r = (g * f -1).quo_rem(mod)
+        _, inv = (g - r * g).quo_rem(mod)
+        return inv
 
 def RR_inverse(x):
-    _, inv, _ = extended_euclid_rev(x, POLY)
+    inv = inv_mod(x, POLY, K)
     assert((x * inv).quo_rem(POLY)[1] == 1)
-    assert(RR(inv).degree() < POLY.degree())
     return inv
 
 
@@ -74,7 +92,6 @@ def reduce_poly_RR(x):
     for coeff in x.coefficients(sparse=False):
         poly.append(coeff.quo_rem(POLY)[1])
     return PolyR(poly)
-
 
 def lagrange_polys(x):
     var = PolyR.gen()
@@ -98,7 +115,7 @@ def ring_from_shake(shake):
     buf = shake.read(int(B))
     return R(int.from_bytes(buf, byteorder='little'))
 
-def bit_from_rand():
+def ring_from_rand():
     buf = random.randbytes(B)
     return R(int.from_bytes(buf, byteorder='little'))
 
@@ -120,40 +137,71 @@ def share(input):
         rands.append(ring_from_shake(shakes[i]))
     shares = []
     for i in range(3):
-        shares.append(rands[i] ^^ rands[i-1])
-    shares[0] ^^= input
+        shares.append(rands[i] - rands[i-1])
+    shares[0] += input
     return shares
 
 def open(shares):
-    return shares[0] ^^ shares[1] ^^ shares[2]
+    return sum(shares)
 
 
-def bitand(a, b):
+def dot(a, b):
+    assert(len(a) == len(b))
     rands = []
     for i in range(3):
         rands.append(ring_from_shake(shakes[i]))
     zero = []
     shares = []
     for i in range(3):
-        zero.append(rands[i] ^^ rands[i-1])
-        s = a[i] & b[i] ^^ a[i] & b[i-1] ^^ a[i-1] & b[i] ^^ zero[i]
+        zero.append(rands[i] - rands[i-1])
+        s = zero[i]
+        for j in range(len(a)):
+            s += a[j][i] * b[j][i] + a[j][i] * b[j][i-1] + a[j][i-1] * b[j][i]
         shares.append(s)
 
     # We just proof P0 for now
     global P0_0_input, P1_0_input, P2_0_input
-    a0 = lift(a[0])
-    a1 = lift(a[-1])
-    b0 = lift(b[0])
-    b1 = lift(b[-1])
-    r0 = lift(rands[0])
-    r1 = lift(rands[-1])
-    s0 = lift(shares[0])
+    a0 = [lift(a[j][0], 0) for j in range(len(a))]
+    a1 = [lift(a[j][-1], -1) for j in range(len(a))]
+    b0 = [lift(b[j][0], 0) for j in range(len(a))]
+    b1 = [lift(b[j][-1], -1) for j in range(len(a))]
+    r0 = lift(rands[0], 0)
+    r1 = lift(rands[-1], -1)
+    z0 = r0 - r1
 
-    for i in range(K):
-        P0_0_input.append([a0[i], a1[i], b0[i], b1[i], r0[i] - r1[i], s0[i]])
-        P1_0_input.append([a0[i], RR(0), b0[i], RR(0), r0[i], s0[i]])
-        P2_0_input.append([RR(0), a1[i], RR(0), b1[i], -r1[i], RR(0)])
+    # this is necessary for the checks later on, cannot use the shares and lift
+    s0 = [(a0[j] * b0[j] + a0[j] * b1[j]+ a1[j] * b0[j]) for j in range(len(a))]
+    s0 = (sum(s0) + z0).quo_rem(POLY)[1]
 
+    input_a = []
+    input_b = []
+    input_c = []
+    for j in range(len(a)):
+        input_a.append(a0[j])
+        input_b.append(a0[j])
+        input_c.append(RR(0))
+    for j in range(len(a)):
+        input_a.append(a1[j])
+        input_b.append(RR(0))
+        input_c.append(a1[j])
+    for j in range(len(b)):
+        input_a.append(b0[j])
+        input_b.append(b0[j])
+        input_c.append(RR(0))
+    for j in range(len(b)):
+        input_a.append(b1[j])
+        input_b.append(RR(0))
+        input_c.append(b1[j])
+    input_a.append(z0)
+    input_b.append(r0)
+    input_c.append(-r1)
+    input_a.append(s0)
+    input_b.append(s0)
+    input_c.append(RR(0))
+
+    P0_0_input.append(input_a)
+    P1_0_input.append(input_b)
+    P2_0_input.append(input_c)
     return shares
 
 def coin():
@@ -167,37 +215,24 @@ def coin():
     return shake
 
 def poly_from_shake(shake):
-    buf = shake.read(math.ceil(D / 8))
-    bits = Integer(int.from_bytes(buf, byteorder='little')).bits()
-    for _ in range(len(bits), D):
-        bits.append(0)
     coeffs = []
-    for i in range(D):
-        coeffs.append(bits[i])
+    for _ in range(D):
+        coeffs.append(ring_from_shake(shake))
     return RR(coeffs)
 
 def poly_from_rand():
-    buf = random.randbytes(math.ceil(D / 8))
-    bits = Integer(int.from_bytes(buf, byteorder='little')).bits()
-    for _ in range(len(bits), D):
-        bits.append(0)
     coeffs = []
-    for i in range(D):
-        coeffs.append(bits[i])
+    for _ in range(D):
+        coeffs.append(ring_from_rand())
     return RR(coeffs)
 
 
-def lift(x):
-    bits = x.bits()
-    assert(len(bits) <= K)
-    polys = []
-    for bit in bits:
-        # TODO do we have to fill with random bits?
-        polys.append(RR(bit))
-    for _ in range(len(bits), K):
-        polys.append(RR(0))
-    assert(len(polys) == K)
-    return polys
+def lift(x, id):
+    coeffs = []
+    coeffs.append(x)
+    for _ in range(D-1):
+        coeffs.append(ring_from_shake(shakes[id]))
+    return RR(coeffs)
 
 def interpolate(evals, lagrange_polys):
     assert(len(evals) >= len(lagrange_polys))
@@ -210,16 +245,18 @@ def interpolate(evals, lagrange_polys):
     return reduce_poly_RR(res)
 
 def c(f):
-    assert(len(f) == 6)
-    res = f[0] * f[2] + f[0] * f[3] + f[1] * f[2] + f[4] - f[5]
+    assert(len(f) == U)
+    res = f[-2] - f[-1]
+    for i in range(DOT):
+        res += f[i] * f[2 * DOT + i] + f[i] * f[3 * DOT + i] + f[DOT + i] * f[2 * DOT + i]
     return res
 
 def g(thetas, f):
     assert(len(thetas) == L)
-    assert(len(f) == 6*L)
+    assert(len(f) == U*L)
     res = 0
     for i in range(L):
-        res += thetas[i] * c(f[6*i:6*(i+1)])
+        res += thetas[i] * c(f[U*i:U*(i+1)])
     return res
 
 def proof_0():
@@ -232,14 +269,14 @@ def proof_0():
         thetas.append(poly_from_shake(shake))
     # b) Just P0
     w = []
-    for i in range(6*L):
+    for i in range(U*L):
         w.append(poly_from_rand())
     # c) Just P0
     f = []
     for p in P0_0_input:
         assert(c(p).quo_rem(POLY)[1] == 0)
     for j in range(L):
-        for i in range(6):
+        for i in range(U):
             evals = []
             evals.append(w[i * L + j])
             for l in range(M):
@@ -253,13 +290,13 @@ def proof_0():
     # e) Just P0
     pi_1 = []
     pi_2 = []
-    for i in range(6 * L):
+    for i in range(U * L):
         pi_1.append(poly_from_rand())
         pi_2.append((w[i] - pi_1[i]).quo_rem(POLY)[1])
     assert(len(g_.coefficients(sparse=False)) == 2 * M + 1) # otherwise we need to pad with zeros
     for i in range(2 * M + 1):
         pi_1.append(poly_from_rand())
-        pi_2.append((g_[i] - pi_1[i + 6 * L]).quo_rem(POLY)[1])
+        pi_2.append((g_[i] - pi_1[i + U * L]).quo_rem(POLY)[1])
 
     return pi_1, pi_2, thetas
 
@@ -271,7 +308,7 @@ def verify_0(pi_1, pi_2, thetas):
     for _ in range(M):
         betas.append(poly_from_shake(shake))
     r = poly_from_shake(shake)
-    while r < RR(M.bits()):
+    while r[1] == 0: # TODO is this the correct check?
         r = poly_from_shake(shake)
 
     # b)
@@ -280,7 +317,7 @@ def verify_0(pi_1, pi_2, thetas):
 
     # Round3
     eval_f = []
-    for i in range(6*L):
+    for i in range(U*L):
         eval_f.append(eval_f_1[i] + eval_f_2[i])
     pr_ = g(thetas, eval_f).quo_rem(POLY)[1]
 
@@ -296,7 +333,7 @@ def verify_p1(pi_1, betas, r):
     # ii)
     f = []
     for j in range(L):
-        for i in range(6):
+        for i in range(U):
             evals = []
             evals.append(pi_1[i * L + j])
             for l in range(M):
@@ -308,13 +345,13 @@ def verify_p1(pi_1, betas, r):
 
     # iii)
     eval_f = []
-    for i in range(6*L):
+    for i in range(U*L):
         eval_f.append(f[i](r))
 
     pr = 0
     r_pow = 1
     for i in range(2 * M + 1):
-        pr += pi_1[i + 6 * L] * r_pow
+        pr += pi_1[i + U * L] * r_pow
         r_pow *= r
 
     # iv)
@@ -324,7 +361,7 @@ def verify_p1(pi_1, betas, r):
         j_pow = 1
         sum = 0
         for k in range(2 * M + 1):
-            sum += pi_1[k + 6 * L] * j_pow
+            sum += pi_1[k + U * L] * j_pow
             j_pow *= j
         sum *= betas[i]
         b += sum
@@ -339,7 +376,7 @@ def verify_p2(pi_2, betas, r):
     # ii)
     f = []
     for j in range(L):
-        for i in range(6):
+        for i in range(U):
             evals = []
             evals.append(pi_2[i * L + j])
             for l in range(M):
@@ -351,13 +388,13 @@ def verify_p2(pi_2, betas, r):
 
     # iii)
     eval_f = []
-    for i in range(6*L):
+    for i in range(U*L):
         eval_f.append(f[i](r))
 
     pr = 0
     r_pow = 1
     for i in range(2 * M + 1):
-        pr += pi_2[i + 6 * L] * r_pow
+        pr += pi_2[i + U * L] * r_pow
         r_pow *= r
 
     # iv)
@@ -367,7 +404,7 @@ def verify_p2(pi_2, betas, r):
         j_pow = 1
         sum = 0
         for k in range(2 * M + 1):
-            sum += pi_2[k + 6 * L] * j_pow
+            sum += pi_2[k + U * L] * j_pow
             j_pow *= j
         sum *= betas[i]
         b += sum
@@ -379,11 +416,17 @@ def verify_p2(pi_2, betas, r):
 init_shakes()
 
 for _ in range(m):
-    a = ring_from_shake(tester)
-    b = ring_from_shake(tester)
-    a_ = share(a)
-    b_ = share(b)
-    c_ = bitand(a_, b_)
+    a = []
+    b = []
+    for _ in range(DOT):
+        x = ring_from_shake(tester)
+        y = ring_from_shake(tester)
+        a_ = share(x)
+        b_ = share(y)
+        a.append(a_)
+        b.append(b_)
+
+    c_ = dot(a, b)
 
 pi_1, pi_2, thetas = proof_0()
 verify_0(pi_1, pi_2, thetas)

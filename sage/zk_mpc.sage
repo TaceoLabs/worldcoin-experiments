@@ -274,7 +274,7 @@ def verify_0(pi_1, pi_2, thetas):
     for _ in range(M):
         betas.append(poly_from_shake(shake))
     r = poly_from_shake(shake)
-    while r[1] == 0: # is this the correct check?
+    while r[1] == 0: # TODO is this the correct check?
         r = poly_from_shake(shake)
 
     # b)
