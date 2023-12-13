@@ -1,6 +1,6 @@
 use crate::{prelude::Error, types::ring_element::RingImpl};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, Rem, Sub, SubAssign};
 
 pub(crate) trait PolyTrait:
     Clone
@@ -29,10 +29,6 @@ pub(crate) struct Poly<T: PolyTrait> {
 }
 
 impl<T: PolyTrait> Poly<T> {
-    pub fn new() -> Self {
-        Self { coeffs: vec![] }
-    }
-
     pub fn from_vec(coeffs: Vec<T>) -> Self {
         Self { coeffs }
     }
@@ -43,10 +39,6 @@ impl<T: PolyTrait> Poly<T> {
 
     pub fn leading_coeff_ref(&self) -> &T {
         &self.coeffs[self.degree()]
-    }
-
-    pub fn leading_coeff(&self) -> T {
-        self.coeffs[self.degree()].to_owned()
     }
 
     pub fn long_division(&self, other: &Self) -> Result<(Self, Self), Error> {
@@ -211,5 +203,14 @@ impl<T: PolyTrait> Mul<&Self> for Poly<T> {
         }
 
         Self::from_vec(coeffs)
+    }
+}
+
+impl<T: PolyTrait> Rem for Poly<T> {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        let (_, rem) = self.long_division(&rhs).expect("division should work");
+        rem
     }
 }
