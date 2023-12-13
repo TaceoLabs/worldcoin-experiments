@@ -256,7 +256,7 @@ def proof_0():
     for i in range(6 * L):
         pi_1.append(poly_from_rand())
         pi_2.append((w[i] - pi_1[i]).quo_rem(POLY)[1])
-    assert(len(g_.coefficients()) == 2 * M + 1) # otherwise we need to pad with zeros
+    assert(len(g_.coefficients(sparse=False)) == 2 * M + 1) # otherwise we need to pad with zeros
     for i in range(2 * M + 1):
         pi_1.append(poly_from_rand())
         pi_2.append((g_[i] - pi_1[i + 6 * L]).quo_rem(POLY)[1])
