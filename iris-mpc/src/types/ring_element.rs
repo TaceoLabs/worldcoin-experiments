@@ -71,6 +71,9 @@ pub trait RingImpl:
     fn from_bytes(other: Bytes) -> Result<Self, Error>;
     fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
     fn to_bytes(self) -> Bytes;
+
+    fn floor_div(self, other: &Self) -> Self;
+    fn inverse(&self) -> Result<Self, Error>;
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
@@ -125,6 +128,14 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn to_bytes(self) -> Bytes {
         self.0.to_bytes()
+    }
+
+    fn floor_div(self, other: &Self) -> Self {
+        RingElement(self.0.floor_div(&other.0))
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        Ok(RingElement(self.0.inverse()?))
     }
 }
 

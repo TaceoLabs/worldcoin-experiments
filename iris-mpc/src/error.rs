@@ -27,6 +27,9 @@ pub enum Error {
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,
+    /// No inverse error
+    #[error("No inverse exists error")]
+    NoInverseError,
     /// A IO error has orccured
     #[error("IO error")]
     IOError(#[from] std::io::Error),

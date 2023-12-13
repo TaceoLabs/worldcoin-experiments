@@ -1,5 +1,5 @@
 use super::{bit::Bit, ring_element::RingElement, sharable::Sharable};
-use crate::error::Error;
+use crate::{error::Error, types::extended_euclid_rev};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
@@ -60,6 +60,9 @@ pub trait IntRing2k:
         self.add_to_bytes(&mut out);
         out.freeze()
     }
+
+    fn floor_div(self, other: &Self) -> Self;
+    fn inverse(&self) -> Result<Self, Error>;
 
     /// a += b
     #[inline(always)]
@@ -134,6 +137,20 @@ impl IntRing2k for Bit {
         }
         Bit::try_from(other.get_u8())
     }
+
+    fn floor_div(self, other: &Self) -> Self {
+        if !other.0 {
+            panic!("Division by zero")
+        }
+        self
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        if !self.0 {
+            return Err(Error::NoInverseError);
+        }
+        Ok(*self)
+    }
 }
 
 impl IntRing2k for u8 {
@@ -171,6 +188,21 @@ impl IntRing2k for u8 {
             return Err(Error::ConversionError);
         }
         Ok(other.get_u8())
+    }
+
+    fn floor_div(self, other: &Self) -> Self {
+        self / other
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        if 1 & self == 0 {
+            return Err(Error::NoInverseError);
+        }
+
+        let (_, inv, _) = extended_euclid_rev(*self as u16, Self::MAX as u16 + 1);
+
+        debug_assert!((inv as Self).wrapping_mul(*self) == 1);
+        Ok(inv as Self)
     }
 }
 
@@ -210,6 +242,21 @@ impl IntRing2k for u16 {
         }
         Ok(other.get_u16())
     }
+
+    fn floor_div(self, other: &Self) -> Self {
+        self / other
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        if 1 & self == 0 {
+            return Err(Error::NoInverseError);
+        }
+
+        let (_, inv, _) = extended_euclid_rev(*self as u32, Self::MAX as u32 + 1);
+
+        debug_assert!((inv as Self).wrapping_mul(*self) == 1);
+        Ok(inv as Self)
+    }
 }
 
 impl IntRing2k for u32 {
@@ -247,6 +294,21 @@ impl IntRing2k for u32 {
             return Err(Error::ConversionError);
         }
         Ok(other.get_u32())
+    }
+
+    fn floor_div(self, other: &Self) -> Self {
+        self / other
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        if 1 & self == 0 {
+            return Err(Error::NoInverseError);
+        }
+
+        let (_, inv, _) = extended_euclid_rev(*self as u64, Self::MAX as u64 + 1);
+
+        debug_assert!((inv as Self).wrapping_mul(*self) == 1);
+        Ok(inv as Self)
     }
 }
 
@@ -286,6 +348,21 @@ impl IntRing2k for u64 {
         }
         Ok(other.get_u64())
     }
+
+    fn floor_div(self, other: &Self) -> Self {
+        self / other
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        if 1 & self == 0 {
+            return Err(Error::NoInverseError);
+        }
+
+        let (_, inv, _) = extended_euclid_rev(*self as u128, Self::MAX as u128 + 1);
+
+        debug_assert!((inv as Self).wrapping_mul(*self) == 1);
+        Ok(inv as Self)
+    }
 }
 
 impl IntRing2k for u128 {
@@ -323,5 +400,13 @@ impl IntRing2k for u128 {
             return Err(Error::ConversionError);
         }
         Ok(other.get_u128())
+    }
+
+    fn floor_div(self, other: &Self) -> Self {
+        self / other
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        todo!("Implement inverse for u128")
     }
 }
