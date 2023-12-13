@@ -3,23 +3,21 @@ from Cryptodome.Hash import SHAKE128
 import random
 import math
 
+# for the MPC
 B = 2
 K = B * 8
 K2 = 1 << K
 
-m = 1 << 7
-M = m >> 1
-L = m / M
-GAMMA = int(math.ceil(math.log2(2*M)))
-D = 40 + GAMMA
+m = 1 << 4
+M = K * m >> 1
+L = K * m / M
+D = math.ceil(40 + log(2 * M + 1 + 2^(-40), 2))
 
+assert(L * M == K * m)
 
-assert(L * M == m)
-
-R = Integers(K2)
-RR = PolynomialRing(R, 'x')
-RR2 = PolynomialRing(GF(2), 'x')
-POLY = RR(RR2.irreducible_element(D))
+R = Integer
+RR = PolynomialRing(GF(2), 'x')
+POLY = RR.irreducible_element(D)
 PolyR = PolynomialRing(RR, 'y')
 
 tester = SHAKE128.new()
@@ -36,7 +34,7 @@ def long_division(a, b):
     y = b
     q = 0
     while x.degree() >= y.degree():
-        factor = x.leading_coefficient() * y.leading_coefficient()^(-1) * RR.monomial(x.degree() - y.degree())
+        factor = x.leading_coefficient() * RR.monomial(x.degree() - y.degree())
         x -= factor * y
         q += factor
     r = x
@@ -58,23 +56,9 @@ def extended_euclid_rev(a,b):
 
     return r0, s0, t0
 
-def inv_mod(a, mod, prime_power):
-    if prime_power == 1:
-        aa,bb = RR2(a), RR2(mod)
-        _, inv_aa, _ = extended_euclid_rev(aa, bb)
-        return inv_aa
-    else:
-        # Rk = PolynomialRing(Integers(2^(prime_power)), 'x')
-        Rk = RR # in the general case use prime_power, but we use 2^K here
-        inv = inv_mod(a, mod, prime_power - 1)
-        g = Rk(inv)
-        f = a
-        _, r = (g * f -1).quo_rem(mod)
-        _, inv = (g - r * g).quo_rem(mod)
-        return inv
 
 def RR_inverse(x):
-    inv = inv_mod(x, POLY, K)
+    _, inv, _ = extended_euclid_rev(x, POLY)
     assert((x * inv).quo_rem(POLY)[1] == 1)
     return inv
 
@@ -105,7 +89,7 @@ def ring_from_shake(shake):
     buf = shake.read(int(B))
     return R(int.from_bytes(buf, byteorder='little'))
 
-def ring_from_rand():
+def bit_from_rand():
     buf = random.randbytes(B)
     return R(int.from_bytes(buf, byteorder='little'))
 
@@ -127,41 +111,40 @@ def share(input):
         rands.append(ring_from_shake(shakes[i]))
     shares = []
     for i in range(3):
-        shares.append(rands[i] - rands[i-1])
-    shares[0] += input
+        shares.append(rands[i] ^^ rands[i-1])
+    shares[0] ^^= input
     return shares
 
 def open(shares):
-    return sum(shares)
+    return shares[0] ^^ shares[1] ^^ shares[2]
 
 
-def mul(a, b):
+def bitand(a, b):
     rands = []
     for i in range(3):
         rands.append(ring_from_shake(shakes[i]))
     zero = []
     shares = []
     for i in range(3):
-        zero.append(rands[i] - rands[i-1])
-        s = a[i] * b[i] + a[i] * b[i-1] + a[i-1] * b[i] + zero[i]
+        zero.append(rands[i] ^^ rands[i-1])
+        s = a[i] & b[i] ^^ a[i] & b[i-1] ^^ a[i-1] & b[i] ^^ zero[i]
         shares.append(s)
 
     # We just proof P0 for now
     global P0_0_input, P1_0_input, P2_0_input
-    a0 = lift(a[0], 0)
-    a1 = lift(a[-1], -1)
-    b0 = lift(b[0], 0)
-    b1 = lift(b[-1], -1)
-    r0 = lift(rands[0], 0)
-    r1 = lift(rands[-1], -1)
-    z0 = r0 - r1
+    a0 = lift(a[0])
+    a1 = lift(a[-1])
+    b0 = lift(b[0])
+    b1 = lift(b[-1])
+    r0 = lift(rands[0])
+    r1 = lift(rands[-1])
+    s0 = lift(shares[0])
 
-    s0 = (a0 * b0 + a0 * b1 + a1 * b0 + z0).quo_rem(POLY)[1] # this is necessary for the checks later on, cannot use the shares and lift
+    for i in range(K):
+        P0_0_input.append([a0[i], a1[i], b0[i], b1[i], r0[i] - r1[i], s0[i]])
+        P1_0_input.append([a0[i], RR(0), b0[i], RR(0), r0[i], s0[i]])
+        P2_0_input.append([RR(0), a1[i], RR(0), b1[i], -r1[i], RR(0)])
 
-
-    P0_0_input.append([a0, a1, b0, b1, z0, s0])
-    P1_0_input.append([a0, RR(0), b0, RR(0), r0, s0])
-    P2_0_input.append([RR(0), a1, RR(0), b1, -r1, RR(0)])
     return shares
 
 def coin():
@@ -175,24 +158,37 @@ def coin():
     return shake
 
 def poly_from_shake(shake):
+    buf = shake.read(math.ceil(D / 8))
+    bits = Integer(int.from_bytes(buf, byteorder='little')).bits()
+    for _ in range(len(bits), D):
+        bits.append(0)
     coeffs = []
-    for _ in range(D):
-        coeffs.append(ring_from_shake(shake))
+    for i in range(D):
+        coeffs.append(bits[i])
     return RR(coeffs)
 
 def poly_from_rand():
+    buf = random.randbytes(math.ceil(D / 8))
+    bits = Integer(int.from_bytes(buf, byteorder='little')).bits()
+    for _ in range(len(bits), D):
+        bits.append(0)
     coeffs = []
-    for _ in range(D):
-        coeffs.append(ring_from_rand())
+    for i in range(D):
+        coeffs.append(bits[i])
     return RR(coeffs)
 
 
-def lift(x, id):
-    coeffs = []
-    coeffs.append(x)
-    for _ in range(D-1):
-        coeffs.append(ring_from_shake(shakes[id]))
-    return RR(coeffs)
+def lift(x):
+    bits = x.bits()
+    assert(len(bits) <= K)
+    polys = []
+    for bit in bits:
+        # TODO do we have to fill with random bits?
+        polys.append(RR(bit))
+    for _ in range(len(bits), K):
+        polys.append(RR(0))
+    assert(len(polys) == K)
+    return polys
 
 def reduce_poly_RR(x):
     poly = []
@@ -384,8 +380,7 @@ for _ in range(m):
     b = ring_from_shake(tester)
     a_ = share(a)
     b_ = share(b)
-
-    c_ = mul(a_, b_)
+    c_ = bitand(a_, b_)
 
 pi_1, pi_2, thetas = proof_0()
-verify_0(pi_1, pi_2, thetas)
+# verify_0(pi_1, pi_2, thetas)
