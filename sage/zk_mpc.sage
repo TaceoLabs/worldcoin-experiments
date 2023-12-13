@@ -84,6 +84,12 @@ def interpolation_points(num):
     x = [RR(i.bits()) for i in srange(num)]
     return x
 
+def reduce_poly_RR(x):
+    poly = []
+    for coeff in x.coefficients(sparse=False):
+        poly.append(coeff.quo_rem(POLY)[1])
+    return PolyR(poly)
+
 def lagrange_polys(x):
     var = PolyR.gen()
     l_polys = []
@@ -93,6 +99,7 @@ def lagrange_polys(x):
             if (i != j):
                 inv = RR_inverse(x[j] - x[i])
                 poly *= (var - x[i]) * inv
+        poly = reduce_poly_RR(poly)
         l_polys.append(poly)
     print("Lagrange Polys done!")
     return l_polys
@@ -194,11 +201,6 @@ def lift(x, id):
         coeffs.append(ring_from_shake(shakes[id]))
     return RR(coeffs)
 
-def reduce_poly_RR(x):
-    poly = []
-    for coeff in x.coefficients():
-        poly.append(coeff.quo_rem(POLY)[1])
-    return PolyR(poly)
 
 def interpolate(evals, lagrange_polys):
     assert(len(evals) >= len(lagrange_polys))

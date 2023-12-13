@@ -17,7 +17,7 @@ assert(L * M == K * m)
 
 R = Integer
 RR = PolynomialRing(GF(2), 'x')
-POLY = RR.irreducible_element(D)
+POLY = RR(GF(2^D).modulus())
 PolyR = PolynomialRing(RR, 'y')
 
 tester = SHAKE128.new()
@@ -60,6 +60,7 @@ def extended_euclid_rev(a,b):
 def RR_inverse(x):
     _, inv, _ = extended_euclid_rev(x, POLY)
     assert((x * inv).quo_rem(POLY)[1] == 1)
+    assert(RR(inv).degree() < POLY.degree())
     return inv
 
 
@@ -67,6 +68,13 @@ def interpolation_points(num):
     assert(num <= 1 << (D+1))
     x = [RR(i.bits()) for i in srange(num)]
     return x
+
+def reduce_poly_RR(x):
+    poly = []
+    for coeff in x.coefficients(sparse=False):
+        poly.append(coeff.quo_rem(POLY)[1])
+    return PolyR(poly)
+
 
 def lagrange_polys(x):
     var = PolyR.gen()
@@ -77,6 +85,7 @@ def lagrange_polys(x):
             if (i != j):
                 inv = RR_inverse(x[j] - x[i])
                 poly *= (var - x[i]) * inv
+        poly = reduce_poly_RR(poly)
         l_polys.append(poly)
     print("Lagrange Polys done!")
     return l_polys
@@ -189,12 +198,6 @@ def lift(x):
         polys.append(RR(0))
     assert(len(polys) == K)
     return polys
-
-def reduce_poly_RR(x):
-    poly = []
-    for coeff in x.coefficients():
-        poly.append(coeff.quo_rem(POLY)[1])
-    return PolyR(poly)
 
 def interpolate(evals, lagrange_polys):
     assert(len(evals) >= len(lagrange_polys))
@@ -383,4 +386,4 @@ for _ in range(m):
     c_ = bitand(a_, b_)
 
 pi_1, pi_2, thetas = proof_0()
-# verify_0(pi_1, pi_2, thetas)
+verify_0(pi_1, pi_2, thetas)
