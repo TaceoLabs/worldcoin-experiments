@@ -126,6 +126,14 @@ impl<T: RingImpl> Poly<T> {
     }
 }
 
+impl<T: RingImpl> Poly<Poly<T>> {
+    pub fn reduce_coeffs(&mut self, modulus: &Poly<T>) {
+        for coeff in self.coeffs.iter_mut() {
+            *coeff = coeff.to_owned() % modulus;
+        }
+    }
+}
+
 impl<T: PolyTrait> Add for Poly<T> {
     type Output = Self;
 
