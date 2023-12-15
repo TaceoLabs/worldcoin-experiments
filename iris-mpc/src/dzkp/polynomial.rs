@@ -1,5 +1,5 @@
+use super::gf2p64::GF2p64;
 use crate::{prelude::Error, types::ring_element::RingImpl};
-use gf256::{gf2p64, p64};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
@@ -23,6 +23,7 @@ pub(crate) trait PolyTrait:
 
 impl<T: RingImpl> PolyTrait for T {}
 impl<T: RingImpl> PolyTrait for Poly<T> {}
+impl PolyTrait for GF2p64 {}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(bound = "")]
@@ -77,48 +78,15 @@ impl<T: RingImpl> Poly<T> {
         Ok((Self::from_vec(quotient), Self::from_vec(dividend)))
     }
 
-    // Euclid with inputs reversed, which is optimized for getting inverses
-    fn extended_euclid_rev(a: p64, b: p64) -> (p64, p64) {
-        let zero = p64::new(0);
-        let mut r1 = a;
-        let mut r0 = b;
-        let mut s1 = p64::new(1);
-        let mut s0 = zero.to_owned();
-        // let mut t1 = p64::new(1);
-        // let mut t0 = zero.to_owned();
-
-        while r1 != zero {
-            let q = r0 / r1;
-
-            let tmp = r0 - q * r1;
-            r0 = r1;
-            r1 = tmp;
-            let tmp = s0 - q * s1;
-            s0 = s1;
-            s1 = tmp;
-            // let tmp = t0 - &q * &t1;
-            // t0 = t1;
-            // t1 = tmp;
-        }
-        // (r0, s0, t0)
-        (r0, s0)
-    }
-
     // Mod 2 reduction
-    fn to_gf2_64(&self) -> gf2p64 {
+    fn to_gf2p64(&self) -> GF2p64 {
         assert!(T::K < 64);
         let mut u64 = 0;
         for coeff in self.coeffs.iter().rev() {
             u64 <<= 1;
             u64 |= (T::one() & coeff == T::one()) as u64;
         }
-        gf2p64::new(u64)
-    }
-
-    // Mod 2 reduction
-    fn to_p64(&self) -> p64 {
-        // Both are transparent wrappers around u64
-        p64(self.to_gf2_64().get())
+        GF2p64::new(u64)
     }
 
     fn from_u64(value: u64) -> Self {
@@ -136,9 +104,9 @@ impl<T: RingImpl> Poly<T> {
 
     fn mod_inverse_inner(&self, modulus: &Self, prime_power: usize) -> Self {
         if prime_power == 1 {
-            let a_ = self.to_p64();
-            let mod_ = modulus.to_p64();
-            let inv = Self::extended_euclid_rev(a_, mod_).1;
+            let a_ = self.to_gf2p64();
+            let mod_ = modulus.to_gf2p64();
+            let inv = a_.inv_mod(mod_);
             Self::from_u64(inv.get())
         } else {
             let inv = Self::mod_inverse_inner(self, modulus, prime_power - 1);
@@ -153,8 +121,8 @@ impl<T: RingImpl> Poly<T> {
     }
 
     pub fn native_mod_inverse(&self) -> Self {
-        let a_ = self.to_gf2_64();
-        Self::from_u64(a_.recip().get())
+        let a_ = self.to_gf2p64();
+        Self::from_u64(a_.inverse().get())
     }
 }
 
