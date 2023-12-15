@@ -1,4 +1,5 @@
 use crate::{prelude::Error, types::ring_element::RingImpl};
+use gf256::{gf2p64, p64};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
@@ -38,19 +39,17 @@ impl<T: PolyTrait> Poly<T> {
     }
 
     pub fn shrink(&mut self) {
-        let mut len = 0;
-        for i in (0..self.coeffs.len()).rev() {
-            if !self.coeffs[i].is_zero() {
-                len = i + 1;
-                break;
-            }
-        }
-
-        self.coeffs.resize(len, T::default());
+        self.coeffs.resize(self.degree() + 1, T::default());
     }
 
     pub fn degree(&self) -> usize {
-        self.coeffs.len() - 1
+        let mut len = 0;
+        for i in (0..self.coeffs.len()).rev() {
+            if !self.coeffs[i].is_zero() {
+                return i;
+            }
+        }
+        0
     }
 
     pub fn leading_coeff_ref(&self) -> &T {
@@ -79,18 +78,87 @@ impl<T: PolyTrait> Poly<T> {
 
         Ok((Self::from_vec(quotient), Self::from_vec(dividend)))
     }
+}
 
-    pub fn mod_inverse(a: &Self, modulus: &Self, prime_power: usize) -> Result<Self, Error> {
-        if prime_power == 1 {
-            todo!()
-        } else {
-            let inv = Self::mod_inverse(a, modulus, prime_power - 1)?;
+impl<T: RingImpl> Poly<T> {
+    // Euclid with inputs reversed, which is optimized for getting inverses
+    fn extended_euclid_rev(a: p64, b: p64) -> (p64, p64) {
+        let zero = p64::new(0);
+        let mut r1 = a;
+        let mut r0 = b;
+        let mut s1 = p64::new(1);
+        let mut s0 = zero.to_owned();
+        // let mut t1 = p64::new(1);
+        // let mut t0 = zero.to_owned();
 
-            let r = (inv.to_owned() * a - T::one()) % modulus;
-            let tmp = r * &inv;
-            let inv = (inv - tmp) % modulus;
-            Ok(inv)
+        while r1 != zero {
+            let q = r0 / r1;
+
+            let tmp = r0 - q * r1;
+            r0 = r1;
+            r1 = tmp;
+            let tmp = s0 - q * s1;
+            s0 = s1;
+            s1 = tmp;
+            // let tmp = t0 - &q * &t1;
+            // t0 = t1;
+            // t1 = tmp;
         }
+        // (r0, s0, t0)
+        (r0, s0)
+    }
+
+    // Mod 2 reduction
+    fn to_gf2_64(&self) -> gf2p64 {
+        assert!(T::K < 64);
+        let mut u64 = 0;
+        for coeff in self.coeffs.iter().rev() {
+            u64 <<= 1;
+            u64 |= (T::one() & coeff == T::one()) as u64;
+        }
+        gf2p64::new(u64)
+    }
+
+    // Mod 2 reduction
+    fn to_p64(&self) -> p64 {
+        // Both are transparent wrappers around u64
+        p64(self.to_gf2_64().get())
+    }
+
+    fn from_u64(value: u64) -> Self {
+        assert!(T::K < 64);
+        let mut poly = Vec::with_capacity(T::K);
+
+        for i in 0..64 {
+            let coeff = (value >> i) & 1 == 1;
+            poly.push(T::from(coeff));
+        }
+        let mut res = Self::from_vec(poly);
+        res.shrink();
+        res
+    }
+
+    fn mod_inverse_inner(&self, modulus: &Self, prime_power: usize) -> Self {
+        if prime_power == 1 {
+            let a_ = self.to_p64();
+            let mod_ = modulus.to_p64();
+            let inv = Self::extended_euclid_rev(a_, mod_).1;
+            Self::from_u64(inv.get())
+        } else {
+            let inv = Self::mod_inverse_inner(self, modulus, prime_power - 1);
+            let r = (inv.to_owned() * self - T::one()) % modulus;
+            let tmp = r * &inv;
+            (inv - tmp) % modulus
+        }
+    }
+
+    pub fn mod_inverse(&self, modulus: &Self) -> Self {
+        self.mod_inverse_inner(modulus, T::K)
+    }
+
+    pub fn native_mod_inverse(&self) -> Self {
+        let a_ = self.to_gf2_64();
+        Self::from_u64(a_.recip().get())
     }
 }
 
@@ -388,7 +456,8 @@ impl<T: PolyTrait> Rem for Poly<T> {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        let (_, rem) = self.long_division(&rhs).expect("division should work");
+        let (_, mut rem) = self.long_division(&rhs).expect("division should work");
+        rem.shrink();
         rem
     }
 }
@@ -397,7 +466,8 @@ impl<T: PolyTrait> Rem<&Self> for Poly<T> {
     type Output = Self;
 
     fn rem(self, rhs: &Self) -> Self::Output {
-        let (_, rem) = self.long_division(rhs).expect("division should work");
+        let (_, mut rem) = self.long_division(rhs).expect("division should work");
+        rem.shrink();
         rem
     }
 }
@@ -406,6 +476,9 @@ impl<T: PolyTrait> Rem<&Self> for Poly<T> {
 mod test {
     use super::*;
     use crate::types::ring_element::RingElement;
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
+
+    const TESTRUNS: usize = 100;
 
     #[test]
     fn test_long_division_u16() {
@@ -458,5 +531,85 @@ mod test {
         let (q_, r_) = a.long_division(&b).expect("division should work");
         assert_eq!(q_, q);
         assert_eq!(r_, r);
+    }
+
+    #[test]
+    fn modular_inverse_test_u16() {
+        let a = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(10638),
+            RingElement(59644),
+            RingElement(21330),
+            RingElement(13369),
+            RingElement(19200),
+            RingElement(51558),
+            RingElement(55586),
+        ]);
+
+        let b = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(1),
+            RingElement(1),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(1),
+        ]);
+
+        let r = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(34051),
+            RingElement(37470),
+            RingElement(16694),
+            RingElement(45000),
+            RingElement(21219),
+            RingElement(47161),
+            RingElement(17673),
+        ]);
+
+        assert_eq!(
+            (a.to_owned() * &r) % &b,
+            Poly::<RingElement<u16>>::from_vec(vec![RingElement(1)])
+        );
+
+        let r_ = a.mod_inverse(&b);
+
+        assert_eq!(r_, r);
+    }
+
+    fn random_bits<R: Rng>(size: usize, rng: &mut R) -> Vec<RingElement<u16>> {
+        (0..size)
+            .map(|_| RingElement::from(rng.gen::<bool>()))
+            .collect()
+    }
+
+    #[test]
+    fn rand_modular_inverse_test_u16() {
+        let mut modulus = Poly::<RingElement<u16>>::from_vec(vec![RingElement::zero(); 48]);
+        modulus.coeffs[0] = RingElement::one();
+        modulus.coeffs[5] = RingElement::one();
+        modulus.coeffs[47] = RingElement::one();
+        assert_eq!(modulus.degree(), 47);
+
+        let mut rng = SmallRng::from_entropy();
+
+        for _ in 0..TESTRUNS {
+            let vec_a = random_bits(47, &mut rng);
+            let mut vec_b = random_bits(47, &mut rng);
+            while vec_a == vec_b {
+                vec_b = random_bits(47, &mut rng);
+            }
+
+            let a = Poly::<RingElement<u16>>::from_vec(vec_a);
+            let b = Poly::<RingElement<u16>>::from_vec(vec_b);
+            let c = a - b;
+            assert!(c.degree() < 47);
+
+            let inv = c.mod_inverse(&modulus);
+
+            assert_eq!(
+                (c * &inv) % &modulus,
+                Poly::from_vec(vec![RingElement::one()])
+            );
+        }
     }
 }

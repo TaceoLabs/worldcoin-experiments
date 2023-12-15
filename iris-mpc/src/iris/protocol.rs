@@ -30,7 +30,7 @@ where
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
         if MATCH_THRESHOLD_RATIO >= 1.
             || MATCH_THRESHOLD_RATIO <= 0.
-            || T::Share::get_k() <= ceil_log2(IRIS_CODE_SIZE)
+            || T::Share::K <= ceil_log2(IRIS_CODE_SIZE)
         // Comparison by checking msb of difference could produce an overflow
         {
             return Err(Error::ConfigError);

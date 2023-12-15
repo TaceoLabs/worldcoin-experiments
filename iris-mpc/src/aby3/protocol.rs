@@ -86,10 +86,10 @@ impl<N: NetworkTrait> Aby3<N> {
     }
 
     fn pack<T: Sharable>(&self, a: Vec<Share<Bit>>) -> Vec<Share<T>> {
-        let outlen = (a.len() + T::Share::get_k() - 1) / T::Share::get_k();
+        let outlen = (a.len() + T::Share::K - 1) / T::Share::K;
         let mut out = Vec::with_capacity(outlen);
 
-        for a_ in a.chunks(T::Share::get_k()) {
+        for a_ in a.chunks(T::Share::K) {
             let mut share_a = T::Share::zero();
             let mut share_b = T::Share::zero();
             for (i, bit) in a_.iter().enumerate() {

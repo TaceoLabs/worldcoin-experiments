@@ -44,9 +44,9 @@ pub trait IntRing2k:
     + Display
     + 'static
 {
+    const K: usize;
     type Signed: Sharable<Share = RingElement<Self>>;
 
-    fn get_k() -> usize;
     fn to_signed(self) -> Self::Signed;
 
     fn add_to_bytes(self, other: &mut BytesMut);
@@ -102,12 +102,8 @@ pub trait IntRing2k:
 }
 
 impl IntRing2k for Bit {
+    const K: usize = 1;
     type Signed = Self;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        1
-    }
 
     fn to_signed(self) -> Self::Signed {
         self
@@ -154,12 +150,8 @@ impl IntRing2k for Bit {
 }
 
 impl IntRing2k for u8 {
+    const K: usize = Self::BITS as usize;
     type Signed = i8;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        Self::BITS as usize
-    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
@@ -207,12 +199,8 @@ impl IntRing2k for u8 {
 }
 
 impl IntRing2k for u16 {
+    const K: usize = Self::BITS as usize;
     type Signed = i16;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        Self::BITS as usize
-    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
@@ -260,12 +248,8 @@ impl IntRing2k for u16 {
 }
 
 impl IntRing2k for u32 {
+    const K: usize = Self::BITS as usize;
     type Signed = i32;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        Self::BITS as usize
-    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
@@ -313,12 +297,8 @@ impl IntRing2k for u32 {
 }
 
 impl IntRing2k for u64 {
+    const K: usize = Self::BITS as usize;
     type Signed = i64;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        Self::BITS as usize
-    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
@@ -366,12 +346,8 @@ impl IntRing2k for u64 {
 }
 
 impl IntRing2k for u128 {
+    const K: usize = Self::BITS as usize;
     type Signed = i128;
-
-    #[inline(always)]
-    fn get_k() -> usize {
-        Self::BITS as usize
-    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed
