@@ -245,8 +245,8 @@ def proof_0():
             for l in range(M):
                 evals.append(P0_0_input[j * M + l][i])
             f_ = interpolate(evals, lagrange)
-            for i in range(len(evals)):
-                assert(f_(x_coord[i]).quo_rem(POLY)[1] == evals[i])
+            for k in range(len(evals)):
+                assert(f_(x_coord[k]).quo_rem(POLY)[1] == evals[k])
             f.append(f_)
     # d) Just P0
     g_ = reduce_poly_RR(g(thetas, f))
@@ -302,8 +302,8 @@ def verify_p1(pi_1, betas, r):
             for l in range(M):
                 evals.append(P1_0_input[j * M + l][i])
             f_ = interpolate(evals, lagrange)
-            for i in range(len(evals)):
-                assert(f_(x_coord[i]).quo_rem(POLY)[1] == evals[i])
+            for k in range(len(evals)):
+                assert(f_(x_coord[k]).quo_rem(POLY)[1] == evals[k])
             f.append(f_)
 
     # iii)
@@ -345,8 +345,8 @@ def verify_p2(pi_2, betas, r):
             for l in range(M):
                 evals.append(P2_0_input[j * M + l][i])
             f_ = interpolate(evals, lagrange)
-            for i in range(len(evals)):
-                assert(f_(x_coord[i]).quo_rem(POLY)[1] == evals[i])
+            for k in range(len(evals)):
+                assert(f_(x_coord[k]).quo_rem(POLY)[1] == evals[k])
             f.append(f_)
 
     # iii)
