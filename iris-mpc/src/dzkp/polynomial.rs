@@ -17,15 +17,12 @@ pub(crate) trait PolyTrait:
     + for<'a> MulAssign<&'a Self>
     + Zero
     + One
+    + PartialEq
 {
-    fn inverse(&self) -> Result<Self, Error>;
 }
 
-impl<T: RingImpl> PolyTrait for T {
-    fn inverse(&self) -> Result<Self, Error> {
-        self.inverse()
-    }
-}
+impl<T: RingImpl> PolyTrait for T {}
+impl<T: RingImpl> PolyTrait for Poly<T> {}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(bound = "")]
@@ -43,7 +40,6 @@ impl<T: PolyTrait> Poly<T> {
     }
 
     pub fn degree(&self) -> usize {
-        let mut len = 0;
         for i in (0..self.coeffs.len()).rev() {
             if !self.coeffs[i].is_zero() {
                 return i;
@@ -52,10 +48,12 @@ impl<T: PolyTrait> Poly<T> {
         0
     }
 
-    pub fn leading_coeff_ref(&self) -> &T {
+    pub fn leading_coeff(&self) -> &T {
         &self.coeffs[self.degree()]
     }
+}
 
+impl<T: RingImpl> Poly<T> {
     pub fn long_division(&self, other: &Self) -> Result<(Self, Self), Error> {
         let mut dividend = self.coeffs.clone();
         let degree = if dividend.len() >= other.coeffs.len() {
@@ -65,7 +63,7 @@ impl<T: PolyTrait> Poly<T> {
         };
         let mut quotient = vec![T::default(); degree];
 
-        let inv = other.leading_coeff_ref().inverse()?;
+        let inv = other.leading_coeff().inverse()?;
 
         while dividend.len() >= other.coeffs.len() {
             let monomial = dividend.len() - other.coeffs.len();
@@ -78,9 +76,7 @@ impl<T: PolyTrait> Poly<T> {
 
         Ok((Self::from_vec(quotient), Self::from_vec(dividend)))
     }
-}
 
-impl<T: RingImpl> Poly<T> {
     // Euclid with inputs reversed, which is optimized for getting inverses
     fn extended_euclid_rev(a: p64, b: p64) -> (p64, p64) {
         let zero = p64::new(0);
@@ -436,6 +432,20 @@ impl<T: PolyTrait> Mul<&T> for Poly<T> {
     }
 }
 
+impl<T: PolyTrait> MulAssign for Poly<T> {
+    fn mul_assign(&mut self, rhs: Self) {
+        let res = rhs * &*self;
+        self.coeffs = res.coeffs;
+    }
+}
+
+impl<T: PolyTrait> MulAssign<&Self> for Poly<T> {
+    fn mul_assign(&mut self, rhs: &Self) {
+        let res = self.to_owned() * rhs;
+        self.coeffs = res.coeffs;
+    }
+}
+
 impl<T: PolyTrait> MulAssign<T> for Poly<T> {
     fn mul_assign(&mut self, rhs: T) {
         for coeff in self.coeffs.iter_mut() {
@@ -452,7 +462,7 @@ impl<T: PolyTrait> MulAssign<&T> for Poly<T> {
     }
 }
 
-impl<T: PolyTrait> Rem for Poly<T> {
+impl<T: RingImpl> Rem for Poly<T> {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
@@ -462,13 +472,33 @@ impl<T: PolyTrait> Rem for Poly<T> {
     }
 }
 
-impl<T: PolyTrait> Rem<&Self> for Poly<T> {
+impl<T: RingImpl> Rem<&Self> for Poly<T> {
     type Output = Self;
 
     fn rem(self, rhs: &Self) -> Self::Output {
         let (_, mut rem) = self.long_division(rhs).expect("division should work");
         rem.shrink();
         rem
+    }
+}
+
+impl<T: PolyTrait> Zero for Poly<T> {
+    fn zero() -> Self {
+        Self::default()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.coeffs.is_empty() || self.coeffs.iter().all(|c| c.is_zero())
+    }
+}
+
+impl<T: PolyTrait> One for Poly<T> {
+    fn one() -> Self {
+        Self::from_vec(vec![T::one()])
+    }
+
+    fn is_one(&self) -> bool {
+        self.degree() == 1 && self.leading_coeff().is_one()
     }
 }
 
