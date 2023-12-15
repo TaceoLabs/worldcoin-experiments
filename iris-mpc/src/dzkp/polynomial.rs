@@ -1,6 +1,7 @@
 use crate::{prelude::Error, types::ring_element::RingImpl};
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, Rem, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 pub(crate) trait PolyTrait:
     Clone
@@ -12,6 +13,9 @@ pub(crate) trait PolyTrait:
     + SubAssign
     + for<'a> SubAssign<&'a Self>
     + for<'a> Mul<&'a Self, Output = Self>
+    + for<'a> MulAssign<&'a Self>
+    + Zero
+    + One
 {
     fn inverse(&self) -> Result<Self, Error>;
 }
@@ -31,6 +35,18 @@ pub(crate) struct Poly<T: PolyTrait> {
 impl<T: PolyTrait> Poly<T> {
     pub fn from_vec(coeffs: Vec<T>) -> Self {
         Self { coeffs }
+    }
+
+    pub fn shrink(&mut self) {
+        let mut len = 0;
+        for i in (0..self.coeffs.len()).rev() {
+            if !self.coeffs[i].is_zero() {
+                len = i + 1;
+                break;
+            }
+        }
+
+        self.coeffs.resize(len, T::default());
     }
 
     pub fn degree(&self) -> usize {
@@ -64,10 +80,18 @@ impl<T: PolyTrait> Poly<T> {
         Ok((Self::from_vec(quotient), Self::from_vec(dividend)))
     }
 
-    // pub fn mod_inverse(a: &Self, modulus: &Self, prime_power: usize) -> Result<Self, Error> {
+    pub fn mod_inverse(a: &Self, modulus: &Self, prime_power: usize) -> Result<Self, Error> {
+        if prime_power == 1 {
+            todo!()
+        } else {
+            let inv = Self::mod_inverse(a, modulus, prime_power - 1)?;
 
-    // Ok(inv)
-    // }
+            let r = (inv.to_owned() * a - T::one()) % modulus;
+            let tmp = r * &inv;
+            let inv = (inv - tmp) % modulus;
+            Ok(inv)
+        }
+    }
 }
 
 impl<T: PolyTrait> Add for Poly<T> {
@@ -106,6 +130,37 @@ impl<T: PolyTrait> Add<&Self> for Poly<T> {
     }
 }
 
+impl<T: PolyTrait> Add<T> for Poly<T> {
+    type Output = Self;
+
+    fn add(self, rhs: T) -> Self::Output {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        let mut coeffs = vec![T::default(); len];
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest = src;
+        }
+        coeffs[0] += rhs;
+
+        Self::from_vec(coeffs)
+    }
+}
+
+impl<T: PolyTrait> Add<&T> for Poly<T> {
+    type Output = Self;
+
+    fn add(self, rhs: &T) -> Self::Output {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        let mut coeffs = vec![T::default(); len];
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest = src;
+        }
+
+        coeffs[0] += rhs;
+
+        Self::from_vec(coeffs)
+    }
+}
+
 impl<T: PolyTrait> AddAssign for Poly<T> {
     fn add_assign(&mut self, rhs: Self) {
         let len = std::cmp::max(self.coeffs.len(), rhs.coeffs.len());
@@ -123,6 +178,24 @@ impl<T: PolyTrait> AddAssign<&Self> for Poly<T> {
         for (src, dest) in rhs.coeffs.iter().zip(self.coeffs.iter_mut()) {
             *dest += src;
         }
+    }
+}
+
+impl<T: PolyTrait> AddAssign<T> for Poly<T> {
+    fn add_assign(&mut self, rhs: T) {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        self.coeffs.resize(len, T::default());
+
+        self.coeffs[0] += rhs;
+    }
+}
+
+impl<T: PolyTrait> AddAssign<&T> for Poly<T> {
+    fn add_assign(&mut self, rhs: &T) {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        self.coeffs.resize(len, T::default());
+
+        self.coeffs[0] += rhs;
     }
 }
 
@@ -162,6 +235,37 @@ impl<T: PolyTrait> Sub<&Self> for Poly<T> {
     }
 }
 
+impl<T: PolyTrait> Sub<T> for Poly<T> {
+    type Output = Self;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        let mut coeffs = vec![T::default(); len];
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest = src;
+        }
+        coeffs[0] -= rhs;
+
+        Self::from_vec(coeffs)
+    }
+}
+
+impl<T: PolyTrait> Sub<&T> for Poly<T> {
+    type Output = Self;
+
+    fn sub(self, rhs: &T) -> Self::Output {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        let mut coeffs = vec![T::default(); len];
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest = src;
+        }
+
+        coeffs[0] -= rhs;
+
+        Self::from_vec(coeffs)
+    }
+}
+
 impl<T: PolyTrait> SubAssign for Poly<T> {
     fn sub_assign(&mut self, rhs: Self) {
         let len = std::cmp::max(self.coeffs.len(), rhs.coeffs.len());
@@ -179,6 +283,24 @@ impl<T: PolyTrait> SubAssign<&Self> for Poly<T> {
         for (src, dest) in rhs.coeffs.iter().zip(self.coeffs.iter_mut()) {
             *dest -= src;
         }
+    }
+}
+
+impl<T: PolyTrait> SubAssign<T> for Poly<T> {
+    fn sub_assign(&mut self, rhs: T) {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        self.coeffs.resize(len, T::default());
+
+        self.coeffs[0] -= rhs;
+    }
+}
+
+impl<T: PolyTrait> SubAssign<&T> for Poly<T> {
+    fn sub_assign(&mut self, rhs: &T) {
+        let len = std::cmp::max(self.coeffs.len(), 1);
+        self.coeffs.resize(len, T::default());
+
+        self.coeffs[0] -= rhs;
     }
 }
 
@@ -216,11 +338,66 @@ impl<T: PolyTrait> Mul<&Self> for Poly<T> {
     }
 }
 
+impl<T: PolyTrait> Mul<T> for Poly<T> {
+    type Output = Self;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        let len = self.coeffs.len();
+        let mut coeffs = vec![T::default(); len];
+
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest += src * &rhs;
+        }
+
+        Self::from_vec(coeffs)
+    }
+}
+
+impl<T: PolyTrait> Mul<&T> for Poly<T> {
+    type Output = Self;
+
+    fn mul(self, rhs: &T) -> Self::Output {
+        let len = self.coeffs.len();
+        let mut coeffs = vec![T::default(); len];
+
+        for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
+            *dest += src * rhs;
+        }
+
+        Self::from_vec(coeffs)
+    }
+}
+
+impl<T: PolyTrait> MulAssign<T> for Poly<T> {
+    fn mul_assign(&mut self, rhs: T) {
+        for coeff in self.coeffs.iter_mut() {
+            *coeff *= &rhs;
+        }
+    }
+}
+
+impl<T: PolyTrait> MulAssign<&T> for Poly<T> {
+    fn mul_assign(&mut self, rhs: &T) {
+        for coeff in self.coeffs.iter_mut() {
+            *coeff *= rhs;
+        }
+    }
+}
+
 impl<T: PolyTrait> Rem for Poly<T> {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
         let (_, rem) = self.long_division(&rhs).expect("division should work");
+        rem
+    }
+}
+
+impl<T: PolyTrait> Rem<&Self> for Poly<T> {
+    type Output = Self;
+
+    fn rem(self, rhs: &Self) -> Self::Output {
+        let (_, rem) = self.long_division(rhs).expect("division should work");
         rem
     }
 }
