@@ -199,7 +199,7 @@ impl IntRing2k for u8 {
             return Err(Error::NoInverseError);
         }
 
-        let (_, inv, _) = extended_euclid_rev(*self as u16, Self::MAX as u16 + 1);
+        let (_, inv) = extended_euclid_rev(*self as u16, Self::MAX as u16 + 1);
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
@@ -252,7 +252,7 @@ impl IntRing2k for u16 {
             return Err(Error::NoInverseError);
         }
 
-        let (_, inv, _) = extended_euclid_rev(*self as u32, Self::MAX as u32 + 1);
+        let (_, inv) = extended_euclid_rev(*self as u32, Self::MAX as u32 + 1);
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
@@ -305,7 +305,7 @@ impl IntRing2k for u32 {
             return Err(Error::NoInverseError);
         }
 
-        let (_, inv, _) = extended_euclid_rev(*self as u64, Self::MAX as u64 + 1);
+        let (_, inv) = extended_euclid_rev(*self as u64, Self::MAX as u64 + 1);
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
@@ -358,7 +358,7 @@ impl IntRing2k for u64 {
             return Err(Error::NoInverseError);
         }
 
-        let (_, inv, _) = extended_euclid_rev(*self as u128, Self::MAX as u128 + 1);
+        let (_, inv) = extended_euclid_rev(*self as u128, Self::MAX as u128 + 1);
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)

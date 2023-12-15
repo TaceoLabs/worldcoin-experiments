@@ -22,7 +22,7 @@ impl<T: RingImpl> PolyTrait for T {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(bound = "")]
 pub(crate) struct Poly<T: PolyTrait> {
     pub coeffs: Vec<T>,
@@ -43,7 +43,12 @@ impl<T: PolyTrait> Poly<T> {
 
     pub fn long_division(&self, other: &Self) -> Result<(Self, Self), Error> {
         let mut dividend = self.coeffs.clone();
-        let mut quotient = vec![T::default(); dividend.len() - other.coeffs.len() + 1];
+        let degree = if dividend.len() >= other.coeffs.len() {
+            dividend.len() - other.coeffs.len() + 1
+        } else {
+            1
+        };
+        let mut quotient = vec![T::default(); degree];
 
         let inv = other.leading_coeff_ref().inverse()?;
 
@@ -222,37 +227,59 @@ impl<T: PolyTrait> Rem for Poly<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::types::{int_ring::IntRing2k, ring_element::RingElement};
-
     use super::*;
-
-    fn test_long_division_impl<T: IntRing2k>()
-    where
-        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let vec_a = (1usize..5)
-            .map(|x| RingElement(T::try_from(x).unwrap()))
-            .collect::<Vec<_>>();
-        let vec_b = (1usize..3)
-            .map(|x| RingElement(T::try_from(x).unwrap()))
-            .collect::<Vec<_>>();
-
-        let a = Poly::<RingElement<T>>::from_vec(vec_a);
-        let b = Poly::<RingElement<T>>::from_vec(vec_b);
-        let (q, r) = a.long_division(&b).expect("division should work");
-
-        assert_eq!(q.degree(), 0);
-        assert_eq!(q.coeffs[0], RingElement(T::one()));
-
-        assert_eq!(r.degree(), 3);
-        for coeff in r.coeffs.iter().take(3) {
-            assert_eq!(*coeff, RingElement(T::zero()));
-        }
-        assert_eq!(r.coeffs[3], RingElement(T::try_from(5).unwrap()));
-    }
+    use crate::types::ring_element::RingElement;
 
     #[test]
     fn test_long_division_u16() {
-        test_long_division_impl::<u16>();
+        let a = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(31322),
+            RingElement(11328),
+            RingElement(31819),
+            RingElement(62992),
+            RingElement(2073),
+            RingElement(5459),
+            RingElement(15884),
+            RingElement(41216),
+            RingElement(28781),
+            RingElement(62039),
+            RingElement(30213),
+            RingElement(57012),
+            RingElement(50078),
+        ]);
+
+        let b = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(1),
+            RingElement(1),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(0),
+            RingElement(1),
+        ]);
+
+        let q = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(41216),
+            RingElement(28781),
+            RingElement(62039),
+            RingElement(30213),
+            RingElement(57012),
+            RingElement(50078),
+        ]);
+
+        let r = Poly::<RingElement<u16>>::from_vec(vec![
+            RingElement(55642),
+            RingElement(6867),
+            RingElement(6535),
+            RingElement(36276),
+            RingElement(45920),
+            RingElement(29441),
+            RingElement(31342),
+        ]);
+
+        let (q_, r_) = a.long_division(&b).expect("division should work");
+        assert_eq!(q_, q);
+        assert_eq!(r_, r);
     }
 }
