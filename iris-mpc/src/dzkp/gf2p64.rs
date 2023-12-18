@@ -32,6 +32,10 @@ impl GF2p64 {
         Self(self.0.recip())
     }
 
+    pub fn lift(inp: bool) -> Self {
+        Self::new(inp as u64)
+    }
+
     pub fn to_poly(self) -> p64 {
         p64(self.0.get())
     }

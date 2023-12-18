@@ -19,6 +19,7 @@ clap = { workspace = true }
 color-eyre = { workspace = true }
 futures = { workspace = true }
 gf256 = "0.3"
+itertools = "0.12"
 mpc-net = { path = "../mpc-net" }
 num-traits = "0.2"
 plain-reference = { path = "../plain-reference" }

@@ -1,8 +1,14 @@
 use super::{gf2p64::GF2p64, polynomial::Poly};
 use crate::types::ring_element::RingImpl;
-use rand::{Rng, SeedableRng};
+use itertools::Itertools;
+use num_traits::Zero;
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng, SeedableRng,
+};
+use std::ops::Index;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Input {
     a0: bool,
     a1: bool,
@@ -12,9 +18,26 @@ struct Input {
     s: bool,
 }
 
+impl Index<usize> for Input {
+    type Output = bool;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.a0,
+            1 => &self.a1,
+            2 => &self.b0,
+            3 => &self.b1,
+            4 => &self.r,
+            5 => &self.s,
+            _ => panic!("Index out of bounds"),
+        }
+    }
+}
+
+#[derive(Default)]
 pub(crate) struct Proof {
-    w: Vec<Poly<GF2p64>>,
-    a: Vec<Poly<GF2p64>>,
+    w: Vec<GF2p64>,
+    a: Vec<GF2p64>,
 }
 
 #[derive(Default)]
@@ -27,7 +50,7 @@ pub(crate) struct AndProof {
 }
 
 impl AndProof {
-    // const D: usize = 64; // This is because of the GF2p64 modulus implementation
+    const D: usize = 64; // This is because of the GF2p64 modulus implementation
 
     #[allow(clippy::too_many_arguments)]
     pub fn register_and<T: RingImpl>(
@@ -104,17 +127,40 @@ impl AndProof {
         let muls = l * m;
         assert!(self.get_muls() <= muls);
         let diff = self.get_muls() - muls;
-        self.proof.reserve(diff);
-        self.verify_prev.reserve(diff);
-        self.verify_next.reserve(diff);
+        self.proof.resize(diff, Input::default());
+        self.verify_prev.resize(diff, Input::default());
+        self.verify_next.resize(diff, Input::default());
 
-        for _ in 0..diff {
-            self.proof.push(Input::default());
-            self.verify_prev.push(Input::default());
-            self.verify_next.push(Input::default());
-        }
         self.l = l;
         self.m = m;
+
+        let security =
+            f64::log2((2 * m + 1) as f64) - f64::log2(f64::powi(2., Self::D as i32) - m as f64);
+        assert!(security > 40.);
+    }
+
+    fn c(f: Vec<Poly<GF2p64>>) -> Poly<GF2p64> {
+        assert_eq!(f.len(), 6);
+
+        f[0].to_owned() * &f[2] + f[0].to_owned() * &f[3] + f[1].to_owned() * &f[2] + &f[4] - &f[5]
+    }
+
+    fn g(thetas: &[GF2p64], f: Vec<Poly<GF2p64>>) -> Poly<GF2p64> {
+        let mut res = Poly::zero();
+
+        // according to https://stackoverflow.com/questions/66446258/rust-chunks-method-with-owned-values this is copyless
+        let f: Vec<Vec<Poly<GF2p64>>> = f
+            .into_iter()
+            .chunks(6)
+            .into_iter()
+            .map(|chunk| chunk.collect())
+            .collect();
+
+        for (theta, f_) in thetas.iter().zip(f.into_iter()) {
+            let poly = Self::c(f_);
+            res += poly * theta;
+        }
+        res
     }
 
     pub fn proof<R: Rng + SeedableRng>(
@@ -122,9 +168,58 @@ impl AndProof {
         thetas: &[GF2p64],
         lagrange_polys: &[Poly<GF2p64>],
         rng: &mut R,
-    ) -> (R::Seed, Proof) {
+    ) -> (R::Seed, Proof)
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: Clone,
+    {
         assert_eq!(self.l, thetas.len());
         assert_eq!(self.m + 1, lagrange_polys.len());
-        todo!()
+
+        let muls = self.get_muls();
+        assert_eq!(muls, self.l);
+        assert_eq!(muls, self.m);
+
+        let circuit_size = 6 * self.l;
+
+        let w = (0..circuit_size)
+            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+
+        let mut f = Vec::with_capacity(circuit_size);
+
+        for j in 0..self.l {
+            for i in 0..6 {
+                let mut vec = Vec::with_capacity(self.m + 1);
+                vec.push(w[i * self.l + j]);
+                for l in 0..self.m {
+                    vec.push(GF2p64::lift(self.proof[j * self.m + l][i]));
+                }
+                f.push(Poly::interpolate(&vec, lagrange_polys));
+            }
+        }
+
+        let mut g = Self::g(thetas, f);
+
+        let seed = rng.gen::<R::Seed>();
+        let mut share_rng = R::from_seed(seed.to_owned());
+
+        let mut proof = Proof::default();
+        proof.w.reserve(circuit_size);
+        proof.a.reserve(2 * self.m + 1);
+
+        for w_ in w {
+            let rand = GF2p64::new(share_rng.gen::<u64>());
+            proof.w.push(w_ - rand);
+        }
+        if g.coeffs.len() != 2 * self.m + 1 {
+            g.coeffs.resize(2 * self.m + 1, GF2p64::zero());
+        }
+        for g_ in g.coeffs {
+            let rand = GF2p64::new(share_rng.gen::<u64>());
+            proof.a.push(g_ - rand);
+        }
+
+        (seed, proof)
     }
 }
