@@ -1348,6 +1348,115 @@ impl<N: NetworkTrait> Swift3<N> {
 
         Ok(decomp[0].to_owned())
     }
+
+    async fn coin<R: Rng + SeedableRng>(&mut self, rng: &mut R) -> Result<R::Seed, Error>
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: AsRef<[u8]>,
+    {
+        let ids = match self.network.get_id() {
+            0 => (1, 2),
+            1 => (0, 2),
+            2 => (0, 1),
+            _ => unreachable!(),
+        };
+
+        let mut seed = rng.gen::<R::Seed>();
+
+        let comm = Commitment::commit(RingElement::convert_slice_rev(seed.as_ref()).to_vec(), rng);
+
+        let (open, rand, comm) = (comm.values, comm.rand, comm.comm);
+
+        // Broadcast commitment
+        let res = self.network.broadcast(Bytes::from(comm)).await?;
+
+        let comm_size = Commitment::<RingElement<u8>>::get_comm_size();
+        if res[ids.0].len() != comm_size || res[ids.1].len() != comm_size {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut rcv_comm1 = Vec::with_capacity(comm_size);
+        let mut rcv_comm2 = Vec::with_capacity(comm_size);
+        res[ids.0].as_ref().clone_into(&mut rcv_comm1);
+        res[ids.1].as_ref().clone_into(&mut rcv_comm2);
+
+        // Broadcast opening
+        let mut msg = BytesMut::new();
+        for val in open.into_iter() {
+            val.add_to_bytes(&mut msg);
+        }
+        msg.extend_from_slice(&rand);
+        let msg = msg.freeze();
+        let res = self.network.broadcast(msg).await?;
+
+        let seed_size = seed.as_ref().len();
+        let rand_size = Commitment::<RingElement<u8>>::get_rand_size();
+
+        if res[ids.0].len() != seed_size + rand_size || res[ids.1].len() != seed_size + rand_size {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut rcv_open1 = Vec::with_capacity(seed_size);
+        let mut rcv_open2 = Vec::with_capacity(seed_size);
+        let mut rcv_rand1 = [0; 32];
+        let mut rcv_rand2 = [0; 32];
+
+        res[ids.0][..seed_size].clone_into(&mut rcv_open1);
+        rcv_rand1.copy_from_slice(&res[ids.0][seed_size..seed_size + rand_size]);
+        res[ids.1][..seed_size].clone_into(&mut rcv_open2);
+        rcv_rand2.copy_from_slice(&res[ids.1][seed_size..seed_size + rand_size]);
+
+        if !Self::verify_commitment(&rcv_open1, rcv_rand1, rcv_comm1) {
+            return Err(Error::InvalidCommitment(ids.0));
+        }
+
+        if !Self::verify_commitment(&rcv_open2, rcv_rand2, rcv_comm2) {
+            return Err(Error::InvalidCommitment(ids.1));
+        }
+
+        seed.as_mut()
+            .iter_mut()
+            .zip(rcv_open1.into_iter().zip(rcv_open2.into_iter()))
+            .for_each(|(r, (a, b))| *r ^= a ^ b);
+
+        Ok(seed)
+    }
+
+    async fn send_receive_dzkp<R: Rng + SeedableRng>(
+        &mut self,
+        proof: &Proof,
+        seed: R::Seed,
+        l: usize,
+        m: usize,
+    ) -> Result<(Proof, Proof), Error>
+    where
+        R::Seed: AsRef<[u8]>,
+    {
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        self.network
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
+            .await?;
+
+        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_prev =
+            bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
+
+        let seed_next = self.network.receive_next_id().await?.freeze();
+        if seed_next.len() != seed.as_ref().len() {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut seed_next_ = <ChaCha12Rng as SeedableRng>::Seed::default();
+        seed_next_
+            .iter_mut()
+            .zip(seed_next.into_iter())
+            .map(|(a, b)| *a = b)
+            .for_each(drop);
+        let proof_next = Proof::from_seed::<ChaCha12Rng>(seed_next_, l, m);
+
+        Ok((proof_prev, proof_next))
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N>
@@ -1746,66 +1855,49 @@ where
 
         tracing::trace!("Finished lagrange interpolation");
 
-        // For party0's proof
-        let thetas_0 = (0..l)
-            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
-            .collect::<Vec<_>>();
+        let mut thetas = [
+            Vec::with_capacity(l),
+            Vec::with_capacity(l),
+            Vec::with_capacity(l),
+        ];
 
-        // For party1's proof
-        let thetas_1 = (0..l)
-            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
-            .collect::<Vec<_>>();
-
-        // For party2's proof
-        let thetas_2 = (0..l)
-            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
-            .collect::<Vec<_>>();
+        // Theta_i  for party i's proof
+        for theta in thetas.iter_mut() {
+            for _ in 0..l {
+                theta.push(GF2p64::new(theta_rng.gen::<u64>()));
+            }
+        }
 
         let mut prover_rng = ChaCha12Rng::from_entropy();
-
-        let (seed, proof) = match self.get_id() {
-            0 => self
-                .and_proof
-                .prove::<ChaCha12Rng>(&thetas_0, &lagrange_polys, &mut prover_rng),
-            1 => self
-                .and_proof
-                .prove::<ChaCha12Rng>(&thetas_1, &lagrange_polys, &mut prover_rng),
-            2 => self
-                .and_proof
-                .prove::<ChaCha12Rng>(&thetas_2, &lagrange_polys, &mut prover_rng),
-            _ => unreachable!(),
-        };
+        let (seed, proof) = self.and_proof.prove::<ChaCha12Rng>(
+            &thetas[self.get_id()],
+            &lagrange_polys,
+            &mut prover_rng,
+        );
 
         tracing::trace!("Finished proof generation");
 
         // Communication: Send proofs around
-        self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
-            ))
+        let (proof_prev, proof_next) = self
+            .send_receive_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
             .await?;
-        self.network
-            .send_prev_id(Bytes::from(seed.to_vec()))
-            .await?;
-
-        let proof_bytes = self.network.receive_prev_id().await?;
-        let proof_prev =
-            bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
-
-        let seed_next = self.network.receive_next_id().await?.freeze();
-        if seed_next.len() != seed.len() {
-            return Err(Error::InvalidMessageSize);
-        }
-        let mut seed_next_ = <ChaCha12Rng as SeedableRng>::Seed::default();
-        seed_next_
-            .iter_mut()
-            .zip(seed_next.into_iter())
-            .map(|(a, b)| *a = b)
-            .for_each(drop);
-        let proof_next = Proof::from_seed::<ChaCha12Rng>(seed_next_, l, m);
 
         // coin the betas
-        let seed = prover_rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut betas_rng =
+            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+
+        let mut betas = [
+            Vec::with_capacity(m),
+            Vec::with_capacity(m),
+            Vec::with_capacity(m),
+        ];
+
+        // Beta_i  for party i's proof
+        for beta in betas.iter_mut() {
+            for _ in 0..m {
+                beta.push(GF2p64::new(betas_rng.gen::<u64>()));
+            }
+        }
 
         // match self.id() {}
 
