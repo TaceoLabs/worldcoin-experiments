@@ -28,6 +28,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn add_const(&self, a: Ashare, b: T) -> Ashare;
     fn sub(&self, a: Ashare, b: Ashare) -> Ashare;
     fn sub_const(&self, a: Ashare, b: T) -> Ashare;
+    #[cfg(test)]
     async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
@@ -110,6 +111,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         a.wrapping_sub(&b)
     }
 
+    #[cfg(test)]
     async fn mul(&mut self, a: T, b: T) -> Result<T, Error> {
         Ok(a.wrapping_mul(&b))
     }

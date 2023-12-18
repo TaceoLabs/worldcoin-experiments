@@ -180,6 +180,7 @@ impl<N: NetworkTrait> Swift3<N> {
         (d, e)
     }
 
+    #[cfg(test)]
     async fn mul_post<T: Sharable>(
         &mut self,
         a: Share<T>,
@@ -617,6 +618,7 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(shares)
     }
 
+    #[cfg(test)]
     async fn aby_mul<T: Sharable>(
         &mut self,
         a: Aby3Share<T>,
@@ -625,7 +627,7 @@ impl<N: NetworkTrait> Swift3<N> {
     where
         Standard: Distribution<T::Share>,
     {
-        // TODO this is just semi honest!!!!!
+        // TODO this is just semi honest, but it is not used in the protocol (cfg(test))
         let (r0, r1) = self.prf.gen_for_zero_share::<T>();
         let rand = r0 - r1;
         let mut c = a * b;
@@ -1638,6 +1640,7 @@ where
         a.sub_const(&b.to_sharetype())
     }
 
+    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
         let de = self.aby_mul::<T>(d, e).await?;
