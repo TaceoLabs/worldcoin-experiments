@@ -2,7 +2,7 @@ use super::gf2p64::GF2p64;
 use crate::{prelude::Error, types::ring_element::RingImpl};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 
 pub(crate) trait PolyTrait:
     Clone
@@ -17,6 +17,7 @@ pub(crate) trait PolyTrait:
     + for<'a> MulAssign<&'a Self>
     + Zero
     + One
+    + Neg<Output = Self>
     + PartialEq
 {
 }
@@ -51,6 +52,23 @@ impl<T: PolyTrait> Poly<T> {
 
     pub fn leading_coeff(&self) -> &T {
         &self.coeffs[self.degree()]
+    }
+
+    pub fn evaluate(self, x: &T) -> T {
+        let mut res = T::zero();
+        for coeff in self.coeffs.into_iter().rev() {
+            res = res * x + coeff;
+        }
+        res
+    }
+
+    pub fn interpolate(ys: &[T], lagrange_polys: &[Poly<T>]) -> Self {
+        assert_eq!(ys.len(), lagrange_polys.len());
+        let mut res = Self::zero();
+        for (poly, y) in lagrange_polys.iter().cloned().zip(ys.iter()) {
+            res += poly * y;
+        }
+        res
     }
 }
 
@@ -120,9 +138,26 @@ impl<T: RingImpl> Poly<T> {
         self.mod_inverse_inner(modulus, T::K)
     }
 
+    fn native_mod_inverse_inner(&self, modulus: &Self, prime_power: usize) -> Self {
+        if prime_power == 1 {
+            let a_ = self.to_gf2p64();
+            let inv = a_.inverse();
+            Self::from_u64(inv.get())
+        } else {
+            let inv = Self::native_mod_inverse_inner(self, modulus, prime_power - 1);
+            let r = (inv.to_owned() * self - T::one()) % modulus;
+            let tmp = r * &inv;
+            (inv - tmp) % modulus
+        }
+    }
+
     pub fn native_mod_inverse(&self) -> Self {
-        let a_ = self.to_gf2p64();
-        Self::from_u64(a_.inverse().get())
+        let modulus: Poly<T> = Self::get_native_mod();
+        self.native_mod_inverse_inner(&modulus, T::K)
+    }
+
+    pub fn get_native_mod() -> Poly<T> {
+        Poly::<T>::from_vec(GF2p64::MODULUS.iter().map(|&x| T::from(x)).collect())
     }
 }
 
@@ -131,6 +166,56 @@ impl<T: RingImpl> Poly<Poly<T>> {
         for coeff in self.coeffs.iter_mut() {
             *coeff = coeff.to_owned() % modulus;
         }
+    }
+
+    pub fn lagrange_polys(xs: &[Poly<T>], modulus: &Poly<T>) -> Vec<Self> {
+        let mut polys = Vec::with_capacity(xs.len());
+        for j in 0..xs.len() {
+            let mut poly = Self::one();
+            for i in 0..xs.len() {
+                if i != j {
+                    let inv = xs[j].to_owned() - &xs[i];
+                    poly *= Self::from_vec(vec![-xs[i].to_owned(), Poly::one()])
+                        * &inv.mod_inverse(modulus);
+                }
+            }
+            poly.reduce_coeffs(modulus);
+            polys.push(poly);
+        }
+        polys
+    }
+
+    pub fn native_lagrange_polys(xs: &[Poly<T>]) -> Vec<Self> {
+        let mut polys = Vec::with_capacity(xs.len());
+        for j in 0..xs.len() {
+            let mut poly = Self::one();
+            for i in 0..xs.len() {
+                if i != j {
+                    let inv = xs[j].to_owned() - &xs[i];
+                    poly *= Self::from_vec(vec![-xs[i].to_owned(), Poly::one()])
+                        * &inv.native_mod_inverse();
+                }
+            }
+            polys.push(poly);
+        }
+        polys
+    }
+}
+
+impl Poly<GF2p64> {
+    pub fn lagrange_polys(xs: &[GF2p64]) -> Vec<Self> {
+        let mut polys = Vec::with_capacity(xs.len());
+        for j in 0..xs.len() {
+            let mut poly = Self::one();
+            for i in 0..xs.len() {
+                if i != j {
+                    let inv = xs[j].to_owned() - xs[i];
+                    poly *= Self::from_vec(vec![-xs[i].to_owned(), GF2p64::one()]) * inv.inverse();
+                }
+            }
+            polys.push(poly);
+        }
+        polys
     }
 }
 
@@ -348,6 +433,9 @@ impl<T: PolyTrait> Mul for Poly<T> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        if self.is_zero() || rhs.is_zero() {
+            return Self::zero();
+        }
         let len = self.coeffs.len() + rhs.coeffs.len() - 1;
         let mut coeffs = vec![T::default(); len];
 
@@ -365,6 +453,9 @@ impl<T: PolyTrait> Mul<&Self> for Poly<T> {
     type Output = Self;
 
     fn mul(self, rhs: &Self) -> Self::Output {
+        if self.is_zero() || rhs.is_zero() {
+            return Self::zero();
+        }
         let len = self.coeffs.len() + rhs.coeffs.len() - 1;
         let mut coeffs = vec![T::default(); len];
 
@@ -458,6 +549,18 @@ impl<T: RingImpl> Rem<&Self> for Poly<T> {
     }
 }
 
+impl<T: PolyTrait> Neg for Poly<T> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        let mut coeffs = Vec::with_capacity(self.coeffs.len());
+        for coeff in self.coeffs.into_iter() {
+            coeffs.push(-coeff);
+        }
+        Self::from_vec(coeffs)
+    }
+}
+
 impl<T: PolyTrait> Zero for Poly<T> {
     fn zero() -> Self {
         Self::default()
@@ -482,7 +585,11 @@ impl<T: PolyTrait> One for Poly<T> {
 mod test {
     use super::*;
     use crate::types::ring_element::RingElement;
-    use rand::{rngs::SmallRng, Rng, SeedableRng};
+    use rand::{
+        distributions::{Distribution, Standard},
+        rngs::SmallRng,
+        Rng, SeedableRng,
+    };
 
     const TESTRUNS: usize = 100;
 
@@ -616,6 +723,96 @@ mod test {
                 (c * &inv) % &modulus,
                 Poly::from_vec(vec![RingElement::one()])
             );
+        }
+    }
+
+    fn to_bits<T: RingImpl>(mut x: usize) -> Vec<T> {
+        let mut res = Vec::new();
+        while !x.is_zero() {
+            res.push(T::from(x & 1 == 1));
+            x >>= 1;
+        }
+        res
+    }
+
+    fn random_vec<T: RingImpl, R: Rng>(size: usize, rng: &mut R) -> Vec<T>
+    where
+        Standard: Distribution<T>,
+    {
+        (0..size).map(|_| rng.gen::<T>()).collect()
+    }
+
+    #[test]
+    fn interpolate_test_u16() {
+        let mut modulus = Poly::<RingElement<u16>>::from_vec(vec![RingElement::zero(); 48]);
+        modulus.coeffs[0] = RingElement::one();
+        modulus.coeffs[5] = RingElement::one();
+        modulus.coeffs[47] = RingElement::one();
+        assert_eq!(modulus.degree(), 47);
+
+        const NUM_POINTS: usize = 10;
+
+        let points: Vec<Poly<RingElement<u16>>> = (0..NUM_POINTS)
+            .map(|x| Poly::from_vec(to_bits(x)))
+            .collect();
+        let lagrange_polys = Poly::<Poly<RingElement<u16>>>::lagrange_polys(&points, &modulus);
+
+        let mut rng = SmallRng::from_entropy();
+
+        let ys = (0..NUM_POINTS)
+            .map(|_| Poly::from_vec(random_vec(47, &mut rng)))
+            .collect::<Vec<_>>();
+
+        let interpolated = Poly::interpolate(&ys, &lagrange_polys);
+
+        for (point, y) in points.into_iter().zip(ys.into_iter()) {
+            assert_eq!(interpolated.to_owned().evaluate(&point) % &modulus, y);
+        }
+    }
+
+    #[test]
+    fn interpolate_test_u16_native() {
+        let modulus = Poly::<RingElement<u16>>::get_native_mod();
+        assert_eq!(modulus.degree(), 64);
+
+        const NUM_POINTS: usize = 10;
+
+        let points: Vec<Poly<RingElement<u16>>> = (0..NUM_POINTS)
+            .map(|x| Poly::from_vec(to_bits(x)))
+            .collect();
+        let lagrange_polys = Poly::<Poly<RingElement<u16>>>::native_lagrange_polys(&points);
+
+        let mut rng = SmallRng::from_entropy();
+
+        let ys = (0..NUM_POINTS)
+            .map(|_| Poly::from_vec(random_vec(64, &mut rng)))
+            .collect::<Vec<_>>();
+
+        let mut interpolated = Poly::interpolate(&ys, &lagrange_polys);
+        interpolated.reduce_coeffs(&modulus);
+
+        for (point, y) in points.into_iter().zip(ys.into_iter()) {
+            assert_eq!(interpolated.to_owned().evaluate(&point) % &modulus, y);
+        }
+    }
+
+    #[test]
+    fn interpolate_test_gf2() {
+        const NUM_POINTS: usize = 10;
+
+        let points: Vec<GF2p64> = (0..NUM_POINTS).map(|x| GF2p64::new(x as u64)).collect();
+        let lagrange_polys = Poly::<GF2p64>::lagrange_polys(&points);
+
+        let mut rng = SmallRng::from_entropy();
+
+        let ys = (0..NUM_POINTS)
+            .map(|_| GF2p64::new(rng.gen()))
+            .collect::<Vec<_>>();
+
+        let interpolated = Poly::interpolate(&ys, &lagrange_polys);
+
+        for (point, y) in points.into_iter().zip(ys.into_iter()) {
+            assert_eq!(interpolated.to_owned().evaluate(&point), y);
         }
     }
 }

@@ -1,13 +1,21 @@
 use gf256::{gf2p64, p64};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub(crate) struct GF2p64(gf2p64);
 
 impl GF2p64 {
+    pub const MODULUS: [bool; 65] = [
+        true, true, false, true, true, false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false, false, true,
+    ];
+
     pub fn new(x: u64) -> Self {
         GF2p64(gf2p64::new(x))
     }
@@ -163,6 +171,14 @@ impl MulAssign for GF2p64 {
 impl MulAssign<&Self> for GF2p64 {
     fn mul_assign(&mut self, rhs: &Self) {
         self.0 *= rhs.0;
+    }
+}
+
+impl Neg for GF2p64 {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        self
     }
 }
 
