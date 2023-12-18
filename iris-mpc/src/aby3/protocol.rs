@@ -366,6 +366,10 @@ where
         let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
         self.reduce_or_u128(reduced).await
     }
+
+    async fn verify(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Aby3<N>

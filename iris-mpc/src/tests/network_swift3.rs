@@ -33,6 +33,7 @@ mod swift3_test {
         let input = rng.gen::<T>();
 
         let shares = Swift3::<Swift3Network>::share(input, &mut rng);
+        protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -86,6 +87,7 @@ mod swift3_test {
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
+        protocol.verify().await.unwrap();
         let open = protocol.open_many(shares).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -140,6 +142,7 @@ mod swift3_test {
             .reduce(|acc, x| protocol.add(acc, x))
             .unwrap();
 
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -193,6 +196,7 @@ mod swift3_test {
             .into_iter()
             .fold(Share::zero(), |acc, x| protocol.sub(acc, x));
 
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -253,6 +257,7 @@ mod swift3_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.add_const(share, mul);
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -320,6 +325,7 @@ mod swift3_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.sub_const(share, mul);
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -381,6 +387,7 @@ mod swift3_test {
             result = protocol.mul(result, share).await.unwrap();
         }
 
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -441,6 +448,7 @@ mod swift3_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.mul_const(share, mul);
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)
@@ -520,6 +528,7 @@ mod swift3_test {
         }
 
         let result = protocol.dot(a, b).await.unwrap();
+        protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
 
         MpcTrait::<T, Share<T>, Share<Bit>>::finish(protocol)

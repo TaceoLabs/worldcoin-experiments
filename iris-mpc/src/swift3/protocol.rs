@@ -1721,6 +1721,25 @@ where
         let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
         self.reduce_or_u128(reduced).await
     }
+
+    async fn verify(&mut self) -> Result<(), Error> {
+        let ands = self.and_proof.get_muls();
+        if ands == 0 {
+            return Ok(());
+        }
+
+        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let theta_rng = ChaCha12Rng::from_seed(seed);
+
+        let (l, m) = self.and_proof.calc_params();
+        self.and_proof.set_parameters(l, m);
+
+        // let thetas_0 =
+
+        // TODO we need to implement this
+
+        Ok(())
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Swift3<N>

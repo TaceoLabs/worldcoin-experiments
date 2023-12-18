@@ -130,10 +130,18 @@ impl AndProof {
         self.proof.len()
     }
 
+    pub fn calc_params(&self) -> (usize, usize) {
+        // TODO these parameters might be chosen to be not correct
+        let muls = self.get_muls();
+        let l = f64::ceil(f64::sqrt(muls as f64)) as usize;
+        let m = f64::ceil(muls as f64 / l as f64) as usize;
+        (l, m)
+    }
+
     pub fn set_parameters(&mut self, l: usize, m: usize) {
         let muls = l * m;
         assert!(self.get_muls() <= muls);
-        let diff = self.get_muls() - muls;
+        let diff = muls - self.get_muls();
         self.proof.resize(diff, Input::default());
         self.verify_prev.resize(diff, Input::default());
         self.verify_next.resize(diff, Input::default());
@@ -143,7 +151,8 @@ impl AndProof {
 
         let security =
             f64::log2((2 * m + 1) as f64) - f64::log2(f64::powi(2., Self::D as i32) - m as f64);
-        assert!(security > 40.);
+
+        assert!(security < -40.);
     }
 
     fn c<A>(f: Vec<A>) -> A

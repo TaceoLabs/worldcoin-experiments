@@ -68,6 +68,11 @@ where
         self.mpc.finish().await
     }
 
+    #[cfg(test)]
+    pub async fn verify(&mut self) -> Result<(), Error> {
+        self.mpc.verify().await
+    }
+
     pub(crate) fn combine_masks(
         &self,
         mask_a: &IrisCodeArray,
@@ -260,6 +265,8 @@ where
         }
 
         let res = self.mpc.reduce_binary_or(bool_shares).await?;
+
+        self.mpc.verify().await.unwrap();
         self.mpc.open_bit(res).await
     }
 }

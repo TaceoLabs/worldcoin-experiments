@@ -74,6 +74,7 @@ mod iris_mpc_test {
             let shared_code = share_iris_code(&code, id, &mut rng);
 
             let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
+            iris.verify().await.unwrap();
             let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
 
             let mut bitarr = IrisCodeArray::default();
@@ -168,6 +169,7 @@ mod iris_mpc_test {
                 .hamming_distance(shared_code1, shared_code2)
                 .await
                 .unwrap();
+            iris.verify().await.unwrap();
             let open_hwd = iris.get_mpc_mut().open(hwd).await.unwrap();
             results.push(open_hwd);
         }
@@ -354,6 +356,7 @@ mod iris_mpc_test {
             .await
             .unwrap();
 
+        protocol.verify().await.unwrap();
         let cmp = protocol.get_mpc_mut().open_bit(share_cmp).await.unwrap();
 
         assert_eq!(cmp, cmp_);
@@ -546,6 +549,7 @@ mod iris_mpc_test {
             .await
             .unwrap();
 
+        protocol.verify().await.unwrap();
         let cmp = protocol
             .get_mpc_mut()
             .open_bit_many(share_cmp)
@@ -579,6 +583,7 @@ mod iris_mpc_test {
             .await
             .unwrap();
 
+        protocol.verify().await.unwrap();
         let cmp = protocol.get_mpc_mut().open_bit(share_cmp).await.unwrap();
 
         let cmp_ = code1.is_close(&code2);
