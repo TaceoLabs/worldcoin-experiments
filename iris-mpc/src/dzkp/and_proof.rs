@@ -1,12 +1,12 @@
 use super::{gf2p64::GF2p64, polynomial::Poly};
-use crate::types::ring_element::RingImpl;
+use crate::{prelude::Error, types::ring_element::RingImpl};
 use itertools::Itertools;
 use num_traits::{One, Zero};
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
 };
-use std::ops::Index;
+use std::ops::{Add, AddAssign, Index, Mul, Sub};
 
 #[derive(Clone, Default)]
 struct Input {
@@ -146,17 +146,33 @@ impl AndProof {
         assert!(security > 40.);
     }
 
-    fn c(f: Vec<Poly<GF2p64>>) -> Poly<GF2p64> {
+    fn c<A>(f: Vec<A>) -> A
+    where
+        A: Clone
+            + for<'a> Mul<&'a A, Output = A>
+            + for<'a> Add<&'a A, Output = A>
+            + for<'a> Sub<&'a A, Output = A>,
+    {
         assert_eq!(f.len(), 6);
 
-        f[0].to_owned() * &f[2] + f[0].to_owned() * &f[3] + f[1].to_owned() * &f[2] + &f[4] - &f[5]
+        f[0].to_owned() * &f[2] + &(f[0].to_owned() * &f[3]) + &(f[1].to_owned() * &f[2]) + &f[4]
+            - &f[5]
     }
 
-    fn g(thetas: &[GF2p64], f: Vec<Poly<GF2p64>>) -> Poly<GF2p64> {
-        let mut res = Poly::zero();
+    fn g<A, B>(thetas: &[A], f: Vec<B>) -> B
+    where
+        B: Clone
+            + for<'a> Mul<&'a B, Output = B>
+            + for<'a> Add<&'a B, Output = B>
+            + for<'a> Sub<&'a B, Output = B>
+            + Zero
+            + for<'a> Mul<&'a A, Output = B>
+            + AddAssign,
+    {
+        let mut res = B::zero();
 
         // according to https://stackoverflow.com/questions/66446258/rust-chunks-method-with-owned-values this is copyless
-        let f: Vec<Vec<Poly<GF2p64>>> = f
+        let f: Vec<Vec<B>> = f
             .into_iter()
             .chunks(6)
             .into_iter()
@@ -278,5 +294,59 @@ impl AndProof {
         }
 
         SharedVerify { f, pr, b }
+    }
+
+    pub fn verify_prev(
+        &self,
+        betas: &[GF2p64],
+        r: &GF2p64,
+        lagrange_polys: &[Poly<GF2p64>],
+        coords: &[GF2p64],
+        proof: Proof,
+    ) -> SharedVerify {
+        self.verify_pi(betas, r, lagrange_polys, coords, &self.verify_prev, proof)
+    }
+
+    pub fn verify_next(
+        &self,
+        betas: &[GF2p64],
+        r: &GF2p64,
+        lagrange_polys: &[Poly<GF2p64>],
+        coords: &[GF2p64],
+        proof: Proof,
+    ) -> SharedVerify {
+        self.verify_pi(betas, r, lagrange_polys, coords, &self.verify_next, proof)
+    }
+
+    pub fn combine_verifications(
+        &self,
+        thetas: &[GF2p64],
+        verify_prev: SharedVerify,
+        verify_next: SharedVerify,
+    ) -> Result<(), Error> {
+        assert_eq!(self.l, thetas.len());
+
+        let (mut f1, pr1, b1) = (verify_prev.f, verify_prev.pr, verify_prev.b);
+        let (f2, pr2, b2) = (verify_next.f, verify_next.pr, verify_next.b);
+
+        if !(b1 + b2).is_zero() {
+            return Err(Error::DZKPVerifyError);
+        }
+
+        if f1.len() != f2.len() {
+            return Err(Error::DZKPVerifyError);
+        }
+
+        for (f1_, f2_) in f1.iter_mut().zip(f2.iter()) {
+            *f1_ += f2_;
+        }
+
+        let pr_ = Self::g(thetas, f1);
+
+        if pr_ != pr1 + pr2 {
+            return Err(Error::DZKPVerifyError);
+        }
+
+        Ok(())
     }
 }
