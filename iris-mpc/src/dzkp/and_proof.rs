@@ -1,8 +1,8 @@
-use crate::{
-    prelude::{Aby3Share, Sharable},
-    types::ring_element::RingImpl,
-};
+use super::{gf2p64::GF2p64, polynomial::Poly};
+use crate::types::ring_element::RingImpl;
+use rand::{Rng, SeedableRng};
 
+#[derive(Default)]
 struct Input {
     a0: bool,
     a1: bool,
@@ -12,8 +12,15 @@ struct Input {
     s: bool,
 }
 
+pub(crate) struct Proof {
+    w: Vec<Poly<GF2p64>>,
+    a: Vec<Poly<GF2p64>>,
+}
+
 #[derive(Default)]
 pub(crate) struct AndProof {
+    l: usize,
+    m: usize,
     proof: Vec<Input>,       // For P0: This is the proof of P0
     verify_prev: Vec<Input>, // For P1: This is to verify the proof of P0
     verify_next: Vec<Input>, // For P2: This is to verify the proof of P0
@@ -87,5 +94,37 @@ impl AndProof {
             };
             self.verify_next.push(verify_next);
         }
+    }
+
+    pub fn get_muls(&self) -> usize {
+        self.proof.len()
+    }
+
+    pub fn set_parameters(&mut self, l: usize, m: usize) {
+        let muls = l * m;
+        assert!(self.get_muls() <= muls);
+        let diff = self.get_muls() - muls;
+        self.proof.reserve(diff);
+        self.verify_prev.reserve(diff);
+        self.verify_next.reserve(diff);
+
+        for _ in 0..diff {
+            self.proof.push(Input::default());
+            self.verify_prev.push(Input::default());
+            self.verify_next.push(Input::default());
+        }
+        self.l = l;
+        self.m = m;
+    }
+
+    pub fn proof<R: Rng + SeedableRng>(
+        &self,
+        thetas: &[GF2p64],
+        lagrange_polys: &[Poly<GF2p64>],
+        rng: &mut R,
+    ) -> (R::Seed, Proof) {
+        assert_eq!(self.l, thetas.len());
+        assert_eq!(self.m + 1, lagrange_polys.len());
+        todo!()
     }
 }
