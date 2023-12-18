@@ -75,6 +75,13 @@ impl NetworkTrait for Aby3Network {
         res
     }
 
+    async fn send_prev_id(&mut self, data: Bytes) -> io::Result<()> {
+        tracing::trace!("send {}->{}: {:?}", self.id, self.id.prev_id(), data);
+        let res = self.channel_recv.send(data).await;
+        tracing::trace!("send {}->{}: done", self.id, self.id.prev_id());
+        res
+    }
+
     async fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
         tracing::trace!("recv_id {}<-{}: ", self.id, id);
         let buf = if id == usize::from(self.id.prev_id()) {
@@ -100,6 +107,20 @@ impl NetworkTrait for Aby3Network {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.prev_id());
         let buf = self.channel_recv.next().await;
         tracing::trace!("recv {}<-{}: done", self.id, self.id.prev_id());
+        if let Some(maybe_packet) = buf {
+            maybe_packet
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "Receive on closed Channel",
+            ))
+        }
+    }
+
+    async fn receive_next_id(&mut self) -> io::Result<BytesMut> {
+        tracing::trace!("recv {}<-{}: ", self.id, self.id.next_id());
+        let buf = self.channel_send.next().await;
+        tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());
         if let Some(maybe_packet) = buf {
             maybe_packet
         } else {

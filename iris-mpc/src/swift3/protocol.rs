@@ -5,7 +5,11 @@ use super::{
 use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
-    dzkp::and_proof::AndProof,
+    dzkp::{
+        and_proof::{AndProof, Proof},
+        gf2p64::GF2p64,
+        polynomial::Poly,
+    },
     prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
     traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{RingElement, RingImpl},
@@ -1729,13 +1733,83 @@ where
         }
 
         let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
-        let theta_rng = ChaCha12Rng::from_seed(seed);
+        let mut theta_rng = ChaCha12Rng::from_seed(seed);
 
         let (l, m) = self.and_proof.calc_params();
         self.and_proof.set_parameters(l, m);
 
-        // let thetas_0 =
+        tracing::trace!("Starting lagrange interpolation");
 
+        // lagrange: Maybe put into a file and read here
+        let coords = AndProof::lagrange_points(m + 1);
+        let lagrange_polys = Poly::<GF2p64>::lagrange_polys(&coords);
+
+        tracing::trace!("Finished lagrange interpolation");
+
+        // For party0's proof
+        let thetas_0 = (0..l)
+            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+
+        // For party1's proof
+        let thetas_1 = (0..l)
+            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+
+        // For party2's proof
+        let thetas_2 = (0..l)
+            .map(|_| GF2p64::new(theta_rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+
+        let mut prover_rng = ChaCha12Rng::from_entropy();
+
+        let (seed, proof) = match self.get_id() {
+            0 => self
+                .and_proof
+                .prove::<ChaCha12Rng>(&thetas_0, &lagrange_polys, &mut prover_rng),
+            1 => self
+                .and_proof
+                .prove::<ChaCha12Rng>(&thetas_1, &lagrange_polys, &mut prover_rng),
+            2 => self
+                .and_proof
+                .prove::<ChaCha12Rng>(&thetas_2, &lagrange_polys, &mut prover_rng),
+            _ => unreachable!(),
+        };
+
+        tracing::trace!("Finished proof generation");
+
+        // Communication: Send proofs around
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        self.network
+            .send_prev_id(Bytes::from(seed.to_vec()))
+            .await?;
+
+        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_prev =
+            bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
+
+        let seed_next = self.network.receive_next_id().await?.freeze();
+        if seed_next.len() != seed.len() {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut seed_next_ = <ChaCha12Rng as SeedableRng>::Seed::default();
+        seed_next_
+            .iter_mut()
+            .zip(seed_next.into_iter())
+            .map(|(a, b)| *a = b)
+            .for_each(drop);
+        let proof_next = Proof::from_seed::<ChaCha12Rng>(seed_next_, l, m);
+
+        // coin the betas
+        let seed = prover_rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+
+        // match self.id() {}
+
+        todo!();
         // TODO we need to implement this
 
         Ok(())

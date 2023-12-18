@@ -12,9 +12,11 @@ pub trait NetworkTrait {
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), Error>;
     async fn send_next_id(&mut self, data: Bytes) -> Result<(), Error>;
+    async fn send_prev_id(&mut self, data: Bytes) -> Result<(), Error>;
 
     async fn receive(&mut self, id: usize) -> Result<BytesMut, Error>;
     async fn receive_prev_id(&mut self) -> Result<BytesMut, Error>;
+    async fn receive_next_id(&mut self) -> Result<BytesMut, Error>;
 
     async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, Error>;
 }

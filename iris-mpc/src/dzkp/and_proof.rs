@@ -6,6 +6,7 @@ use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
 };
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Index, Mul, Sub};
 
 #[derive(Clone, Default)]
@@ -34,13 +35,26 @@ impl Index<usize> for Input {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub(crate) struct Proof {
     w: Vec<GF2p64>,
     a: Vec<GF2p64>,
 }
 
-#[derive(Default)]
+impl Proof {
+    pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize) -> Self {
+        let mut rng = R::from_seed(seed);
+        let w = (0..6 * l)
+            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+        let a = (0..(2 * m + 1))
+            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .collect::<Vec<_>>();
+        Self { w, a }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
 pub(crate) struct SharedVerify {
     f: Vec<GF2p64>,
     pr: GF2p64,
@@ -130,6 +144,14 @@ impl AndProof {
         self.proof.len()
     }
 
+    pub fn lagrange_points(num: usize) -> Vec<GF2p64> {
+        let mut points = Vec::with_capacity(num);
+        for i in 0..num {
+            points.push(GF2p64::new(i as u64));
+        }
+        points
+    }
+
     pub fn calc_params(&self) -> (usize, usize) {
         // TODO these parameters might be chosen to be not correct
         let muls = self.get_muls();
@@ -141,10 +163,9 @@ impl AndProof {
     pub fn set_parameters(&mut self, l: usize, m: usize) {
         let muls = l * m;
         assert!(self.get_muls() <= muls);
-        let diff = muls - self.get_muls();
-        self.proof.resize(diff, Input::default());
-        self.verify_prev.resize(diff, Input::default());
-        self.verify_next.resize(diff, Input::default());
+        self.proof.resize(muls, Input::default());
+        self.verify_prev.resize(muls, Input::default());
+        self.verify_next.resize(muls, Input::default());
 
         self.l = l;
         self.m = m;
@@ -195,7 +216,7 @@ impl AndProof {
         res
     }
 
-    pub fn proof<R: Rng + SeedableRng>(
+    pub fn prove<R: Rng + SeedableRng>(
         &self,
         thetas: &[GF2p64],
         lagrange_polys: &[Poly<GF2p64>],
@@ -209,9 +230,7 @@ impl AndProof {
         assert_eq!(self.m + 1, lagrange_polys.len());
 
         let muls = self.get_muls();
-        assert_eq!(muls, self.l);
-        assert_eq!(muls, self.m);
-
+        assert_eq!(muls, self.l * self.m);
         let circuit_size = 6 * self.l;
 
         let w = (0..circuit_size)

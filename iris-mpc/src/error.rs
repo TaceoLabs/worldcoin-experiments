@@ -33,6 +33,9 @@ pub enum Error {
     /// No inverse error
     #[error("No inverse exists error")]
     NoInverseError,
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
     /// A IO error has orccured
     #[error("IO error")]
     IOError(#[from] std::io::Error),
