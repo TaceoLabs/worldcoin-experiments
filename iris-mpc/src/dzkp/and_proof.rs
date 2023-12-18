@@ -1,7 +1,7 @@
 use super::{gf2p64::GF2p64, polynomial::Poly};
 use crate::types::ring_element::RingImpl;
 use itertools::Itertools;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
@@ -38,6 +38,13 @@ impl Index<usize> for Input {
 pub(crate) struct Proof {
     w: Vec<GF2p64>,
     a: Vec<GF2p64>,
+}
+
+#[derive(Default)]
+pub(crate) struct SharedVerify {
+    f: Vec<GF2p64>,
+    pr: GF2p64,
+    b: GF2p64,
 }
 
 #[derive(Default)]
@@ -187,7 +194,6 @@ impl AndProof {
             .collect::<Vec<_>>();
 
         let mut f = Vec::with_capacity(circuit_size);
-
         for j in 0..self.l {
             for i in 0..6 {
                 let mut vec = Vec::with_capacity(self.m + 1);
@@ -221,5 +227,56 @@ impl AndProof {
         }
 
         (seed, proof)
+    }
+
+    fn verify_pi(
+        &self,
+        betas: &[GF2p64],
+        r: &GF2p64,
+        lagrange_polys: &[Poly<GF2p64>],
+        coords: &[GF2p64],
+        verify: &[Input],
+        proof: Proof,
+    ) -> SharedVerify {
+        assert_eq!(self.m, betas.len());
+        assert_eq!(self.m + 1, lagrange_polys.len());
+        assert_eq!(self.m * self.l, verify.len());
+        assert_eq!(self.m + 1, coords.len());
+
+        let circuit_size = 6 * self.l;
+
+        let mut f = Vec::with_capacity(circuit_size);
+        for j in 0..self.l {
+            for i in 0..6 {
+                let mut vec = Vec::with_capacity(self.m + 1);
+                vec.push(proof.w[i * self.l + j]);
+                for l in 0..self.m {
+                    vec.push(GF2p64::lift(verify[j * self.m + l][i]));
+                }
+                f.push(Poly::interpolate(&vec, lagrange_polys).evaluate(r));
+            }
+        }
+
+        let mut pr = GF2p64::zero();
+        let mut b = GF2p64::zero();
+
+        for (beta, coord) in betas.iter().zip(coords.iter().skip(1)) {
+            let mut j_pow = GF2p64::one();
+            let mut sum = GF2p64::zero();
+            for a in proof.a.iter().copied() {
+                sum += a * j_pow;
+                j_pow *= coord;
+            }
+            sum *= beta;
+            b += sum;
+        }
+
+        let mut r_pow = GF2p64::one();
+        for a in proof.a.into_iter() {
+            pr += a * r_pow;
+            r_pow *= r;
+        }
+
+        SharedVerify { f, pr, b }
     }
 }
