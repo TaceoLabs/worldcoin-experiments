@@ -1,5 +1,6 @@
 pub(crate) mod aby3;
 pub(crate) mod commitment;
+pub(crate) mod dzkp;
 pub(crate) mod error;
 pub(crate) mod iris;
 pub mod prelude;

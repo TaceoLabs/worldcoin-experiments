@@ -114,7 +114,7 @@ pub(crate) fn ring_vec_to_bytes<T>(vec: Vec<T>) -> Bytes
 where
     T: RingImpl,
 {
-    let size = T::get_k() / 8 + ((T::get_k() % 8) != 0) as usize;
+    let size = T::K / 8 + ((T::K % 8) != 0) as usize;
     let mut out = BytesMut::with_capacity(size * vec.len());
     for v in vec {
         v.add_to_bytes(&mut out);
@@ -173,8 +173,8 @@ pub(crate) fn split<T: IntRing2k, U: IntRing2k>(
 where
     T: AsPrimitive<U>,
 {
-    debug_assert_eq!(T::get_k(), 2 * U::get_k());
-    let shift = U::get_k();
+    debug_assert_eq!(T::K, 2 * U::K);
+    let shift = U::K;
 
     let a1 = RingElement((a.0).as_());
     let a2 = RingElement((a.0 >> shift).as_());

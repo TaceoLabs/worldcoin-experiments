@@ -61,7 +61,8 @@ pub trait RingImpl:
     + Serialize
     + for<'a> Deserialize<'a>
 {
-    fn get_k() -> usize;
+    const K: usize;
+
     fn get_msb(&self) -> RingElement<Bit>;
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
@@ -71,19 +72,20 @@ pub trait RingImpl:
     fn from_bytes(other: Bytes) -> Result<Self, Error>;
     fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
     fn to_bytes(self) -> Bytes;
+
+    fn floor_div(self, other: &Self) -> Self;
+    fn inverse(&self) -> Result<Self, Error>;
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
-    fn get_k() -> usize {
-        T::get_k()
-    }
+    const K: usize = T::K;
 
     fn get_msb(&self) -> RingElement<Bit> {
-        RingElement(Bit(self.0 >> (Self::get_k() - 1) == T::one()))
+        RingElement(Bit(self.0 >> (Self::K - 1) == T::one()))
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
-        let k = Self::get_k();
+        let k = Self::K;
         let mut res = Vec::with_capacity(k);
         for i in 0..k {
             let bit = ((self.0 >> i) & T::one()) == T::one();
@@ -94,8 +96,7 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
     }
 
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error> {
-        let k = Self::get_k();
-        if k != bits.len() {
+        if Self::K != bits.len() {
             return Err(Error::ConversionError);
         }
         let mut res = Self::zero();
@@ -125,6 +126,14 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn to_bytes(self) -> Bytes {
         self.0.to_bytes()
+    }
+
+    fn floor_div(self, other: &Self) -> Self {
+        RingElement(self.0.floor_div(&other.0))
+    }
+
+    fn inverse(&self) -> Result<Self, Error> {
+        Ok(RingElement(self.0.inverse()?))
     }
 }
 

@@ -69,8 +69,7 @@ where
     }
 
     async fn binary_add_3(&mut self, x1: Bshare, x2: Bshare, x3: Bshare) -> Result<Bshare, Error> {
-        let k = T::Share::get_k();
-        let logk = ceil_log2(k);
+        let logk = ceil_log2(T::Share::K);
 
         // Full Adder
         let x2x3 = Self::xor(x2, x3.to_owned());
@@ -107,8 +106,7 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        let k = T::Share::get_k();
-        let logk = ceil_log2(k);
+        let logk = ceil_log2(T::Share::K);
 
         // Full Adder
         let x2x3 = Self::xor_many(x2, x3.to_owned()).expect("Same length");
