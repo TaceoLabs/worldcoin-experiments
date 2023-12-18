@@ -5,6 +5,7 @@ use super::{
 use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
+    dzkp::and_proof::AndProof,
     prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
     traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{RingElement, RingImpl},
@@ -26,6 +27,7 @@ pub struct Swift3<N: NetworkTrait> {
     send_queue_prev: BytesMut,
     rcv_queue_next: BytesMut,
     rcv_queue_prev: BytesMut,
+    and_proof: AndProof,
 }
 
 impl<N: NetworkTrait> MaliciousAbort for Swift3<N> {}
@@ -64,6 +66,7 @@ impl<N: NetworkTrait> Swift3<N> {
             send_queue_prev,
             rcv_queue_next,
             rcv_queue_prev,
+            and_proof: AndProof::default(),
         }
     }
 
@@ -623,7 +626,8 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_zero_share::<T>();
+        let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+        let rand = r0 - r1;
         let mut c = a * b;
         c.a += rand;
 
@@ -641,13 +645,20 @@ impl<N: NetworkTrait> Swift3<N> {
     where
         Standard: Distribution<T::Share>,
     {
-        // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_binary_zero_share::<T>();
-        let mut c = a & b;
+        let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+        let rand = r0.to_owned() ^ &r1;
+        let mut c = a.to_owned() & &b;
         c.a ^= rand;
 
         // Network: reshare
         c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+
+        // Register for proof
+        let (a0, a1) = a.get_ab();
+        let (b0, b1) = b.get_ab();
+        let (s0, s1) = c.to_owned().get_ab();
+
+        self.and_proof.register_and(a0, a1, b0, b1, r0, r1, s0, s1);
 
         Ok(c)
     }
@@ -661,24 +672,42 @@ impl<N: NetworkTrait> Swift3<N> {
         Standard: Distribution<T::Share>,
     {
         debug_assert_eq!(a.len(), b.len());
-        // TODO this is just semi honest!!!!!
 
         let mut shares_a = Vec::with_capacity(a.len());
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let rand = self.prf.gen_aby_binary_zero_share::<T>();
+        let mut rs: Vec<Aby3Share<T>> = Vec::with_capacity(a.len());
+
+        for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
+            let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+            let rand = r0.to_owned() ^ &r1;
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
+            rs.push(Aby3Share::new(r0, r1));
         }
 
         // Network: reshare
         let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
 
-        let res = shares_a
+        let res: Vec<Aby3Share<T>> = shares_a
             .into_iter()
             .zip(shares_b.into_iter())
             .map(|(a_, b_)| Aby3Share::new(a_, b_))
             .collect();
+
+        // Register for proof
+        for (((a, b), c), r) in a
+            .into_iter()
+            .zip(b.into_iter())
+            .zip(res.iter())
+            .zip(rs.into_iter())
+        {
+            let (a0, a1) = a.get_ab();
+            let (b0, b1) = b.get_ab();
+            let (r0, r1) = r.get_ab();
+            let (s0, s1) = c.to_owned().get_ab();
+
+            self.and_proof.register_and(a0, a1, b0, b1, r0, r1, s0, s1);
+        }
 
         Ok(res)
     }
@@ -694,7 +723,8 @@ impl<N: NetworkTrait> Swift3<N> {
         debug_assert_eq!(a.len(), b.len());
 
         // TODO this is just semi honest!!!!!
-        let rand = self.prf.gen_aby_zero_share::<T>();
+        let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+        let rand = r0 - r1;
 
         let mut c = Aby3Share::new(rand, T::zero().to_sharetype());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
@@ -721,7 +751,8 @@ impl<N: NetworkTrait> Swift3<N> {
         let mut shares_a = Vec::with_capacity(a.len());
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let mut rand = self.prf.gen_aby_zero_share::<T>();
+            let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+            let mut rand = r0 - r1;
             debug_assert_eq!(a_.len(), b_.len());
 
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {

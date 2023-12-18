@@ -55,23 +55,13 @@ impl Prf {
         self.prf_p.gen::<T>()
     }
 
-    pub fn gen_aby_zero_share<T: Sharable>(&mut self) -> T::Share
+    pub fn gen_for_zero_share<T: Sharable>(&mut self) -> (T::Share, T::Share)
     where
         Standard: Distribution<T::Share>,
     {
         let a = self.gen_1::<T::Share>();
         let b = self.gen_2::<T::Share>();
 
-        a - b
-    }
-
-    pub fn gen_aby_binary_zero_share<T: Sharable>(&mut self) -> T::Share
-    where
-        Standard: Distribution<T::Share>,
-    {
-        let a = self.gen_1::<T::Share>();
-        let b = self.gen_2::<T::Share>();
-
-        a ^ b
+        (a, b)
     }
 }
