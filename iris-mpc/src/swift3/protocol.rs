@@ -810,6 +810,7 @@ where
             Poly::<Poly<U::Share>>::lagrange_polys(&coords, self.dot_proof.get_modulus());
 
         let d = self.dot_proof.get_mod_d() - 1;
+        let dot = self.dot_proof.get_dot();
 
         tracing::trace!("Finished lagrange interpolation");
 
@@ -828,7 +829,7 @@ where
 
         // Communication: Send proofs around
         let (proof_prev, proof_next) = self
-            .send_receive_dot_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d)
+            .send_receive_dot_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d, dot)
             .await?;
 
         // coin the betas
@@ -1778,6 +1779,7 @@ where
         l: usize,
         m: usize,
         d: usize,
+        dot: usize,
     ) -> Result<(DotProofStruct<U::Share>, DotProofStruct<U::Share>), Error>
     where
         R::Seed: AsRef<[u8]>,
@@ -1804,7 +1806,7 @@ where
             .iter_mut()
             .zip(seed_next.into_iter())
             .for_each(|(a, b)| *a = b);
-        let proof_next = DotProofStruct::from_seed::<ChaCha12Rng>(seed_next_, l, m, d);
+        let proof_next = DotProofStruct::from_seed::<ChaCha12Rng>(seed_next_, l, m, d, dot);
 
         Ok((proof_prev, proof_next))
     }

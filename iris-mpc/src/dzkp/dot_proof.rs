@@ -60,10 +60,15 @@ impl<T: RingImpl> Proof<T>
 where
     Standard: Distribution<T>,
 {
-    pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize, d: usize) -> Self {
-        todo!()
+    pub fn from_seed<R: Rng + SeedableRng>(
+        seed: R::Seed,
+        l: usize,
+        m: usize,
+        d: usize,
+        dot: usize,
+    ) -> Self {
         let mut rng = R::from_seed(seed);
-        let w = (0..6 * l)
+        let w = (0..(4 * dot + 2) * l)
             .map(|_| Poly::random(d, &mut rng))
             .collect::<Vec<_>>();
         let a = (0..(2 * m + 1))
@@ -85,6 +90,8 @@ pub(crate) struct SharedVerify<T: RingImpl> {
 pub(crate) struct DotProof<T: RingImpl> {
     l: usize,
     m: usize,
+    dot_size: usize,
+    max_dot: usize,
     modulus: Poly<T>,
     proof: Vec<Input<T>>,       // For P0: This is the proof of P0
     verify_prev: Vec<Input<T>>, // For P1: This is to verify the proof of P0
@@ -98,16 +105,32 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn register_dot(
         &mut self,
-        a0: Vec<T>,
-        a1: Vec<T>,
-        b0: Vec<T>,
-        b1: Vec<T>,
+        mut a0: Vec<T>,
+        mut a1: Vec<T>,
+        mut b0: Vec<T>,
+        mut b1: Vec<T>,
         r0: T,
         r1: T,
         s0: T,
         s1: T,
     ) {
-        todo!()
+        let len = a0.len();
+        assert_eq!(len, a1.len());
+        assert_eq!(len, b0.len());
+        assert_eq!(len, b1.len());
+
+        if len < self.dot_size {
+            a0.resize(self.dot_size, T::zero());
+            a1.resize(self.dot_size, T::zero());
+            b0.resize(self.dot_size, T::zero());
+            b1.resize(self.dot_size, T::zero());
+        }
+
+        if len > self.dot_size {
+            self.max_dot = self.proof.len();
+            self.dot_size = len;
+        }
+
         let proof = Input {
             a0: a0.to_owned(),
             a1: a1.to_owned(),
@@ -120,18 +143,18 @@ where
 
         let verify_prev = Input {
             a0: a1,
-            a1: T::zero(),
+            a1: vec![T::zero(); self.dot_size],
             b0: b1,
-            b1: T::zero(),
+            b1: vec![T::zero(); self.dot_size],
             r: r1,
             s: s1,
         };
         self.verify_prev.push(verify_prev);
 
         let verify_next = Input {
-            a0: T::zero(),
+            a0: vec![T::zero(); self.dot_size],
             a1: a0,
-            b0: T::zero(),
+            b0: vec![T::zero(); self.dot_size],
             b1: b0,
             r: -r0,
             s: T::zero(),
@@ -143,6 +166,10 @@ where
         self.proof.len()
     }
 
+    pub fn get_dot(&self) -> usize {
+        self.dot_size
+    }
+
     pub fn lagrange_points(num: usize) -> Vec<Poly<T>> {
         let mut points = Vec::with_capacity(num);
         for i in 0..num {
@@ -152,11 +179,10 @@ where
     }
 
     pub fn calc_params(&self) -> (usize, usize) {
-        todo!()
         // TODO these parameters might be chosen to be not correct
         let muls = self.get_muls();
-        let l = f64::ceil(f64::sqrt(muls as f64)) as usize;
-        let m = f64::ceil(muls as f64 / l as f64) as usize;
+        let m = f64::ceil(f64::sqrt(((4 * self.dot_size + 2) * muls) as f64)) as usize;
+        let l = f64::ceil(muls as f64 / m as f64) as usize;
         (l, m)
     }
 
@@ -169,6 +195,27 @@ where
 
         self.l = l;
         self.m = m;
+
+        // Pad
+        for (p, (v_prev, v_next)) in self
+            .proof
+            .iter_mut()
+            .zip(self.verify_prev.iter_mut().zip(self.verify_next.iter_mut()))
+            .take(self.max_dot)
+        {
+            p.a0.resize(self.dot_size, T::zero());
+            p.a1.resize(self.dot_size, T::zero());
+            p.b0.resize(self.dot_size, T::zero());
+            p.b1.resize(self.dot_size, T::zero());
+            v_prev.a0.resize(self.dot_size, T::zero());
+            v_prev.a1.resize(self.dot_size, T::zero());
+            v_prev.b0.resize(self.dot_size, T::zero());
+            v_prev.b1.resize(self.dot_size, T::zero());
+            v_next.a0.resize(self.dot_size, T::zero());
+            v_next.a1.resize(self.dot_size, T::zero());
+            v_next.b0.resize(self.dot_size, T::zero());
+            v_next.b1.resize(self.dot_size, T::zero());
+        }
 
         let gamma = f64::ceil(f64::log2((2 * m) as f64)) as usize;
         let d = gamma + 40;
@@ -183,21 +230,26 @@ where
         &self.modulus
     }
 
-    fn c<A>(f: Vec<A>) -> A
+    fn c<A>(f: Vec<A>, dot: usize) -> A
     where
         A: Clone
             + for<'a> Mul<&'a A, Output = A>
             + for<'a> Add<&'a A, Output = A>
             + Add<A, Output = A>
+            + AddAssign
             + for<'a> Sub<&'a A, Output = A>,
     {
-        assert_eq!(f.len(), 6);
-        todo!()
-
-        f[0].to_owned() * &f[2] + f[0].to_owned() * &f[3] + f[1].to_owned() * &f[2] + &f[4] - &f[5]
+        assert_eq!(f.len(), 4 * dot + 2);
+        let mut res = f[4 * dot].to_owned() - &f[4 * dot + 1];
+        for i in 0..dot {
+            res += f[i].to_owned() * &f[2 * dot + i]
+                + f[i].to_owned() * &f[3 * dot + i]
+                + f[dot + i].to_owned() * &f[2 * dot + i];
+        }
+        res
     }
 
-    fn g<A, B>(thetas: &[A], f: Vec<B>) -> B
+    fn g<A, B>(thetas: &[A], f: Vec<B>, dot: usize) -> B
     where
         B: Clone
             + for<'a> Mul<&'a B, Output = B>
@@ -209,17 +261,16 @@ where
     {
         let mut res = B::zero();
 
-        todo!()
         // according to https://stackoverflow.com/questions/66446258/rust-chunks-method-with-owned-values this is copyless
         let f: Vec<Vec<B>> = f
             .into_iter()
-            .chunks(6)
+            .chunks(4 * dot + 2)
             .into_iter()
             .map(|chunk| chunk.collect())
             .collect();
 
         for (theta, f_) in thetas.iter().zip(f.into_iter()) {
-            let poly = Self::c(f_);
+            let poly = Self::c(f_, dot);
             res += poly * theta;
         }
         res
@@ -235,13 +286,12 @@ where
         Standard: Distribution<R::Seed>,
         R::Seed: Clone,
     {
-        todo!()
         assert_eq!(self.l, thetas.len());
         assert_eq!(self.m + 1, lagrange_polys.len());
 
         let muls = self.get_muls();
         assert_eq!(muls, self.l * self.m);
-        let circuit_size = 6 * self.l;
+        let circuit_size = (4 * self.dot_size + 2) * self.l;
         let d = self.get_mod_d() - 1;
 
         let w = (0..circuit_size)
@@ -250,7 +300,7 @@ where
 
         let mut f = Vec::with_capacity(circuit_size);
         for j in 0..self.l {
-            for i in 0..6 {
+            for i in 0..(4 * self.dot_size + 2) {
                 let mut vec = Vec::with_capacity(self.m + 1);
                 vec.push(w[i * self.l + j].to_owned());
                 for l in 0..self.m {
@@ -260,7 +310,7 @@ where
             }
         }
 
-        let mut g = Self::g(thetas, f);
+        let mut g = Self::g(thetas, f, self.dot_size);
         g.reduce_coeffs(&self.modulus);
 
         let seed = rng.gen::<R::Seed>();
@@ -299,15 +349,14 @@ where
         assert_eq!(self.m * self.l, verify.len());
         assert_eq!(self.m + 1, coords.len());
 
-        todo!()
-        if proof.w.len() != 6 * self.l || proof.a.len() != 2 * self.m + 1 {
+        let circuit_size = (4 * self.dot_size + 2) * self.l;
+        if proof.w.len() != circuit_size || proof.a.len() != 2 * self.m + 1 {
             return Err(Error::DZKPVerifyError);
         }
-        let circuit_size = 6 * self.l;
 
         let mut f = Vec::with_capacity(circuit_size);
         for j in 0..self.l {
-            for i in 0..6 {
+            for i in 0..(4 * self.dot_size + 2) {
                 let mut vec = Vec::with_capacity(self.m + 1);
                 vec.push(proof.w[i * self.l + j].to_owned());
                 for l in 0..self.m {
@@ -373,7 +422,6 @@ where
     ) -> Result<(), Error> {
         assert_eq!(self.l, thetas.len());
 
-        todo!()
         let (mut f1, pr1, b1) = (verify_prev.f, verify_prev.pr, verify_prev.b);
         let (f2, pr2, b2) = (verify_next.f, verify_next.pr, verify_next.b);
 
@@ -381,7 +429,7 @@ where
             return Err(Error::DZKPVerifyError);
         }
 
-        if f1.len() != f2.len() || f1.len() != 6 * self.l {
+        if f1.len() != f2.len() || f1.len() != (4 * self.dot_size + 2) * self.l {
             return Err(Error::DZKPVerifyError);
         }
 
@@ -389,7 +437,7 @@ where
             *f1_ += f2_;
         }
 
-        let pr_ = Self::g(thetas, f1) % &self.modulus;
+        let pr_ = Self::g(thetas, f1, self.dot_size) % &self.modulus;
 
         if pr_ != (pr1 + pr2) {
             return Err(Error::DZKPVerifyError);
