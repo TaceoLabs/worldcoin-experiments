@@ -1383,14 +1383,6 @@ where
             self.prf = Prf::new(seed1, seed2, seed3);
         }
 
-        #[cfg(test)]
-        {
-            self.mul_proof = MulProof::new(
-                self.prf.gen_1::<<ChaCha12Rng as SeedableRng>::Seed>(),
-                self.prf.gen_2::<<ChaCha12Rng as SeedableRng>::Seed>(),
-            );
-        }
-
         Ok(())
     }
 
@@ -1609,7 +1601,7 @@ where
         // Theta_i/Beta_i for party i's proof
         for rand in rands.iter_mut() {
             for _ in 0..size {
-                rand.push(GF2p64::new(rng.gen::<u64>()));
+                rand.push(GF2p64::random(rng));
             }
         }
         rands
@@ -1629,11 +1621,7 @@ where
         // Theta_i/Beta_i for party i's proof
         for rand in rands.iter_mut() {
             for _ in 0..size {
-                let mut vec = Vec::with_capacity(d);
-                for _ in 0..d {
-                    vec.push(rng.gen::<U::Share>());
-                }
-                rand.push(Poly::from_vec(vec));
+                rand.push(Poly::random(d, rng));
             }
         }
         rands

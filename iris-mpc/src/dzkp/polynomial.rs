@@ -53,6 +53,10 @@ impl<T: PolyTrait> Poly<T> {
         self.coeffs.resize(self.degree() + 1, T::default());
     }
 
+    pub fn lift(inp: T) -> Self {
+        Self::from_vec(vec![inp])
+    }
+
     pub fn degree(&self) -> usize {
         for i in (0..self.coeffs.len()).rev() {
             if !self.coeffs[i].is_zero() {
@@ -489,7 +493,7 @@ impl<T: PolyTrait> Mul<T> for Poly<T> {
         let mut coeffs = vec![T::default(); len];
 
         for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
-            *dest += src * &rhs;
+            *dest = src * &rhs;
         }
 
         Self::from_vec(coeffs)
@@ -504,7 +508,7 @@ impl<T: PolyTrait> Mul<&T> for Poly<T> {
         let mut coeffs = vec![T::default(); len];
 
         for (src, dest) in self.coeffs.into_iter().zip(coeffs.iter_mut()) {
-            *dest += src * rhs;
+            *dest = src * rhs;
         }
 
         Self::from_vec(coeffs)
