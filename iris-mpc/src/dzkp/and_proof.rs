@@ -171,9 +171,9 @@ impl AndProof {
         self.m = m;
 
         let security =
-            f64::log2((2 * m + 1) as f64) - f64::log2(f64::powi(2., Self::D as i32) - m as f64);
+            f64::log2(f64::powi(2., Self::D as i32) - m as f64) - f64::log2((2 * m + 1) as f64);
 
-        assert!(security < -40.);
+        assert!(security > 40.);
     }
 
     fn c<A>(f: Vec<A>) -> A
@@ -281,12 +281,15 @@ impl AndProof {
         coords: &[GF2p64],
         verify: &[Input],
         proof: Proof,
-    ) -> SharedVerify {
+    ) -> Result<SharedVerify, Error> {
         assert_eq!(self.m, betas.len());
         assert_eq!(self.m + 1, lagrange_polys.len());
         assert_eq!(self.m * self.l, verify.len());
         assert_eq!(self.m + 1, coords.len());
 
+        if proof.w.len() != 6 * self.l || proof.a.len() != 2 * self.m + 1 {
+            return Err(Error::DZKPVerifyError);
+        }
         let circuit_size = 6 * self.l;
 
         let mut f = Vec::with_capacity(circuit_size);
@@ -321,7 +324,7 @@ impl AndProof {
             r_pow *= r;
         }
 
-        SharedVerify { f, pr, b }
+        Ok(SharedVerify { f, pr, b })
     }
 
     pub fn verify_prev(
@@ -331,7 +334,7 @@ impl AndProof {
         lagrange_polys: &[Poly<GF2p64>],
         coords: &[GF2p64],
         proof: Proof,
-    ) -> SharedVerify {
+    ) -> Result<SharedVerify, Error> {
         self.verify_pi(betas, r, lagrange_polys, coords, &self.verify_prev, proof)
     }
 
@@ -342,7 +345,7 @@ impl AndProof {
         lagrange_polys: &[Poly<GF2p64>],
         coords: &[GF2p64],
         proof: Proof,
-    ) -> SharedVerify {
+    ) -> Result<SharedVerify, Error> {
         self.verify_pi(betas, r, lagrange_polys, coords, &self.verify_next, proof)
     }
 
@@ -361,7 +364,7 @@ impl AndProof {
             return Err(Error::DZKPVerifyError);
         }
 
-        if f1.len() != f2.len() {
+        if f1.len() != f2.len() || f1.len() != 6 * self.l {
             return Err(Error::DZKPVerifyError);
         }
 

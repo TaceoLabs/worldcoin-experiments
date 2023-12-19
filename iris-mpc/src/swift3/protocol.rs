@@ -1457,6 +1457,30 @@ impl<N: NetworkTrait> Swift3<N> {
 
         Ok((proof_prev, proof_next))
     }
+
+    fn get_rands_for_and_dzkp<R: Rng>(size: usize, rng: &mut R) -> [Vec<GF2p64>; 3] {
+        let mut rands = [
+            Vec::with_capacity(size),
+            Vec::with_capacity(size),
+            Vec::with_capacity(size),
+        ];
+
+        // Theta_i for party i's proof
+        for rand in rands.iter_mut() {
+            for _ in 0..size {
+                rand.push(GF2p64::new(rng.gen::<u64>()));
+            }
+        }
+        rands
+    }
+
+    fn get_and_r<R: Rng>(m: usize, rng: &mut R) -> GF2p64 {
+        let mut rand = rng.gen::<u64>();
+        while rand < m as u64 {
+            rand = rng.gen::<u64>();
+        }
+        GF2p64::new(rand)
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N>
@@ -1841,9 +1865,6 @@ where
             return Ok(());
         }
 
-        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
-        let mut theta_rng = ChaCha12Rng::from_seed(seed);
-
         let (l, m) = self.and_proof.calc_params();
         self.and_proof.set_parameters(l, m);
 
@@ -1855,18 +1876,9 @@ where
 
         tracing::trace!("Finished lagrange interpolation");
 
-        let mut thetas = [
-            Vec::with_capacity(l),
-            Vec::with_capacity(l),
-            Vec::with_capacity(l),
-        ];
-
-        // Theta_i  for party i's proof
-        for theta in thetas.iter_mut() {
-            for _ in 0..l {
-                theta.push(GF2p64::new(theta_rng.gen::<u64>()));
-            }
-        }
+        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut theta_rng = ChaCha12Rng::from_seed(seed);
+        let thetas = Self::get_rands_for_and_dzkp::<ChaCha12Rng>(l, &mut theta_rng);
 
         let mut prover_rng = ChaCha12Rng::from_entropy();
         let (seed, proof) = self.and_proof.prove::<ChaCha12Rng>(
@@ -1885,19 +1897,31 @@ where
         // coin the betas
         let mut betas_rng =
             ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let betas = Self::get_rands_for_and_dzkp(m, &mut betas_rng);
+        let r = Self::get_and_r(m, &mut prover_rng);
 
-        let mut betas = [
-            Vec::with_capacity(m),
-            Vec::with_capacity(m),
-            Vec::with_capacity(m),
-        ];
+        let (prev_id, next_id) = match self.get_id() {
+            0 => (2, 1),
+            1 => (0, 2),
+            2 => (1, 0),
+            _ => unreachable!(),
+        };
 
-        // Beta_i  for party i's proof
-        for beta in betas.iter_mut() {
-            for _ in 0..m {
-                beta.push(GF2p64::new(betas_rng.gen::<u64>()));
-            }
-        }
+        let shared_verify_prev = self.and_proof.verify_prev(
+            &betas[prev_id],
+            &r,
+            &lagrange_polys,
+            &coords,
+            proof_prev,
+        )?;
+
+        let shared_verify_next = self.and_proof.verify_prev(
+            &betas[next_id],
+            &r,
+            &lagrange_polys,
+            &coords,
+            proof_next,
+        )?;
 
         // match self.id() {}
 
