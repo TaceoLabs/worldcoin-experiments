@@ -2249,6 +2249,10 @@ where
             self.and_verify().await?;
         }
 
+        if self.dot_proof.get_muls() != 0 {
+            self.dot_verify().await?;
+        }
+
         Ok(())
     }
 }
