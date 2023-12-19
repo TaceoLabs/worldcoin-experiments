@@ -12,7 +12,7 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Index, Mul, Sub};
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Input<T: RingImpl> {
     a0: Vec<T>,
     a1: Vec<T>,
@@ -20,6 +20,19 @@ struct Input<T: RingImpl> {
     b1: Vec<T>,
     r: T,
     s: T,
+}
+
+impl<T: RingImpl> Input<T> {
+    fn new(dot_size: usize) -> Self {
+        Self {
+            a0: vec![T::zero(); dot_size],
+            a1: vec![T::zero(); dot_size],
+            b0: vec![T::zero(); dot_size],
+            b1: vec![T::zero(); dot_size],
+            r: T::zero(),
+            s: T::zero(),
+        }
+    }
 }
 
 impl<T: RingImpl> Index<usize> for Input<T> {
@@ -42,7 +55,7 @@ impl<T: RingImpl> Index<usize> for Input<T> {
         if index == 4 * dot {
             return &self.r;
         }
-        if index == 5 * dot {
+        if index == 4 * dot + 1 {
             return &self.s;
         }
         panic!("Index out of bounds");
@@ -189,9 +202,9 @@ where
     pub fn set_parameters(&mut self, l: usize, m: usize) {
         let muls = l * m;
         assert!(self.get_muls() <= muls);
-        self.proof.resize(muls, Input::default());
-        self.verify_prev.resize(muls, Input::default());
-        self.verify_next.resize(muls, Input::default());
+        self.proof.resize(muls, Input::new(self.dot_size));
+        self.verify_prev.resize(muls, Input::new(self.dot_size));
+        self.verify_next.resize(muls, Input::new(self.dot_size));
 
         self.l = l;
         self.m = m;

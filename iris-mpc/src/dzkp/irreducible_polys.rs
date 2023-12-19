@@ -62,7 +62,7 @@ impl IrreduciblePolys {
     pub fn get<R: RingImpl>(d: usize) -> Poly<R> {
         let mut poly = Self::get_inner(d);
         let mut vec = Vec::with_capacity(d + 1);
-        for i in 0..=d {
+        for _ in 0..=d {
             let bit = poly & 1 == 1;
             vec.push(R::from(bit));
             poly >>= 1;

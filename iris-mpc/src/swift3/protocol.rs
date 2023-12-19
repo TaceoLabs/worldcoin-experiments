@@ -753,7 +753,7 @@ where
         let mut betas_rng =
             ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
         let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
-        let r = Self::get_mul_r(m, d, &mut betas_rng);
+        let r = Self::get_mul_r(d, &mut betas_rng);
 
         let (prev_id, next_id) = match self.network.get_id() {
             0 => (2, 1),
@@ -836,7 +836,7 @@ where
         let mut betas_rng =
             ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
         let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
-        let r = Self::get_mul_r(m, d, &mut betas_rng);
+        let r = Self::get_mul_r(d, &mut betas_rng);
 
         let (prev_id, next_id) = match self.network.get_id() {
             0 => (2, 1),
@@ -986,19 +986,36 @@ where
     where
         Standard: Distribution<U::Share>,
     {
-        debug_assert_eq!(a.len(), b.len());
+        let len = a.len();
+        debug_assert_eq!(len, b.len());
 
-        // TODO this is just semi honest!!!!!
         let (r0, r1) = self.prf.gen_for_zero_share::<U>();
-        let rand = r0 - r1;
+        let rand = r0.to_owned() - &r1;
+
+        let mut a0 = Vec::with_capacity(len);
+        let mut a1 = Vec::with_capacity(len);
+        let mut b0 = Vec::with_capacity(len);
+        let mut b1 = Vec::with_capacity(len);
 
         let mut c = Aby3Share::new(rand, U::zero().to_sharetype());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            c += a_ * b_;
+            c += a_.to_owned() * &b_;
+
+            // Register for proof
+            let (a0_, a1_) = a_.get_ab();
+            let (b0_, b1_) = b_.get_ab();
+            a0.push(a0_);
+            a1.push(a1_);
+            b0.push(b0_);
+            b1.push(b1_);
         }
 
         // Network: reshare
         c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+
+        let (s0, s1) = c.to_owned().get_ab();
+
+        self.dot_proof.register_dot(a0, a1, b0, b1, r0, r1, s0, s1);
 
         Ok(c)
     }
@@ -1011,30 +1028,72 @@ where
     where
         Standard: Distribution<U::Share>,
     {
-        debug_assert_eq!(a.len(), b.len());
+        let len = a.len();
+        debug_assert_eq!(len, b.len());
         // TODO this is just semi honest!!!!!
 
-        let mut shares_a = Vec::with_capacity(a.len());
+        let mut shares_a = Vec::with_capacity(len);
+
+        let mut a0 = Vec::with_capacity(len);
+        let mut a1 = Vec::with_capacity(len);
+        let mut b0 = Vec::with_capacity(len);
+        let mut b1 = Vec::with_capacity(len);
+        let mut r0 = Vec::with_capacity(len);
+        let mut r1 = Vec::with_capacity(len);
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let (r0, r1) = self.prf.gen_for_zero_share::<U>();
-            let mut rand = r0 - r1;
-            debug_assert_eq!(a_.len(), b_.len());
+            let (r0_, r1_) = self.prf.gen_for_zero_share::<U>();
+            let mut rand = r0_.to_owned() - &r1_;
+            let len_ = a_.len();
+            debug_assert_eq!(len_, b_.len());
+
+            r0.push(r0_);
+            r1.push(r1_);
+
+            let mut a0_ = Vec::with_capacity(len_);
+            let mut a1_ = Vec::with_capacity(len_);
+            let mut b0_ = Vec::with_capacity(len_);
+            let mut b1_ = Vec::with_capacity(len_);
 
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
-                rand += (a__ * b__).a;
+                rand += (a__.to_owned() * &b__).a;
+
+                // Register for proof
+                let (a0__, a1__) = a__.get_ab();
+                let (b0__, b1__) = b__.get_ab();
+                a0_.push(a0__);
+                a1_.push(a1__);
+                b0_.push(b0__);
+                b1_.push(b1__);
             }
+            a0.push(a0_);
+            a1.push(a1_);
+            b0.push(b0_);
+            b1.push(b1_);
             shares_a.push(rand);
         }
 
         // Network: reshare
         let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
 
-        let res = shares_a
-            .into_iter()
-            .zip(shares_b.into_iter())
-            .map(|(a_, b_)| Aby3Share::new(a_, b_))
-            .collect();
+        let mut res = Vec::with_capacity(len);
+
+        for (a0, (a1, (b0, (b1, (r0, (r1, (s0, s1))))))) in a0.into_iter().zip(
+            a1.into_iter().zip(
+                b0.into_iter().zip(
+                    b1.into_iter().zip(
+                        r0.into_iter().zip(
+                            r1.into_iter()
+                                .zip(shares_a.into_iter().zip(shares_b.into_iter())),
+                        ),
+                    ),
+                ),
+            ),
+        ) {
+            let c = Aby3Share::new(s0.to_owned(), s1.to_owned());
+            res.push(c);
+            self.dot_proof.register_dot(a0, a1, b0, b1, r0, r1, s0, s1);
+        }
 
         Ok(res)
     }
@@ -1843,7 +1902,7 @@ where
         [GF2p64::new(rs[0]), GF2p64::new(rs[1]), GF2p64::new(rs[2])]
     }
 
-    fn get_mul_r<R: Rng>(m: usize, d: usize, rng: &mut R) -> [Poly<U::Share>; 3] {
+    fn get_mul_r<R: Rng>(d: usize, rng: &mut R) -> [Poly<U::Share>; 3] {
         let mut rs = [
             Poly::random(d, rng),
             Poly::random(d, rng),

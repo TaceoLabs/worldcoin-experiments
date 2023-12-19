@@ -154,6 +154,7 @@ impl<T: RingImpl> Poly<T> {
         self.mod_inverse_inner(modulus, T::K)
     }
 
+    #[allow(dead_code)]
     fn native_mod_inverse_inner(&self, modulus: &Self, prime_power: usize) -> Self {
         if prime_power == 1 {
             let a_ = self.to_gf2p64();
@@ -167,11 +168,13 @@ impl<T: RingImpl> Poly<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn native_mod_inverse(&self) -> Self {
         let modulus: Poly<T> = Self::get_native_mod();
         self.native_mod_inverse_inner(&modulus, T::K)
     }
 
+    #[allow(dead_code)]
     pub fn get_native_mod() -> Poly<T> {
         Poly::<T>::from_vec(GF2p64::MODULUS.iter().map(|&x| T::from(x)).collect())
     }
@@ -201,6 +204,7 @@ impl<T: RingImpl> Poly<Poly<T>> {
         polys
     }
 
+    #[allow(dead_code)]
     pub fn native_lagrange_polys(xs: &[Poly<T>]) -> Vec<Self> {
         let mut polys = Vec::with_capacity(xs.len());
         for j in 0..xs.len() {
