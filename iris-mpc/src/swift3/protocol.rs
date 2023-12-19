@@ -1923,10 +1923,22 @@ where
             proof_next,
         )?;
 
-        // match self.id() {}
+        // send prev_verification to next
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        let bytes = self.network.receive_prev_id().await?;
+        let shared_verify_rcv =
+            bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
 
-        todo!();
-        // TODO we need to implement this
+        // finally, combine the shared verifications
+        self.and_proof.combine_verifications(
+            &thetas[next_id],
+            shared_verify_rcv,
+            shared_verify_next,
+        )?;
 
         Ok(())
     }
