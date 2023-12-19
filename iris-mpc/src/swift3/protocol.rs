@@ -633,6 +633,85 @@ where
         Ok(shares)
     }
 
+    async fn and_verify(&mut self) -> Result<(), Error> {
+        let (l, m) = self.and_proof.calc_params();
+        self.and_proof.set_parameters(l, m);
+
+        tracing::trace!("Starting lagrange interpolation");
+
+        // lagrange: Maybe put into a file and read here
+        let coords = AndProof::lagrange_points(m + 1);
+        let lagrange_polys = Poly::<GF2p64>::lagrange_polys(&coords);
+
+        tracing::trace!("Finished lagrange interpolation");
+
+        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut theta_rng = ChaCha12Rng::from_seed(seed);
+        let thetas = Self::get_rands_for_and_dzkp::<ChaCha12Rng>(l, &mut theta_rng);
+
+        let mut prover_rng = ChaCha12Rng::from_entropy();
+        let (seed, proof) = self.and_proof.prove::<ChaCha12Rng>(
+            &thetas[self.network.get_id()],
+            &lagrange_polys,
+            &mut prover_rng,
+        );
+
+        tracing::trace!("Finished proof generation");
+
+        // Communication: Send proofs around
+        let (proof_prev, proof_next) = self
+            .send_receive_and_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
+            .await?;
+
+        // coin the betas
+        let mut betas_rng =
+            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let betas = Self::get_rands_for_and_dzkp(m, &mut betas_rng);
+        let r = Self::get_and_r(m, &mut betas_rng);
+
+        let (prev_id, next_id) = match self.network.get_id() {
+            0 => (2, 1),
+            1 => (0, 2),
+            2 => (1, 0),
+            _ => unreachable!(),
+        };
+
+        let shared_verify_prev = self.and_proof.verify_prev(
+            &betas[prev_id],
+            &r[prev_id],
+            &lagrange_polys,
+            &coords,
+            proof_prev,
+        )?;
+
+        let shared_verify_next = self.and_proof.verify_next(
+            &betas[next_id],
+            &r[next_id],
+            &lagrange_polys,
+            &coords,
+            proof_next,
+        )?;
+
+        // send prev_verification to next
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        let bytes = self.network.receive_prev_id().await?;
+        let shared_verify_rcv =
+            bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
+
+        // finally, combine the shared verifications to verify the proof of next_id
+        self.and_proof.combine_verifications(
+            &thetas[next_id],
+            shared_verify_rcv,
+            shared_verify_next,
+        )?;
+
+        Ok(())
+    }
+
     #[cfg(test)]
     async fn mul_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.mul_proof.calc_params();
@@ -2041,85 +2120,9 @@ where
             }
         }
 
-        let ands = self.and_proof.get_muls();
-        if ands == 0 {
-            return Ok(());
+        if self.and_proof.get_muls() != 0 {
+            self.and_verify().await?;
         }
-
-        let (l, m) = self.and_proof.calc_params();
-        self.and_proof.set_parameters(l, m);
-
-        tracing::trace!("Starting lagrange interpolation");
-
-        // lagrange: Maybe put into a file and read here
-        let coords = AndProof::lagrange_points(m + 1);
-        let lagrange_polys = Poly::<GF2p64>::lagrange_polys(&coords);
-
-        tracing::trace!("Finished lagrange interpolation");
-
-        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
-        let mut theta_rng = ChaCha12Rng::from_seed(seed);
-        let thetas = Self::get_rands_for_and_dzkp::<ChaCha12Rng>(l, &mut theta_rng);
-
-        let mut prover_rng = ChaCha12Rng::from_entropy();
-        let (seed, proof) = self.and_proof.prove::<ChaCha12Rng>(
-            &thetas[self.get_id()],
-            &lagrange_polys,
-            &mut prover_rng,
-        );
-
-        tracing::trace!("Finished proof generation");
-
-        // Communication: Send proofs around
-        let (proof_prev, proof_next) = self
-            .send_receive_and_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
-            .await?;
-
-        // coin the betas
-        let mut betas_rng =
-            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
-        let betas = Self::get_rands_for_and_dzkp(m, &mut betas_rng);
-        let r = Self::get_and_r(m, &mut betas_rng);
-
-        let (prev_id, next_id) = match self.get_id() {
-            0 => (2, 1),
-            1 => (0, 2),
-            2 => (1, 0),
-            _ => unreachable!(),
-        };
-
-        let shared_verify_prev = self.and_proof.verify_prev(
-            &betas[prev_id],
-            &r[prev_id],
-            &lagrange_polys,
-            &coords,
-            proof_prev,
-        )?;
-
-        let shared_verify_next = self.and_proof.verify_next(
-            &betas[next_id],
-            &r[next_id],
-            &lagrange_polys,
-            &coords,
-            proof_next,
-        )?;
-
-        // send prev_verification to next
-        self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        let bytes = self.network.receive_prev_id().await?;
-        let shared_verify_rcv =
-            bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
-
-        // finally, combine the shared verifications to verify the proof of next_id
-        self.and_proof.combine_verifications(
-            &thetas[next_id],
-            shared_verify_rcv,
-            shared_verify_next,
-        )?;
 
         Ok(())
     }
