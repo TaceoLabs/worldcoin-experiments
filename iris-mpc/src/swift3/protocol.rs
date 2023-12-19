@@ -9,6 +9,7 @@ use crate::{
     commitment::{CommitOpening, Commitment},
     dzkp::{
         and_proof::{AndProof, Proof as AndProofStruct},
+        dot_proof::{DotProof, Proof as DotProofStruct},
         gf2p64::GF2p64,
         polynomial::Poly,
     },
@@ -36,6 +37,7 @@ pub struct Swift3<N: NetworkTrait, U: Sharable> {
     and_proof: AndProof,
     #[cfg(test)]
     mul_proof: MulProof<U::Share>,
+    dot_proof: DotProof<U::Share>,
     _data: PhantomData<U>,
 }
 
@@ -81,6 +83,7 @@ where
             and_proof: AndProof::default(),
             #[cfg(test)]
             mul_proof: MulProof::default(),
+            dot_proof: DotProof::default(),
             _data: PhantomData,
         }
     }
@@ -787,6 +790,88 @@ where
 
         // finally, combine the shared verifications to verify the proof of next_id
         self.mul_proof.combine_verifications(
+            &thetas[next_id],
+            shared_verify_rcv,
+            shared_verify_next,
+        )?;
+
+        Ok(())
+    }
+
+    async fn dot_verify(&mut self) -> Result<(), Error> {
+        let (l, m) = self.dot_proof.calc_params();
+        self.dot_proof.set_parameters(l, m);
+
+        tracing::trace!("Starting lagrange interpolation");
+
+        // lagrange: Maybe put into a file and read here
+        let coords = DotProof::lagrange_points(m + 1);
+        let lagrange_polys =
+            Poly::<Poly<U::Share>>::lagrange_polys(&coords, self.dot_proof.get_modulus());
+
+        let d = self.dot_proof.get_mod_d() - 1;
+
+        tracing::trace!("Finished lagrange interpolation");
+
+        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut theta_rng = ChaCha12Rng::from_seed(seed);
+        let thetas = Self::get_rands_for_mul_dzkp::<ChaCha12Rng>(l, d, &mut theta_rng);
+
+        let mut prover_rng = ChaCha12Rng::from_entropy();
+        let (seed, proof) = self.dot_proof.prove::<ChaCha12Rng>(
+            &thetas[self.network.get_id()],
+            &lagrange_polys,
+            &mut prover_rng,
+        );
+
+        tracing::trace!("Finished proof generation");
+
+        // Communication: Send proofs around
+        let (proof_prev, proof_next) = self
+            .send_receive_dot_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d)
+            .await?;
+
+        // coin the betas
+        let mut betas_rng =
+            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
+        let r = Self::get_mul_r(m, d, &mut betas_rng);
+
+        let (prev_id, next_id) = match self.network.get_id() {
+            0 => (2, 1),
+            1 => (0, 2),
+            2 => (1, 0),
+            _ => unreachable!(),
+        };
+
+        let shared_verify_prev = self.dot_proof.verify_prev(
+            &betas[prev_id],
+            &r[prev_id],
+            &lagrange_polys,
+            &coords,
+            proof_prev,
+        )?;
+
+        let shared_verify_next = self.dot_proof.verify_next(
+            &betas[next_id],
+            &r[next_id],
+            &lagrange_polys,
+            &coords,
+            proof_next,
+        )?;
+
+        // send prev_verification to next
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        let bytes = self.network.receive_prev_id().await?;
+        let shared_verify_rcv =
+            bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
+
+        // finally, combine the shared verifications to verify the proof of next_id
+        self.dot_proof.combine_verifications(
             &thetas[next_id],
             shared_verify_rcv,
             shared_verify_next,
@@ -1684,6 +1769,44 @@ where
             }
         }
         rands
+    }
+
+    async fn send_receive_dot_dzkp<R: Rng + SeedableRng>(
+        &mut self,
+        proof: &DotProofStruct<U::Share>,
+        seed: R::Seed,
+        l: usize,
+        m: usize,
+        d: usize,
+    ) -> Result<(DotProofStruct<U::Share>, DotProofStruct<U::Share>), Error>
+    where
+        R::Seed: AsRef<[u8]>,
+    {
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        self.network
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
+            .await?;
+
+        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_prev =
+            bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
+
+        let seed_next = self.network.receive_next_id().await?.freeze();
+        if seed_next.len() != seed.as_ref().len() {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut seed_next_ = <ChaCha12Rng as SeedableRng>::Seed::default();
+        seed_next_
+            .iter_mut()
+            .zip(seed_next.into_iter())
+            .for_each(|(a, b)| *a = b);
+        let proof_next = DotProofStruct::from_seed::<ChaCha12Rng>(seed_next_, l, m, d);
+
+        Ok((proof_prev, proof_next))
     }
 
     fn get_rands_for_mul_dzkp<R: Rng>(
