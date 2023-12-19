@@ -52,7 +52,6 @@ where
 {
     pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize, d: usize) -> Self {
         let mut rng = R::from_seed(seed);
-        // TODO here
         let w = (0..6 * l)
             .map(|_| Poly::random(d, &mut rng))
             .collect::<Vec<_>>();
@@ -308,6 +307,7 @@ where
         }
 
         let mut g = Self::g(thetas, f);
+        g.reduce_coeffs(&self.modulus);
 
         let seed = rng.gen::<R::Seed>();
         let mut share_rng = R::from_seed(seed.to_owned());
@@ -382,6 +382,9 @@ where
             r_pow *= r;
         }
 
+        pr = pr % &self.modulus;
+        b = b % &self.modulus;
+
         Ok(SharedVerify { f, pr, b })
     }
 
@@ -430,9 +433,9 @@ where
             *f1_ += f2_;
         }
 
-        let pr_ = Self::g(thetas, f1);
+        let pr_ = Self::g(thetas, f1) % &self.modulus;
 
-        if pr_ != pr1 + pr2 {
+        if pr_ != (pr1 + pr2) {
             return Err(Error::DZKPVerifyError);
         }
 

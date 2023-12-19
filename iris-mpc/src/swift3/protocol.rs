@@ -721,7 +721,6 @@ where
     where
         Standard: Distribution<U::Share>,
     {
-        // TODO this is just semi honest, but it is not used in the protocol (cfg(test))
         let (r0, r1) = self.prf.gen_for_zero_share::<U>();
         let rand = r0.to_owned() - &r1;
         let mut c = a.to_owned() * &b;
