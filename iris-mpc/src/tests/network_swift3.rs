@@ -25,14 +25,14 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
         let id = protocol.get_id();
 
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = Swift3::<Swift3Network>::share(input, &mut rng);
+        let shares = Swift3::<Swift3Network, _>::share(input, &mut rng);
         protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
@@ -80,7 +80,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -129,7 +129,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -184,7 +184,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -241,7 +241,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -309,7 +309,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -374,7 +374,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -432,7 +432,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -497,7 +497,7 @@ mod swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork>::new(net);
+        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();

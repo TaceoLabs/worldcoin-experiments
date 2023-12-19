@@ -40,7 +40,7 @@ mod iris_swift3_test {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Swift3::<Swift3Network>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = Swift3::<Swift3Network, _>::share(T::from(code.code.get_bit(i)), rng);
             shared_code.push(shares[id].to_owned());
         }
         shared_code
@@ -57,7 +57,7 @@ mod iris_swift3_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Swift3::<PartyTestNetwork>::new(net);
+        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -145,7 +145,7 @@ mod iris_swift3_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Swift3::<PartyTestNetwork>::new(net);
+        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -343,7 +343,7 @@ mod iris_swift3_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Swift3::<Swift3Network>::share(distance, rng)[id].to_owned();
+        let share = Swift3::<Swift3Network, _>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())
@@ -367,7 +367,7 @@ mod iris_swift3_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Swift3::<PartyTestNetwork>::new(net);
+        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -591,7 +591,7 @@ mod iris_swift3_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Swift3::<PartyTestNetwork>::new(net);
+        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -732,7 +732,7 @@ mod iris_swift3_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Swift3::<PartyTestNetwork>::new(net);
+        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 

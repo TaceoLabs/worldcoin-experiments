@@ -22,9 +22,9 @@ use rand::{
 };
 use rand_chacha::ChaCha12Rng;
 use sha2::{digest::Output, Digest, Sha512};
-use std::ops::Mul;
+use std::{marker::PhantomData, ops::Mul};
 
-pub struct Swift3<N: NetworkTrait> {
+pub struct Swift3<N: NetworkTrait, U: Sharable> {
     network: N,
     prf: Prf,
     send_queue_next: BytesMut,
@@ -32,9 +32,10 @@ pub struct Swift3<N: NetworkTrait> {
     rcv_queue_next: BytesMut,
     rcv_queue_prev: BytesMut,
     and_proof: AndProof,
+    data: PhantomData<U>, // TODO replace with MulProof
 }
 
-impl<N: NetworkTrait> MaliciousAbort for Swift3<N> {}
+impl<N: NetworkTrait, U: Sharable> MaliciousAbort for Swift3<N, U> {}
 
 macro_rules! reduce_or {
     ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
@@ -55,7 +56,7 @@ macro_rules! reduce_or {
     };
 }
 
-impl<N: NetworkTrait> Swift3<N> {
+impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
     pub fn new(network: N) -> Self {
         let prf = Prf::default();
         let send_queue_next = BytesMut::new();
@@ -71,6 +72,7 @@ impl<N: NetworkTrait> Swift3<N> {
             rcv_queue_next,
             rcv_queue_prev,
             and_proof: AndProof::default(),
+            data: PhantomData,
         }
     }
 
@@ -185,14 +187,14 @@ impl<N: NetworkTrait> Swift3<N> {
     }
 
     #[cfg(test)]
-    async fn mul_post<T: Sharable>(
+    async fn mul_post(
         &mut self,
-        a: Share<T>,
-        b: Share<T>,
-        de: Aby3Share<T>,
-    ) -> Result<Share<T>, Error>
+        a: Share<U>,
+        b: Share<U>,
+        de: Aby3Share<U>,
+    ) -> Result<Share<U>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         let id = self.network.get_id();
 
@@ -200,8 +202,8 @@ impl<N: NetworkTrait> Swift3<N> {
         let (y_a, y_b, y_c) = b.get_abc();
         let (de_a, de_b) = de.get_ab();
 
-        let r1 = self.prf.gen_1::<T::Share>();
-        let r2 = self.prf.gen_2::<T::Share>();
+        let r1 = self.prf.gen_1::<U::Share>();
+        let r2 = self.prf.gen_2::<U::Share>();
 
         let y_a = -x_a * &y_c - y_a * &x_c + de_a - &r1;
         let y_b = -x_b * &y_c - y_b * &x_c + de_b - &r2;
@@ -211,30 +213,30 @@ impl<N: NetworkTrait> Swift3<N> {
             0 => {
                 let y1 = y_a;
                 let y3 = y_b;
-                self.jmp_send::<T>(y1.to_owned(), 2).await?;
-                self.jmp_send::<T>(y3.to_owned(), 1).await?;
+                self.jmp_send::<U>(y1.to_owned(), 2).await?;
+                self.jmp_send::<U>(y3.to_owned(), 1).await?;
                 self.jshare(None, 1, 2, 0).await?
             }
             1 => {
                 let y2 = y_a;
                 let y1 = y_b;
-                self.jmp_queue::<T>(y1.to_owned(), 2)?;
-                let y3 = self.jmp_receive::<T>(0).await?;
+                self.jmp_queue::<U>(y1.to_owned(), 2)?;
+                let y3 = self.jmp_receive::<U>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
             }
             2 => {
                 let y3 = y_a;
                 let y2 = y_b;
-                self.jmp_queue::<T>(y3.to_owned(), 1)?;
-                let y1 = self.jmp_receive::<T>(0).await?;
+                self.jmp_queue::<U>(y3.to_owned(), 1)?;
+                let y1 = self.jmp_receive::<U>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
             }
             _ => unreachable!(),
         };
 
-        let r = Share::new(r1, r2, T::Share::zero());
+        let r = Share::new(r1, r2, U::Share::zero());
 
         Ok(share - r)
     }
@@ -412,26 +414,26 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(shares)
     }
 
-    async fn dot_post<T: Sharable>(
+    async fn dot_post(
         &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-        de: Aby3Share<T>,
-    ) -> Result<Share<T>, Error>
+        a: Vec<Share<U>>,
+        b: Vec<Share<U>>,
+        de: Aby3Share<U>,
+    ) -> Result<Share<U>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         debug_assert_eq!(a.len(), b.len());
         let id = self.network.get_id();
 
-        let r1 = self.prf.gen_1::<T::Share>();
-        let r2 = self.prf.gen_2::<T::Share>();
+        let r1 = self.prf.gen_1::<U::Share>();
+        let r2 = self.prf.gen_2::<U::Share>();
 
         let (de_a, de_b) = de.get_ab();
 
         let mut y_a_ = de_a - &r1;
         let mut y_b_ = de_b - &r2;
-        let mut z_c = T::Share::zero();
+        let mut z_c = U::Share::zero();
 
         for (a, b) in a.into_iter().zip(b) {
             let (x_a, x_b, x_c) = a.get_abc();
@@ -446,42 +448,42 @@ impl<N: NetworkTrait> Swift3<N> {
             0 => {
                 let y1 = y_a_;
                 let y3 = y_b_;
-                self.jmp_send::<T>(y1.to_owned(), 2).await?;
-                self.jmp_send::<T>(y3.to_owned(), 1).await?;
+                self.jmp_send::<U>(y1.to_owned(), 2).await?;
+                self.jmp_send::<U>(y3.to_owned(), 1).await?;
                 self.jshare(None, 1, 2, 0).await?
             }
             1 => {
                 let y2 = y_a_;
                 let y1 = y_b_;
-                self.jmp_queue::<T>(y1.to_owned(), 2)?;
-                let y3 = self.jmp_receive::<T>(0).await?;
+                self.jmp_queue::<U>(y1.to_owned(), 2)?;
+                let y3 = self.jmp_receive::<U>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
             }
             2 => {
                 let y3 = y_a_;
                 let y2 = y_b_;
-                self.jmp_queue::<T>(y3.to_owned(), 1)?;
-                let y1 = self.jmp_receive::<T>(0).await?;
+                self.jmp_queue::<U>(y3.to_owned(), 1)?;
+                let y1 = self.jmp_receive::<U>(0).await?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(T::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
             }
             _ => unreachable!(),
         };
 
-        let r = Share::new(r1, r2, T::Share::zero());
+        let r = Share::new(r1, r2, U::Share::zero());
 
         Ok(share - r)
     }
 
-    async fn dot_post_many<T: Sharable>(
+    async fn dot_post_many(
         &mut self,
-        a: Vec<Vec<Share<T>>>,
-        b: Vec<Vec<Share<T>>>,
-        de: Vec<Aby3Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error>
+        a: Vec<Vec<Share<U>>>,
+        b: Vec<Vec<Share<U>>>,
+        de: Vec<Aby3Share<U>>,
+    ) -> Result<Vec<Share<U>>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         let len = a.len();
         debug_assert_eq!(len, b.len());
@@ -500,8 +502,8 @@ impl<N: NetworkTrait> Swift3<N> {
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
-                    let r1 = self.prf.gen_1::<T::Share>();
-                    let r2 = self.prf.gen_2::<T::Share>();
+                    let r1 = self.prf.gen_1::<U::Share>();
+                    let r2 = self.prf.gen_2::<U::Share>();
 
                     let mut y1 = de_a - &r1;
                     let mut y3 = de_b - &r2;
@@ -513,15 +515,15 @@ impl<N: NetworkTrait> Swift3<N> {
                         y1 -= x_a * &y_c + y_a * &x_c;
                         y3 -= x_b * &y_c + y_b * &x_c;
                     }
-                    let r = Share::new(r1, r2, T::Share::zero());
+                    let r = Share::new(r1, r2, U::Share::zero());
                     y1s.push(y1);
                     y3s.push(y3);
                     rs.push(r);
                 }
                 tracing::debug!("jmp_send_many -> 2");
-                self.jmp_send_many::<T>(y1s, 2).await?;
+                self.jmp_send_many::<U>(y1s, 2).await?;
                 tracing::debug!("jmp_send_many -> 1");
-                self.jmp_send_many::<T>(y3s, 1).await?;
+                self.jmp_send_many::<U>(y3s, 1).await?;
 
                 tracing::debug!("jshare_many 1,2 -> 0");
                 let resp = self.jshare_many(None, 1, 2, 0, len).await?;
@@ -537,12 +539,12 @@ impl<N: NetworkTrait> Swift3<N> {
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
-                    let r1 = self.prf.gen_1::<T::Share>();
-                    let r2 = self.prf.gen_2::<T::Share>();
+                    let r1 = self.prf.gen_1::<U::Share>();
+                    let r2 = self.prf.gen_2::<U::Share>();
 
                     let mut y2 = de_a - &r1;
                     let mut y1 = de_b - &r2;
-                    let mut z_c = T::Share::zero();
+                    let mut z_c = U::Share::zero();
 
                     for (a, b) in a.into_iter().zip(b) {
                         let (x_a, x_b, x_c) = a.get_abc();
@@ -552,18 +554,18 @@ impl<N: NetworkTrait> Swift3<N> {
                         y1 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
-                    let r = Share::new(r1, r2, T::Share::zero());
-                    zr.push(T::from_sharetype(y2 + z_c + &y1));
+                    let r = Share::new(r1, r2, U::Share::zero());
+                    zr.push(U::from_sharetype(y2 + z_c + &y1));
                     y1s.push(y1);
                     rs.push(r);
                 }
                 tracing::debug!("jmp_queue_many -> 2");
-                self.jmp_queue_many::<T>(y1s, 2)?;
+                self.jmp_queue_many::<U>(y1s, 2)?;
                 tracing::debug!("jmp_recv_many <- 0");
-                let y3s = self.jmp_receive_many::<T>(0, len).await?;
+                let y3s = self.jmp_receive_many::<U>(0, len).await?;
 
                 for (zr_, y3) in zr.iter_mut().zip(y3s) {
-                    *zr_ = zr_.wrapping_add(&T::from_sharetype(y3));
+                    *zr_ = zr_.wrapping_add(&U::from_sharetype(y3));
                 }
 
                 tracing::debug!("jshare_many 1,2 -> 0");
@@ -580,12 +582,12 @@ impl<N: NetworkTrait> Swift3<N> {
                 for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
-                    let r1 = self.prf.gen_1::<T::Share>();
-                    let r2 = self.prf.gen_2::<T::Share>();
+                    let r1 = self.prf.gen_1::<U::Share>();
+                    let r2 = self.prf.gen_2::<U::Share>();
 
                     let mut y3 = de_a - &r1;
                     let mut y2 = de_b - &r2;
-                    let mut z_c = T::Share::zero();
+                    let mut z_c = U::Share::zero();
 
                     for (a, b) in a.into_iter().zip(b) {
                         let (x_a, x_b, x_c) = a.get_abc();
@@ -595,18 +597,18 @@ impl<N: NetworkTrait> Swift3<N> {
                         y2 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
-                    let r = Share::new(r1, r2, T::Share::zero());
-                    zr.push(T::from_sharetype(y2 + z_c + &y3));
+                    let r = Share::new(r1, r2, U::Share::zero());
+                    zr.push(U::from_sharetype(y2 + z_c + &y3));
                     y3s.push(y3);
                     rs.push(r);
                 }
                 tracing::debug!("jmp_queue_many -> 1");
-                self.jmp_queue_many::<T>(y3s, 1)?;
+                self.jmp_queue_many::<U>(y3s, 1)?;
                 tracing::debug!("jmp_recv_many <- 0");
-                let y1s = self.jmp_receive_many::<T>(0, len).await?;
+                let y1s = self.jmp_receive_many::<U>(0, len).await?;
 
                 for (zr_, y1) in zr.iter_mut().zip(y1s) {
-                    *zr_ = zr_.wrapping_add(&T::from_sharetype(y1));
+                    *zr_ = zr_.wrapping_add(&U::from_sharetype(y1));
                 }
 
                 tracing::debug!("jshare_many 1,2 -> 0");
@@ -623,16 +625,12 @@ impl<N: NetworkTrait> Swift3<N> {
     }
 
     #[cfg(test)]
-    async fn aby_mul<T: Sharable>(
-        &mut self,
-        a: Aby3Share<T>,
-        b: Aby3Share<T>,
-    ) -> Result<Aby3Share<T>, Error>
+    async fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         // TODO this is just semi honest, but it is not used in the protocol (cfg(test))
-        let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+        let (r0, r1) = self.prf.gen_for_zero_share::<U>();
         let rand = r0 - r1;
         let mut c = a * b;
         c.a += rand;
@@ -718,21 +716,21 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(res)
     }
 
-    async fn aby_dot<T: Sharable>(
+    async fn aby_dot(
         &mut self,
-        a: Vec<Aby3Share<T>>,
-        b: Vec<Aby3Share<T>>,
-    ) -> Result<Aby3Share<T>, Error>
+        a: Vec<Aby3Share<U>>,
+        b: Vec<Aby3Share<U>>,
+    ) -> Result<Aby3Share<U>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         debug_assert_eq!(a.len(), b.len());
 
         // TODO this is just semi honest!!!!!
-        let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+        let (r0, r1) = self.prf.gen_for_zero_share::<U>();
         let rand = r0 - r1;
 
-        let mut c = Aby3Share::new(rand, T::zero().to_sharetype());
+        let mut c = Aby3Share::new(rand, U::zero().to_sharetype());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
             c += a_ * b_;
         }
@@ -743,13 +741,13 @@ impl<N: NetworkTrait> Swift3<N> {
         Ok(c)
     }
 
-    async fn aby_dot_many<T: Sharable>(
+    async fn aby_dot_many(
         &mut self,
-        a: Vec<Vec<Aby3Share<T>>>,
-        b: Vec<Vec<Aby3Share<T>>>,
-    ) -> Result<Vec<Aby3Share<T>>, Error>
+        a: Vec<Vec<Aby3Share<U>>>,
+        b: Vec<Vec<Aby3Share<U>>>,
+    ) -> Result<Vec<Aby3Share<U>>, Error>
     where
-        Standard: Distribution<T::Share>,
+        Standard: Distribution<U::Share>,
     {
         debug_assert_eq!(a.len(), b.len());
         // TODO this is just semi honest!!!!!
@@ -757,7 +755,7 @@ impl<N: NetworkTrait> Swift3<N> {
         let mut shares_a = Vec::with_capacity(a.len());
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let (r0, r1) = self.prf.gen_for_zero_share::<T>();
+            let (r0, r1) = self.prf.gen_for_zero_share::<U>();
             let mut rand = r0 - r1;
             debug_assert_eq!(a_.len(), b_.len());
 
@@ -1487,7 +1485,7 @@ impl<N: NetworkTrait> Swift3<N> {
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N>
+impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N, T>
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
@@ -1784,7 +1782,7 @@ where
     #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
-        let de = self.aby_mul::<T>(d, e).await?;
+        let de = self.aby_mul(d, e).await?;
         self.mul_post(a, b, de).await
     }
 
@@ -1807,7 +1805,7 @@ where
             e.push(e_);
         }
 
-        let de = self.aby_dot::<T>(d, e).await?;
+        let de = self.aby_dot(d, e).await?;
         self.dot_post(a, b, de).await
     }
 
@@ -1838,7 +1836,7 @@ where
             shares_e.push(e);
         }
 
-        let de = self.aby_dot_many::<T>(shares_d, shares_e).await?;
+        let de = self.aby_dot_many(shares_d, shares_e).await?;
         self.dot_post_many(a, b, de).await
     }
 
@@ -1948,7 +1946,7 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Swift3<N>
+impl<N: NetworkTrait, T: Sharable, U: Sharable> BinaryMpcTrait<T, Share<T>> for Swift3<N, U>
 where
     Standard: Distribution<T::Share>,
 {
