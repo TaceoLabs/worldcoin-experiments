@@ -1030,7 +1030,6 @@ where
     {
         let len = a.len();
         debug_assert_eq!(len, b.len());
-        // TODO this is just semi honest!!!!!
 
         let mut shares_a = Vec::with_capacity(len);
 
