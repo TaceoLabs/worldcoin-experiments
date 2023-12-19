@@ -89,7 +89,7 @@ impl AndProof {
         self.verify_prev.reserve(T::K);
         self.verify_next.reserve(T::K);
 
-        for i in 0..T::K {
+        for _ in 0..T::K {
             let a0_i = T::one() & &a0 == T::one();
             let a1_i = T::one() & &a1 == T::one();
             let b0_i = T::one() & &b0 == T::one();

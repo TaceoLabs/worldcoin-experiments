@@ -1474,12 +1474,16 @@ impl<N: NetworkTrait> Swift3<N> {
         rands
     }
 
-    fn get_and_r<R: Rng>(m: usize, rng: &mut R) -> GF2p64 {
-        let mut rand = rng.gen::<u64>();
-        while rand < m as u64 {
-            rand = rng.gen::<u64>();
+    fn get_and_r<R: Rng>(m: usize, rng: &mut R) -> [GF2p64; 3] {
+        let mut rs = [rng.gen::<u64>(), rng.gen::<u64>(), rng.gen::<u64>()];
+
+        for r in rs.iter_mut() {
+            while *r <= m as u64 {
+                *r = rng.gen::<u64>();
+            }
         }
-        GF2p64::new(rand)
+
+        [GF2p64::new(rs[0]), GF2p64::new(rs[1]), GF2p64::new(rs[2])]
     }
 }
 
@@ -1898,7 +1902,7 @@ where
         let mut betas_rng =
             ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
         let betas = Self::get_rands_for_and_dzkp(m, &mut betas_rng);
-        let r = Self::get_and_r(m, &mut prover_rng);
+        let r = Self::get_and_r(m, &mut betas_rng);
 
         let (prev_id, next_id) = match self.get_id() {
             0 => (2, 1),
@@ -1909,15 +1913,15 @@ where
 
         let shared_verify_prev = self.and_proof.verify_prev(
             &betas[prev_id],
-            &r,
+            &r[prev_id],
             &lagrange_polys,
             &coords,
             proof_prev,
         )?;
 
-        let shared_verify_next = self.and_proof.verify_prev(
+        let shared_verify_next = self.and_proof.verify_next(
             &betas[next_id],
-            &r,
+            &r[next_id],
             &lagrange_polys,
             &coords,
             proof_next,
@@ -1933,7 +1937,7 @@ where
         let shared_verify_rcv =
             bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
 
-        // finally, combine the shared verifications
+        // finally, combine the shared verifications to verify the proof of next_id
         self.and_proof.combine_verifications(
             &thetas[next_id],
             shared_verify_rcv,
