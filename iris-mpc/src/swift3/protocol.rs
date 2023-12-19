@@ -2,11 +2,13 @@ use super::{
     random::prf::{Prf, PrfSeed},
     share::Share,
 };
+#[cfg(test)]
+use crate::dzkp::mul_proof::{MulProof, Proof as MulProofStruct};
 use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
     dzkp::{
-        and_proof::{AndProof, Proof},
+        and_proof::{AndProof, Proof as AndProofStruct},
         gf2p64::GF2p64,
         polynomial::Poly,
     },
@@ -32,7 +34,9 @@ pub struct Swift3<N: NetworkTrait, U: Sharable> {
     rcv_queue_next: BytesMut,
     rcv_queue_prev: BytesMut,
     and_proof: AndProof,
-    data: PhantomData<U>, // TODO replace with MulProof
+    #[cfg(test)]
+    mul_proof: MulProof<U::Share>,
+    _data: PhantomData<U>,
 }
 
 impl<N: NetworkTrait, U: Sharable> MaliciousAbort for Swift3<N, U> {}
@@ -49,14 +53,17 @@ macro_rules! reduce_or {
                 let share_a = Share::new(a1, b1, c1);
                 let share_b = Share::new(a2, b2, c2);
 
-                let out = self.or(share_a, share_b).await?;
+                let out = <Self as BinaryMpcTrait::<$typ_b, Share<$typ_b>>>::or(self, share_a, share_b).await?;
                 self.$name_b(out).await
             }
         )*
     };
 }
 
-impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
+impl<N: NetworkTrait, U: Sharable> Swift3<N, U>
+where
+    Standard: Distribution<U::Share>,
+{
     pub fn new(network: N) -> Self {
         let prf = Prf::default();
         let send_queue_next = BytesMut::new();
@@ -72,7 +79,9 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
             rcv_queue_next,
             rcv_queue_prev,
             and_proof: AndProof::default(),
-            data: PhantomData,
+            #[cfg(test)]
+            mul_proof: MulProof::default(),
+            _data: PhantomData,
         }
     }
 
@@ -625,18 +634,112 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
     }
 
     #[cfg(test)]
+    async fn mul_verify(&mut self) -> Result<(), Error> {
+        let ands = self.mul_proof.get_muls();
+        if ands == 0 {
+            return Ok(());
+        }
+
+        let (l, m) = self.mul_proof.calc_params();
+        self.mul_proof.set_parameters(l, m);
+
+        tracing::trace!("Starting lagrange interpolation");
+
+        // lagrange: Maybe put into a file and read here
+        let coords = MulProof::lagrange_points(m + 1);
+        let lagrange_polys =
+            Poly::<Poly<U::Share>>::lagrange_polys(&coords, self.mul_proof.get_modulus());
+
+        let d = self.mul_proof.get_mod_d() - 1;
+
+        tracing::trace!("Finished lagrange interpolation");
+
+        let seed = self.prf.gen_p::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut theta_rng = ChaCha12Rng::from_seed(seed);
+        let thetas = Self::get_rands_for_mul_dzkp::<ChaCha12Rng>(l, d, &mut theta_rng);
+
+        let mut prover_rng = ChaCha12Rng::from_entropy();
+        let (seed, proof) = self.mul_proof.prove::<ChaCha12Rng>(
+            &thetas[self.network.get_id()],
+            &lagrange_polys,
+            &mut prover_rng,
+        );
+
+        tracing::trace!("Finished proof generation");
+
+        // Communication: Send proofs around
+        let (proof_prev, proof_next) = self
+            .send_receive_mul_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d)
+            .await?;
+
+        // coin the betas
+        let mut betas_rng =
+            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
+        let r = Self::get_mul_r(m, d, &mut betas_rng);
+
+        let (prev_id, next_id) = match self.network.get_id() {
+            0 => (2, 1),
+            1 => (0, 2),
+            2 => (1, 0),
+            _ => unreachable!(),
+        };
+
+        let shared_verify_prev = self.mul_proof.verify_prev(
+            &betas[prev_id],
+            &r[prev_id],
+            &lagrange_polys,
+            &coords,
+            proof_prev,
+        )?;
+
+        let shared_verify_next = self.mul_proof.verify_next(
+            &betas[next_id],
+            &r[next_id],
+            &lagrange_polys,
+            &coords,
+            proof_next,
+        )?;
+
+        // send prev_verification to next
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        let bytes = self.network.receive_prev_id().await?;
+        let shared_verify_rcv =
+            bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
+
+        // finally, combine the shared verifications to verify the proof of next_id
+        self.mul_proof.combine_verifications(
+            &thetas[next_id],
+            shared_verify_rcv,
+            shared_verify_next,
+        )?;
+
+        Ok(())
+    }
+
+    #[cfg(test)]
     async fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
     {
         // TODO this is just semi honest, but it is not used in the protocol (cfg(test))
         let (r0, r1) = self.prf.gen_for_zero_share::<U>();
-        let rand = r0 - r1;
-        let mut c = a * b;
+        let rand = r0.to_owned() - &r1;
+        let mut c = a.to_owned() * &b;
         c.a += rand;
 
         // Network: reshare
         c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+
+        // Register for proof
+        let (a0, a1) = a.get_ab();
+        let (b0, b1) = b.get_ab();
+        let (s0, s1) = c.to_owned().get_ab();
+        self.mul_proof.register_mul(a0, a1, b0, b1, r0, r1, s0, s1);
 
         Ok(c)
     }
@@ -1286,6 +1389,14 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
             self.prf = Prf::new(seed1, seed2, seed3);
         }
 
+        #[cfg(test)]
+        {
+            self.mul_proof = MulProof::new(
+                self.prf.gen_1::<<ChaCha12Rng as SeedableRng>::Seed>(),
+                self.prf.gen_2::<<ChaCha12Rng as SeedableRng>::Seed>(),
+            );
+        }
+
         Ok(())
     }
 
@@ -1418,13 +1529,13 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
         Ok(seed)
     }
 
-    async fn send_receive_dzkp<R: Rng + SeedableRng>(
+    async fn send_receive_and_dzkp<R: Rng + SeedableRng>(
         &mut self,
-        proof: &Proof,
+        proof: &AndProofStruct,
         seed: R::Seed,
         l: usize,
         m: usize,
-    ) -> Result<(Proof, Proof), Error>
+    ) -> Result<(AndProofStruct, AndProofStruct), Error>
     where
         R::Seed: AsRef<[u8]>,
     {
@@ -1449,9 +1560,47 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
         seed_next_
             .iter_mut()
             .zip(seed_next.into_iter())
-            .map(|(a, b)| *a = b)
-            .for_each(drop);
-        let proof_next = Proof::from_seed::<ChaCha12Rng>(seed_next_, l, m);
+            .for_each(|(a, b)| *a = b);
+        let proof_next = AndProofStruct::from_seed::<ChaCha12Rng>(seed_next_, l, m);
+
+        Ok((proof_prev, proof_next))
+    }
+
+    #[cfg(test)]
+    async fn send_receive_mul_dzkp<R: Rng + SeedableRng>(
+        &mut self,
+        proof: &MulProofStruct<U::Share>,
+        seed: R::Seed,
+        l: usize,
+        m: usize,
+        d: usize,
+    ) -> Result<(MulProofStruct<U::Share>, MulProofStruct<U::Share>), Error>
+    where
+        R::Seed: AsRef<[u8]>,
+    {
+        self.network
+            .send_next_id(Bytes::from(
+                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+            ))
+            .await?;
+        self.network
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
+            .await?;
+
+        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_prev =
+            bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
+
+        let seed_next = self.network.receive_next_id().await?.freeze();
+        if seed_next.len() != seed.as_ref().len() {
+            return Err(Error::InvalidMessageSize);
+        }
+        let mut seed_next_ = <ChaCha12Rng as SeedableRng>::Seed::default();
+        seed_next_
+            .iter_mut()
+            .zip(seed_next.into_iter())
+            .for_each(|(a, b)| *a = b);
+        let proof_next = MulProofStruct::from_seed::<ChaCha12Rng>(seed_next_, l, m, d);
 
         Ok((proof_prev, proof_next))
     }
@@ -1463,10 +1612,34 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
             Vec::with_capacity(size),
         ];
 
-        // Theta_i for party i's proof
+        // Theta_i/Beta_i for party i's proof
         for rand in rands.iter_mut() {
             for _ in 0..size {
                 rand.push(GF2p64::new(rng.gen::<u64>()));
+            }
+        }
+        rands
+    }
+
+    fn get_rands_for_mul_dzkp<R: Rng>(
+        size: usize,
+        d: usize,
+        rng: &mut R,
+    ) -> [Vec<Poly<U::Share>>; 3] {
+        let mut rands = [
+            Vec::with_capacity(size),
+            Vec::with_capacity(size),
+            Vec::with_capacity(size),
+        ];
+
+        // Theta_i/Beta_i for party i's proof
+        for rand in rands.iter_mut() {
+            for _ in 0..size {
+                let mut vec = Vec::with_capacity(d);
+                for _ in 0..d {
+                    vec.push(rng.gen::<U::Share>());
+                }
+                rand.push(Poly::from_vec(vec));
             }
         }
         rands
@@ -1482,6 +1655,22 @@ impl<N: NetworkTrait, U: Sharable> Swift3<N, U> {
         }
 
         [GF2p64::new(rs[0]), GF2p64::new(rs[1]), GF2p64::new(rs[2])]
+    }
+
+    fn get_mul_r<R: Rng>(m: usize, d: usize, rng: &mut R) -> [Poly<U::Share>; 3] {
+        let mut rs = [
+            Poly::random(d, rng),
+            Poly::random(d, rng),
+            Poly::random(d, rng),
+        ];
+
+        for r in rs.iter_mut() {
+            while r.coeffs[0].is_zero() {
+                *r = Poly::random(d, rng)
+            }
+        }
+
+        rs
     }
 }
 
@@ -1862,6 +2051,14 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
+        #[cfg(test)]
+        {
+            // We do this here seperately since it is only active during testing
+            if self.mul_proof.get_muls() != 0 {
+                self.mul_verify().await?;
+            }
+        }
+
         let ands = self.and_proof.get_muls();
         if ands == 0 {
             return Ok(());
@@ -1893,7 +2090,7 @@ where
 
         // Communication: Send proofs around
         let (proof_prev, proof_next) = self
-            .send_receive_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
+            .send_receive_and_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
             .await?;
 
         // coin the betas
@@ -1949,6 +2146,7 @@ where
 impl<N: NetworkTrait, T: Sharable, U: Sharable> BinaryMpcTrait<T, Share<T>> for Swift3<N, U>
 where
     Standard: Distribution<T::Share>,
+    Standard: Distribution<U::Share>,
 {
     async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
