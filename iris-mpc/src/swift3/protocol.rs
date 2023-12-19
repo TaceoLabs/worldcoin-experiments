@@ -635,11 +635,6 @@ where
 
     #[cfg(test)]
     async fn mul_verify(&mut self) -> Result<(), Error> {
-        let ands = self.mul_proof.get_muls();
-        if ands == 0 {
-            return Ok(());
-        }
-
         let (l, m) = self.mul_proof.calc_params();
         self.mul_proof.set_parameters(l, m);
 

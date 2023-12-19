@@ -1,5 +1,8 @@
 use super::polynomial::Poly;
-use crate::{aby3::utils, prelude::Error, types::ring_element::RingImpl};
+use crate::{
+    aby3::utils, dzkp::irreducible_polys::IrreduciblePolys, prelude::Error,
+    types::ring_element::RingImpl,
+};
 use itertools::Itertools;
 use num_traits::{One, Zero};
 use rand::{
@@ -215,8 +218,7 @@ where
 
         let gamma = f64::ceil(f64::log2((2 * m) as f64)) as usize;
         let d = gamma + 40;
-        // TODO set modulus here (from list of precomputed ones)
-        todo!();
+        self.modulus = IrreduciblePolys::get(d);
 
         self.lift(d);
     }
