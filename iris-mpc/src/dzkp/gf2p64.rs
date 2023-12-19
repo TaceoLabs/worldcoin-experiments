@@ -1,5 +1,6 @@
 use gf256::{gf2p64, p64};
 use num_traits::{One, Zero};
+use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -18,6 +19,10 @@ impl GF2p64 {
 
     pub fn new(x: u64) -> Self {
         GF2p64(gf2p64::new(x))
+    }
+
+    pub fn random<R: Rng>(rng: &mut R) -> Self {
+        GF2p64::new(rng.gen())
     }
 
     pub unsafe fn new_unchecked(x: u64) -> Self {

@@ -45,10 +45,10 @@ impl Proof {
     pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize) -> Self {
         let mut rng = R::from_seed(seed);
         let w = (0..6 * l)
-            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .map(|_| GF2p64::random(&mut rng))
             .collect::<Vec<_>>();
         let a = (0..(2 * m + 1))
-            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .map(|_| GF2p64::random(&mut rng))
             .collect::<Vec<_>>();
         Self { w, a }
     }
@@ -234,7 +234,7 @@ impl AndProof {
         let circuit_size = 6 * self.l;
 
         let w = (0..circuit_size)
-            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .map(|_| GF2p64::random(rng))
             .collect::<Vec<_>>();
 
         let mut f = Vec::with_capacity(circuit_size);
@@ -259,14 +259,14 @@ impl AndProof {
         proof.a.reserve(2 * self.m + 1);
 
         for w_ in w {
-            let rand = GF2p64::new(share_rng.gen::<u64>());
+            let rand = GF2p64::random(&mut share_rng);
             proof.w.push(w_ - rand);
         }
         if g.coeffs.len() != 2 * self.m + 1 {
             g.coeffs.resize(2 * self.m + 1, GF2p64::zero());
         }
         for g_ in g.coeffs {
-            let rand = GF2p64::new(share_rng.gen::<u64>());
+            let rand = GF2p64::random(&mut share_rng);
             proof.a.push(g_ - rand);
         }
 

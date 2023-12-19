@@ -1,5 +1,5 @@
 use super::{gf2p64::GF2p64, polynomial::Poly};
-use crate::{prelude::Error, types::ring_element::RingImpl};
+use crate::{aby3::utils, prelude::Error, types::ring_element::RingImpl};
 use itertools::Itertools;
 use num_traits::{One, Zero};
 use rand::{
@@ -20,7 +20,7 @@ struct Input<T: RingImpl> {
 }
 
 impl<T: RingImpl> Index<usize> for Input<T> {
-    type Output = bool;
+    type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
         match index {
@@ -42,15 +42,18 @@ pub(crate) struct Proof<T: RingImpl> {
     a: Vec<Poly<T>>,
 }
 
-impl<T: RingImpl> Proof<T> {
-    pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize) -> Self {
+impl<T: RingImpl> Proof<T>
+where
+    Standard: Distribution<T>,
+{
+    pub fn from_seed<R: Rng + SeedableRng>(seed: R::Seed, l: usize, m: usize, d: usize) -> Self {
         let mut rng = R::from_seed(seed);
         // TODO here
         let w = (0..6 * l)
-            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .map(|_| Poly::random(d, &mut rng))
             .collect::<Vec<_>>();
         let a = (0..(2 * m + 1))
-            .map(|_| GF2p64::new(rng.gen::<u64>()))
+            .map(|_| Poly::random(d, &mut rng))
             .collect::<Vec<_>>();
         Self { w, a }
     }
@@ -126,10 +129,10 @@ impl<T: RingImpl> MulProof<T> {
         self.proof.len()
     }
 
-    pub fn lagrange_points(num: usize) -> Vec<GF2p64> {
+    pub fn lagrange_points(num: usize) -> Vec<Poly<T>> {
         let mut points = Vec::with_capacity(num);
         for i in 0..num {
-            points.push(GF2p64::new(i as u64));
+            points.push(Poly::from_vec(utils::to_bits(i)));
         }
         points
     }
