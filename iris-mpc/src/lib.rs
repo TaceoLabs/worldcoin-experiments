@@ -1,4 +1,5 @@
 pub(crate) mod aby3;
+pub(crate) mod aby3_mal;
 pub(crate) mod commitment;
 pub(crate) mod dzkp;
 pub(crate) mod error;

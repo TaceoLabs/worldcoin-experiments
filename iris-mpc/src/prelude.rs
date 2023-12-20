@@ -1,6 +1,7 @@
 pub use super::aby3::network::Aby3Network;
 pub use super::aby3::protocol::Aby3;
 pub use super::aby3::share::Share as Aby3Share;
+pub use super::aby3_mal::protocol::MalAby3;
 pub use super::error::Error;
 pub use super::iris::protocol::IrisAby3;
 pub use super::iris::protocol::IrisProtocol;

@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iris_mpc::prelude::{
-    Aby3, Aby3Share, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, Swift3, Swift3Share,
-    TestNetwork3p,
+    Aby3, Aby3Share, IrisProtocol, MalAby3, MpcTrait, PartyTestNetwork, Sharable, Swift3,
+    Swift3Share, TestNetwork3p,
 };
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -26,6 +26,33 @@ where
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let protocol = Aby3::<PartyTestNetwork>::new(net);
+    let mut iris = IrisProtocol::new(protocol).unwrap();
+
+    iris.preprocessing().await.unwrap();
+
+    let res = iris
+        .iris_in_db(code, &shared_db, &mask, &masks)
+        .await
+        .unwrap();
+
+    iris.finish().await.unwrap();
+    res
+}
+
+async fn iris_aby3_mal_task<T: Sharable>(
+    net: PartyTestNetwork,
+    code: Vec<Aby3Share<T>>,
+    mask: IrisCodeArray,
+    shared_db: Vec<Vec<Aby3Share<T>>>,
+    masks: Vec<IrisCodeArray>,
+) -> bool
+where
+    Standard: Distribution<T::Share>,
+    Aby3Share<T>: Mul<Output = Aby3Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+{
+    let protocol = MalAby3::<PartyTestNetwork>::new(net);
     let mut iris = IrisProtocol::new(protocol).unwrap();
 
     iris.preprocessing().await.unwrap();
@@ -111,6 +138,69 @@ fn iris_aby3<T: Sharable, R: Rng>(
                 let mut parties = Vec::with_capacity(3);
                 for (i, n) in net.into_iter().enumerate() {
                     parties.push(tokio::spawn(iris_aby3_task(
+                        black_box(n),
+                        black_box(shares[i].to_owned()),
+                        black_box(mask),
+                        black_box(shared_code[i].to_owned()),
+                        black_box(masks.to_owned()),
+                    )));
+                }
+
+                for party in parties {
+                    party.await.unwrap();
+                    black_box(())
+                }
+            });
+        },
+    );
+}
+
+fn iris_aby3_mal<T: Sharable, R: Rng>(
+    c: &mut Criterion,
+    shared_code: &[Vec<Vec<Aby3Share<T>>>],
+    masks: &Vec<IrisCodeArray>,
+    rng: &mut R,
+) where
+    Standard: Distribution<T::Share>,
+    Aby3Share<T>: Mul<Output = Aby3Share<T>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+{
+    assert_eq!(shared_code.len(), 3);
+    let db_size = shared_code[0].len();
+    assert_eq!(db_size, shared_code[1].len());
+    assert_eq!(db_size, shared_code[2].len());
+
+    let rt = runtime::Builder::new_multi_thread()
+        .worker_threads(3)
+        .build()
+        .unwrap();
+
+    // share an iris
+    let iris = IrisCode::random_rng(rng);
+    let mut code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    for i in 0..IrisCode::IRIS_CODE_SIZE {
+        let shares = MalAby3::<PartyTestNetwork>::share(T::from(iris.code.get_bit(i)), rng);
+        assert_eq!(shares.len(), 3);
+        code_a.push(shares[0].to_owned());
+        code_b.push(shares[1].to_owned());
+        code_c.push(shares[2].to_owned());
+    }
+    let shares = vec![code_a, code_b, code_c];
+    let mask = iris.mask;
+
+    c.bench_function(
+        format!("Iris_matcher aby3 malicious (DB: {db_size}, 3 parties)").as_str(),
+        move |bench| {
+            bench.to_async(&rt).iter(|| async {
+                let network = TestNetwork3p::new();
+                let net = network.get_party_networks();
+
+                let mut parties = Vec::with_capacity(3);
+                for (i, n) in net.into_iter().enumerate() {
+                    parties.push(tokio::spawn(iris_aby3_mal_task(
                         black_box(n),
                         black_box(shares[i].to_owned()),
                         black_box(mask),
@@ -293,6 +383,7 @@ fn iris_benches(c: &mut Criterion, db_size: usize) {
     let (shared_db, masks) = aby_share_db::<u16, _>(db.to_owned(), &mut rng);
 
     iris_aby3(c, &shared_db, &masks, &mut rng);
+    iris_aby3_mal(c, &shared_db, &masks, &mut rng);
 
     let (shared_db, masks) = swift_share_db::<u16, _>(db, &mut rng);
 

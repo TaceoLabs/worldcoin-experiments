@@ -2,7 +2,7 @@ mod iris_mpc_test {
     use crate::{
         aby3::share::Share,
         iris::protocol::IrisProtocol,
-        prelude::{Aby3, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
+        prelude::{MalAby3, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
         tests::iris_config::iris_config::create_database,
         traits::mpc_trait::Plain,
         types::bit::Bit,
@@ -41,13 +41,13 @@ mod iris_mpc_test {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<PartyTestNetwork>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = MalAby3::<PartyTestNetwork>::share(T::from(code.code.get_bit(i)), rng);
             shared_code.push(shares[id].to_owned());
         }
         shared_code
     }
 
-    async fn mask_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    async fn mask_test_aby3_mal_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -59,7 +59,7 @@ mod iris_mpc_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Aby3::<PartyTestNetwork>::new(net);
+        let protocol = MalAby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -89,7 +89,7 @@ mod iris_mpc_test {
         results
     }
 
-    async fn mask_test_aby3_impl<T: Sharable>()
+    async fn mask_test_aby3_mal_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -109,7 +109,7 @@ mod iris_mpc_test {
 
         for n in net {
             let t = tokio::spawn(async move {
-                mask_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                mask_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -133,11 +133,11 @@ mod iris_mpc_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn mask_test_aby3() {
-        mask_test_aby3_impl::<u16>().await
+    async fn mask_test_aby3_mal() {
+        mask_test_aby3_mal_impl::<u16>().await
     }
 
-    async fn hwd_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    async fn hwd_test_aby3_mal_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -149,7 +149,7 @@ mod iris_mpc_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Aby3::<PartyTestNetwork>::new(net);
+        let protocol = MalAby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -178,7 +178,7 @@ mod iris_mpc_test {
         results
     }
 
-    async fn hwd_test_aby3_impl<T: Sharable>()
+    async fn hwd_test_aby3_mal_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -198,7 +198,7 @@ mod iris_mpc_test {
 
         for n in net {
             let t = tokio::spawn(async move {
-                hwd_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                hwd_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -227,8 +227,8 @@ mod iris_mpc_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn hwd_test_aby3() {
-        hwd_test_aby3_impl::<u16>().await
+    async fn hwd_test_aby3_mal() {
+        hwd_test_aby3_mal_impl::<u16>().await
     }
 
     async fn plain_hwd_test_inner<T: Sharable>()
@@ -322,7 +322,7 @@ mod iris_mpc_test {
         plain_lt_test_inner::<u16>().await
     }
 
-    async fn lt_tester_aby3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
+    async fn lt_tester_aby3_mal<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
         protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -349,7 +349,7 @@ mod iris_mpc_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Aby3::<PartyTestNetwork>::share(distance, rng)[id].to_owned();
+        let share = MalAby3::<PartyTestNetwork>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())
@@ -363,7 +363,7 @@ mod iris_mpc_test {
         cmp
     }
 
-    async fn lt_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    async fn lt_test_aby3_mal_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -374,7 +374,7 @@ mod iris_mpc_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Aby3::<PartyTestNetwork>::new(net);
+        let protocol = MalAby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -385,14 +385,14 @@ mod iris_mpc_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
-            lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
-            assert!(lt_tester_aby3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
+            lt_tester_aby3_mal::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
+            assert!(lt_tester_aby3_mal::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
         }
 
         iris.finish().await.unwrap();
     }
 
-    async fn lt_test_aby3_impl<T: Sharable>()
+    async fn lt_test_aby3_mal_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -411,7 +411,7 @@ mod iris_mpc_test {
 
         for n in net {
             let t = tokio::spawn(async move {
-                lt_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                lt_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -422,8 +422,8 @@ mod iris_mpc_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn lt_test_aby3() {
-        lt_test_aby3_impl::<u16>().await
+    async fn lt_test_aby3_mal() {
+        lt_test_aby3_mal_impl::<u16>().await
     }
 
     async fn plain_cmp_many_iris_tester<T: Sharable>(
@@ -512,7 +512,7 @@ mod iris_mpc_test {
         plain_cmp_iris_test_inner::<u16>().await
     }
 
-    async fn cmp_many_iris_tester_aby3<
+    async fn cmp_many_iris_tester_aby3_mal<
         T: Sharable,
         R: Rng,
         Mpc: MpcTrait<T, Share<T>, Share<Bit>>,
@@ -560,7 +560,7 @@ mod iris_mpc_test {
         cmp
     }
 
-    async fn cmp_iris_tester_aby3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
+    async fn cmp_iris_tester_aby3_mal<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
         protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -591,7 +591,7 @@ mod iris_mpc_test {
         cmp
     }
 
-    async fn cmp_iris_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    async fn cmp_iris_test_aby3_mal_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -602,7 +602,7 @@ mod iris_mpc_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Aby3::<PartyTestNetwork>::new(net);
+        let protocol = MalAby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -614,21 +614,21 @@ mod iris_mpc_test {
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
 
-            let c1 = cmp_iris_tester_aby3::<T, _, _>(
+            let c1 = cmp_iris_tester_aby3_mal::<T, _, _>(
                 &mut iris,
                 &mut rng,
                 code1.to_owned(),
                 code2.to_owned(),
             )
             .await;
-            let c2 = cmp_iris_tester_aby3::<T, _, _>(
+            let c2 = cmp_iris_tester_aby3_mal::<T, _, _>(
                 &mut iris,
                 &mut rng,
                 code1.to_owned(),
                 code3.to_owned(),
             )
             .await;
-            let c3 = cmp_many_iris_tester_aby3::<T, _, _>(
+            let c3 = cmp_many_iris_tester_aby3_mal::<T, _, _>(
                 &mut iris,
                 &mut rng,
                 code1,
@@ -643,7 +643,7 @@ mod iris_mpc_test {
         iris.finish().await.unwrap();
     }
 
-    async fn cmp_iris_test_aby3_impl<T: Sharable>()
+    async fn cmp_iris_test_aby3_mal_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -662,7 +662,7 @@ mod iris_mpc_test {
 
         for n in net {
             let t = tokio::spawn(async move {
-                cmp_iris_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                cmp_iris_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -673,8 +673,8 @@ mod iris_mpc_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn cmp_iris_test_aby3() {
-        cmp_iris_test_aby3_impl::<u16>().await
+    async fn cmp_iris_test_aby3_mal() {
+        cmp_iris_test_aby3_mal_impl::<u16>().await
     }
 
     async fn plain_full_test_inner<T: Sharable>()
@@ -734,7 +734,7 @@ mod iris_mpc_test {
         plain_full_test_inner::<u16>().await
     }
 
-    async fn full_test_aby3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    async fn full_test_aby3_mal_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -745,7 +745,7 @@ mod iris_mpc_test {
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = Aby3::<PartyTestNetwork>::new(net);
+        let protocol = MalAby3::<PartyTestNetwork>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -796,7 +796,7 @@ mod iris_mpc_test {
         assert!(res2);
     }
 
-    async fn full_test_aby3_impl<T: Sharable>()
+    async fn full_test_aby3_mal_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -815,7 +815,7 @@ mod iris_mpc_test {
 
         for n in net {
             let t = tokio::spawn(async move {
-                full_test_aby3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                full_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -826,7 +826,7 @@ mod iris_mpc_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn full_test_aby3() {
-        full_test_aby3_impl::<u16>().await
+    async fn full_test_aby3_mal() {
+        full_test_aby3_mal_impl::<u16>().await
     }
 }

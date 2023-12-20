@@ -1,7 +1,7 @@
-mod swift3_test {
+mod aby3_test {
     use crate::{
-        prelude::{PartyTestNetwork, TestNetwork3p},
-        swift3::{protocol::Swift3, share::Share},
+        aby3::share::Share,
+        prelude::{MalAby3, PartyTestNetwork, TestNetwork3p},
         traits::mpc_trait::{MpcTrait, Plain},
         types::{bit::Bit, int_ring::IntRing2k, sharable::Sharable},
     };
@@ -23,16 +23,17 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
         let id = protocol.get_id();
 
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = Swift3::<PartyTestNetwork, _>::share(input, &mut rng);
+        let shares = MalAby3::<PartyTestNetwork>::share(input, &mut rng);
         protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
@@ -78,9 +79,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -127,9 +129,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -182,9 +185,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -239,9 +243,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -307,9 +312,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -372,9 +378,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let mut rng = SmallRng::from_entropy();
@@ -430,9 +437,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -495,9 +503,10 @@ mod swift3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
     {
-        let mut protocol = Swift3::<PartyTestNetwork, _>::new(net);
+        let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
 
         let id = protocol.get_id();
@@ -538,7 +547,6 @@ mod swift3_test {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn dot_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
