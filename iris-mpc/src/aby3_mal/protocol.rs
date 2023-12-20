@@ -1,6 +1,7 @@
 use crate::aby3::random::prf::{Prf, PrfSeed};
 use crate::aby3::share::Share;
 use crate::aby3::utils;
+use crate::commitment::{CommitOpening, Commitment};
 use crate::error::Error;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
@@ -9,10 +10,11 @@ use crate::traits::security::MaliciousAbort;
 use crate::types::bit::Bit;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use num_traits::Zero;
 use rand::distributions::{Distribution, Standard};
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha12Rng;
 use std::ops::Mul;
 
 pub struct MalAby3<N: NetworkTrait> {
@@ -47,16 +49,125 @@ impl<N: NetworkTrait> MalAby3<N> {
         Self { network, prf }
     }
 
-    async fn setup_prf(&mut self) -> Result<(), Error> {
-        let seed = Prf::gen_seed();
-        self.setup_prf_from_seed(seed).await
+    async fn send_seed_opening(
+        &mut self,
+        opening1: &CommitOpening<RingElement<u8>>,
+        opening2: &CommitOpening<RingElement<u8>>,
+    ) -> Result<(), Error> {
+        let mut msg1 = BytesMut::new();
+        let mut msg2 = BytesMut::new();
+        for val in opening1.values.iter().cloned() {
+            val.add_to_bytes(&mut msg1);
+        }
+        msg1.extend_from_slice(&opening1.rand);
+
+        for val in opening2.values.iter().cloned() {
+            val.add_to_bytes(&mut msg2);
+        }
+        msg2.extend_from_slice(&opening2.rand);
+
+        let msg1 = msg1.freeze();
+        let msg2 = msg2.freeze();
+
+        self.network.send_next_id(msg1).await?;
+        self.network.send_prev_id(msg2).await?;
+
+        Ok(())
     }
 
-    async fn setup_prf_from_seed(&mut self, seed: PrfSeed) -> Result<(), Error> {
-        let data = Bytes::from_iter(seed.into_iter());
-        let response = utils::send_and_receive(&mut self.network, data).await?;
-        let their_seed = utils::bytes_to_seed(response)?;
-        self.prf = Prf::new(seed, their_seed);
+    fn verify_commitment(data: &[u8], rand: [u8; 32], comm: Vec<u8>) -> bool {
+        let opening = CommitOpening {
+            values: RingElement::convert_slice_rev(data).to_vec(),
+            rand,
+        };
+        opening.verify(comm)
+    }
+
+    async fn setup_prf(&mut self) -> Result<(), Error> {
+        let seed1 = Prf::gen_seed();
+        let seed2 = Prf::gen_seed();
+        self.setup_prf_from_seed(seed1, seed2).await
+    }
+
+    async fn setup_prf_from_seed(&mut self, seed1: PrfSeed, seed2: PrfSeed) -> Result<(), Error> {
+        let mut rng = ChaCha12Rng::from_entropy();
+
+        let comm1 = Commitment::commit(RingElement::convert_slice_rev(&seed1).to_vec(), &mut rng);
+        let comm2 = Commitment::commit(RingElement::convert_slice_rev(&seed2).to_vec(), &mut rng);
+
+        // First communication round: Send commitments
+        self.network
+            .send_next_id(Bytes::from(comm1.comm.to_owned()))
+            .await?;
+        self.network
+            .send_prev_id(Bytes::from(comm2.comm.to_owned()))
+            .await?;
+
+        let msg1 = self.network.receive_next_id().await?;
+        let msg2 = self.network.receive_prev_id().await?;
+
+        let comm_size = Commitment::<RingElement<u8>>::get_comm_size();
+
+        if msg1.len() != comm_size || msg2.len() != comm_size {
+            return Err(Error::InvalidMessageSize);
+        }
+        let rcv_comm1 = msg1.to_vec();
+        let rcv_comm2 = msg2.to_vec();
+
+        // second communication round: send opening:
+        let open1 = comm1.open();
+        let open2 = comm2.open();
+
+        self.send_seed_opening(&open1, &open2).await?;
+
+        let msg1 = self.network.receive_next_id().await?;
+        let msg2 = self.network.receive_prev_id().await?;
+
+        let seed_size = seed1.len();
+        let rand_size = Commitment::<RingElement<u8>>::get_rand_size();
+        debug_assert_eq!(rand_size, 32);
+
+        if msg1.len() != seed_size + rand_size || msg2.len() != seed_size + rand_size {
+            return Err(Error::InvalidMessageSize);
+        }
+
+        let mut rcv_open1 = Vec::with_capacity(seed_size);
+        let mut rcv_open2 = Vec::with_capacity(seed_size);
+        let mut rcv_rand1 = [0; 32];
+        let mut rcv_rand2 = [0; 32];
+
+        msg1[..seed_size].clone_into(&mut rcv_open1);
+        rcv_rand1.copy_from_slice(&msg1[seed_size..]);
+        msg2[..seed_size].clone_into(&mut rcv_open2);
+        rcv_rand2.copy_from_slice(&msg2[seed_size..]);
+
+        if !Self::verify_commitment(&rcv_open1, rcv_rand1, rcv_comm1) {
+            return Err(Error::InvalidCommitment((self.network.get_id() + 1) % 3));
+        }
+        if !Self::verify_commitment(&rcv_open2, rcv_rand2, rcv_comm2) {
+            return Err(Error::InvalidCommitment((self.network.get_id() + 2) % 3));
+        }
+
+        // Finally done: Just initialize the PRFs now
+        let mut seed1_ = [0u8; 32];
+        let mut seed2_ = [0u8; 32];
+
+        for (r, (a, b)) in seed1_
+            .iter_mut()
+            .zip(seed1.iter().zip(rcv_open1.into_iter()))
+        {
+            *r = b ^ a;
+        }
+
+        for (r, (a, b)) in seed2_
+            .iter_mut()
+            .zip(seed2.iter().zip(rcv_open2.into_iter()))
+        {
+            *r = b ^ a;
+        }
+
+        self.prf = Prf::new(seed1_, seed2_);
+
         Ok(())
     }
 

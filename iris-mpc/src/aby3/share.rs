@@ -16,7 +16,7 @@ use std::{
 
 use super::id::PartyID;
 
-// share x = x1 + x2 + x3 where party i has (xi, x{i+1})
+// share x = x1 + x2 + x3 where party i has (xi, x{i-1})
 #[derive(Clone, Debug, PartialEq, Default, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Share<T: Sharable> {
     pub(crate) a: T::Share,
