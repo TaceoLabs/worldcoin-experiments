@@ -275,6 +275,7 @@ where
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
+        // TODO this is semihonest
         if id >= self.network.get_num_parties() {
             return Err(Error::IdError(id));
         }
@@ -296,6 +297,7 @@ where
 
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
+        // TODO this is semihonest
         let mut shares_a = Vec::with_capacity(3);
         for i in 0..3 {
             let mut share = self.prf.gen_zero_share::<T>();
@@ -331,11 +333,13 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
+        // TODO this is semihonest
         let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
+        // TODO this is semihonest
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
         let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
@@ -347,11 +351,13 @@ where
     }
 
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
+        // TODO this is semihonest
         let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
+        // TODO this is semihonest
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
         let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
@@ -392,6 +398,7 @@ where
 
     #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        // TODO this is semihonest
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;
         c.a += rand;
@@ -407,6 +414,7 @@ where
     }
 
     async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
+        // TODO this is semihonest
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
@@ -428,6 +436,7 @@ where
         a: Vec<Vec<Share<T>>>,
         b: Vec<Vec<Share<T>>>,
     ) -> Result<Vec<Share<T>>, Error> {
+        // TODO this is semihonest
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
@@ -479,6 +488,7 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
+        // TODO this is semihonest
         Ok(())
     }
 }
@@ -488,6 +498,7 @@ where
     Standard: Distribution<T::Share>,
 {
     async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+        // TODO this is semihonest
         let rand = self.prf.gen_binary_zero_share::<T>();
         let mut c = a & b;
         c.a ^= rand;
@@ -503,6 +514,7 @@ where
         a: Vec<Share<T>>,
         b: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
+        // TODO this is semihonest
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
