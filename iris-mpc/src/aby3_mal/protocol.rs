@@ -654,7 +654,6 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        // TODO this is semihonest
         Ok(())
     }
 }
