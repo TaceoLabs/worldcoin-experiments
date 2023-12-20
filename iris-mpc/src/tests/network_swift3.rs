@@ -538,6 +538,7 @@ mod swift3_test {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn dot_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 

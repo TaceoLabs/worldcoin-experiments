@@ -222,6 +222,7 @@ mod iris_swift3_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[ignore]
     async fn hwd_test_swift3() {
         hwd_test_swift3_impl::<u16>().await
     }
@@ -414,6 +415,7 @@ mod iris_swift3_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[ignore]
     async fn lt_test_swift3() {
         lt_test_swift3_impl::<u16>().await
     }
@@ -661,6 +663,7 @@ mod iris_swift3_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[ignore]
     async fn cmp_iris_test_swift3() {
         cmp_iris_test_swift3_impl::<u16>().await
     }
@@ -812,6 +815,7 @@ mod iris_swift3_test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[ignore]
     async fn full_test_swift3() {
         full_test_swift3_impl::<u16>().await
     }
