@@ -15,11 +15,17 @@ use num_traits::Zero;
 use rand::distributions::{Distribution, Standard};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
+use sha2::digest::Output;
+use sha2::{Digest, Sha512};
 use std::ops::Mul;
 
 pub struct MalAby3<N: NetworkTrait> {
     network: N,
     prf: Prf,
+    // send_queue_next: BytesMut,
+    send_queue_prev: BytesMut,
+    rcv_queue_next: BytesMut,
+    // rcv_queue_prev: BytesMut,
 }
 
 impl<N: NetworkTrait> MaliciousAbort for MalAby3<N> {}
@@ -45,8 +51,100 @@ macro_rules! reduce_or {
 impl<N: NetworkTrait> MalAby3<N> {
     pub fn new(network: N) -> Self {
         let prf = Prf::default();
+        let send_queue_prev = BytesMut::new();
+        let rcv_queue_next = BytesMut::new();
 
-        Self { network, prf }
+        Self {
+            network,
+            prf,
+            send_queue_prev,
+            rcv_queue_next,
+        }
+    }
+
+    async fn jmp_send<T: Sharable>(
+        &mut self,
+        send: T::Share,
+        buffer: T::Share,
+    ) -> Result<(), Error> {
+        buffer.add_to_bytes(&mut self.send_queue_prev);
+        utils::send_value_next(&mut self.network, send).await
+    }
+
+    async fn jmp_send_many<T: Sharable>(
+        &mut self,
+        send: Vec<T::Share>,
+        buffer: Vec<T::Share>,
+    ) -> Result<(), Error> {
+        for value in buffer.into_iter() {
+            value.add_to_bytes(&mut self.send_queue_prev);
+        }
+        utils::send_vec_next(&mut self.network, send).await
+    }
+
+    async fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
+        let value: T::Share = utils::receive_value_prev(&mut self.network).await?;
+        value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
+        Ok(value)
+    }
+
+    async fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
+        let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.network, len).await?;
+
+        for value in values.iter().cloned() {
+            value.add_to_bytes(&mut self.rcv_queue_next);
+        }
+
+        Ok(values)
+    }
+
+    async fn jmp_send_receive<T: Sharable>(
+        &mut self,
+        send: T::Share,
+        buffer: T::Share,
+    ) -> Result<T::Share, Error> {
+        self.jmp_send::<T>(send, buffer).await?;
+        self.jmp_receive::<T>().await
+    }
+
+    async fn jmp_send_receive_many<T: Sharable>(
+        &mut self,
+        send: Vec<T::Share>,
+        buffer: Vec<T::Share>,
+    ) -> Result<Vec<T::Share>, Error> {
+        let len = send.len();
+        self.jmp_send_many::<T>(send, buffer).await?;
+        self.jmp_receive_many::<T>(len).await
+    }
+
+    fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
+        let mut swap = BytesMut::new();
+        std::mem::swap(&mut swap, data);
+        let bytes = swap.freeze();
+        let mut hasher = Sha512::new();
+        hasher.update(bytes);
+        hasher.finalize()
+    }
+
+    async fn jmp_verify(&mut self) -> Result<(), Error> {
+        if self.send_queue_prev.is_empty() && self.rcv_queue_next.is_empty() {
+            return Ok(());
+        }
+
+        let send_prev = Self::clear_and_hash(&mut self.send_queue_prev);
+        let hash_next = Self::clear_and_hash(&mut self.rcv_queue_next);
+
+        self.network
+            .send_prev_id(Bytes::from(send_prev.to_vec()))
+            .await?;
+
+        let rcv_next = self.network.receive_next_id().await?;
+
+        if rcv_next.as_ref() != hash_next.as_slice() {
+            return Err(Error::JmpVerifyError);
+        }
+
+        Ok(())
     }
 
     async fn send_seed_opening(
@@ -249,6 +347,10 @@ impl<N: NetworkTrait> MalAby3<N> {
 
         Ok(decomp[0].to_owned())
     }
+
+    async fn reconstruct(&mut self, a: Share<u8>) -> Result<u8, Error> {
+        todo!()
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for MalAby3<N>
@@ -333,15 +435,31 @@ where
     }
 
     async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        // TODO this is semihonest
-        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
+        self.jmp_verify().await?;
+
+        let (a, b) = share.to_owned().get_ab();
+        let c = self.jmp_send_receive::<T>(b, a).await?;
+
+        self.jmp_verify().await?;
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
-        // TODO this is semihonest
-        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
+        self.jmp_verify().await?;
+
+        let len = shares.len();
+        let mut shares_a = Vec::with_capacity(len);
+        let mut shares_b = Vec::with_capacity(len);
+
+        for share in shares.iter().cloned() {
+            let (a, b) = share.get_ab();
+            shares_a.push(a);
+            shares_b.push(b);
+        }
+
+        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+
+        self.jmp_verify().await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -351,15 +469,33 @@ where
     }
 
     async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
-        // TODO this is semihonest
-        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
+        self.jmp_verify().await?;
+
+        let (a, b) = share.to_owned().get_ab();
+        let c = self.jmp_send_receive::<Bit>(b, a).await?;
+
+        self.jmp_verify().await?;
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
-        // TODO this is semihonest
-        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
+        self.jmp_verify().await?;
+
+        let len = shares.len();
+        let mut shares_a = Vec::with_capacity(len);
+        let mut shares_b = Vec::with_capacity(len);
+
+        for share in shares.iter().cloned() {
+            let (a, b) = share.get_ab();
+            shares_a.push(a);
+            shares_b.push(b);
+        }
+
+        let shares_c = self
+            .jmp_send_receive_many::<Bit>(shares_b, shares_a)
+            .await?;
+        self.jmp_verify().await?;
+
         let res = shares
             .iter()
             .zip(shares_c.into_iter())

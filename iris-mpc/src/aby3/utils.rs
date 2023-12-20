@@ -80,11 +80,25 @@ pub(crate) async fn send_value<N: NetworkTrait, R: RingImpl>(
     Ok(network.send(id, value.to_bytes()).await?)
 }
 
+pub(crate) async fn send_value_next<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+    value: R,
+) -> Result<(), Error> {
+    Ok(network.send_next_id(value.to_bytes()).await?)
+}
+
 pub(crate) async fn receive_value<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     id: usize,
 ) -> Result<R, Error> {
     let response = network.receive(id).await?;
+    R::from_bytes_mut(response)
+}
+
+pub(crate) async fn receive_value_prev<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+) -> Result<R, Error> {
+    let response = network.receive_prev_id().await?;
     R::from_bytes_mut(response)
 }
 
@@ -96,12 +110,27 @@ pub(crate) async fn send_vec<N: NetworkTrait, R: RingImpl>(
     Ok(network.send(id, ring_vec_to_bytes(value)).await?)
 }
 
+pub(crate) async fn send_vec_next<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+    value: Vec<R>,
+) -> Result<(), Error> {
+    Ok(network.send_next_id(ring_vec_to_bytes(value)).await?)
+}
+
 pub(crate) async fn receive_vec<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     id: usize,
     len: usize,
 ) -> Result<Vec<R>, Error> {
     let response = network.receive(id).await?;
+    ring_vec_from_bytes(response, len)
+}
+
+pub(crate) async fn receive_vec_prev<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+    len: usize,
+) -> Result<Vec<R>, Error> {
+    let response = network.receive_prev_id().await?;
     ring_vec_from_bytes(response, len)
 }
 
