@@ -55,7 +55,7 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisSwift3<T, Swift3<Swift3Network>>) -> Result<()>
+fn print_stats<T: Sharable>(iris: &IrisSwift3<T, Swift3<Swift3Network, T>>) -> Result<()>
 where
     Swift3Share<T>: Mul<T::Share, Output = Swift3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -180,7 +180,7 @@ where
 
     for i in 0..IrisCode::IRIS_CODE_SIZE {
         // We simulate the parties already knowing the shares of the code.
-        let shares = Swift3::<Swift3Network>::share(T::from(iris.code.get_bit(i)), &mut rng);
+        let shares = Swift3::<Swift3Network, T>::share(T::from(iris.code.get_bit(i)), &mut rng);
         if args.party > 2 {
             Err(Error::IdError(args.party))?;
         }

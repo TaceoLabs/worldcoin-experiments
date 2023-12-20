@@ -28,6 +28,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn add_const(&self, a: Ashare, b: T) -> Ashare;
     fn sub(&self, a: Ashare, b: Ashare) -> Ashare;
     fn sub_const(&self, a: Ashare, b: T) -> Ashare;
+    #[cfg(test)]
     async fn mul(&mut self, a: Ashare, b: Ashare) -> Result<Ashare, Error>;
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
@@ -42,6 +43,8 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Vec<Bshare>, Error>;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
     async fn reduce_binary_or(&mut self, a: Vec<Bshare>) -> Result<Bshare, Error>;
+
+    async fn verify(&mut self) -> Result<(), Error>;
 }
 
 #[derive(Default)]
@@ -110,6 +113,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         a.wrapping_sub(&b)
     }
 
+    #[cfg(test)]
     async fn mul(&mut self, a: T, b: T) -> Result<T, Error> {
         Ok(a.wrapping_mul(&b))
     }
@@ -161,5 +165,9 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn reduce_binary_or(&mut self, a: Vec<bool>) -> Result<bool, Error> {
         Ok(a.into_iter().fold(false, |a, b| a | b))
+    }
+
+    async fn verify(&mut self) -> Result<(), Error> {
+        Ok(())
     }
 }

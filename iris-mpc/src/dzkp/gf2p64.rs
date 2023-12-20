@@ -1,5 +1,6 @@
 use gf256::{gf2p64, p64};
 use num_traits::{One, Zero};
+use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -20,6 +21,10 @@ impl GF2p64 {
         GF2p64(gf2p64::new(x))
     }
 
+    pub fn random<R: Rng>(rng: &mut R) -> Self {
+        GF2p64::new(rng.gen())
+    }
+
     pub unsafe fn new_unchecked(x: u64) -> Self {
         GF2p64(gf2p64::new_unchecked(x))
     }
@@ -30,6 +35,10 @@ impl GF2p64 {
 
     pub fn inverse(self) -> Self {
         Self(self.0.recip())
+    }
+
+    pub fn lift(inp: bool) -> Self {
+        Self::new(inp as u64)
     }
 
     pub fn to_poly(self) -> p64 {

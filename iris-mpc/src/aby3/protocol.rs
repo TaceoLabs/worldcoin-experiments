@@ -279,6 +279,7 @@ where
         )
     }
 
+    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;
@@ -364,6 +365,10 @@ where
         let packed = self.pack(a);
         let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
         self.reduce_or_u128(reduced).await
+    }
+
+    async fn verify(&mut self) -> Result<(), Error> {
+        Ok(())
     }
 }
 

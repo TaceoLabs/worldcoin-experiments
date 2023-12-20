@@ -9,7 +9,7 @@ use crate::{
     },
 };
 use bytes::{Buf, Bytes, BytesMut};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Zero};
 use std::{
     io::Error as IOError,
     ops::{BitXor, BitXorAssign},
@@ -35,6 +35,15 @@ pub(crate) fn ceil_log2(x: usize) -> usize {
         y += 1;
     }
     y
+}
+
+pub(crate) fn to_bits<R: RingImpl>(mut x: usize) -> Vec<R> {
+    let mut res = Vec::new();
+    while !x.is_zero() {
+        res.push(R::from(x & 1 == 1));
+        x >>= 1;
+    }
+    res
 }
 
 pub(crate) async fn send_and_receive<N: NetworkTrait>(

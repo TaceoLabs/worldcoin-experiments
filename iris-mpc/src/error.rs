@@ -24,12 +24,18 @@ pub enum Error {
     /// JMP verify failed Error
     #[error("JMP verify failed")]
     JmpVerifyError,
+    /// DZKP verify failed Error
+    #[error("DZKP verify failed")]
+    DZKPVerifyError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,
     /// No inverse error
     #[error("No inverse exists error")]
     NoInverseError,
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
     /// A IO error has orccured
     #[error("IO error")]
     IOError(#[from] std::io::Error),

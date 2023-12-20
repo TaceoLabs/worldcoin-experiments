@@ -119,7 +119,8 @@ impl NetworkTrait for PartyTestNetwork {
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> std::io::Result<()> {
-        if id == usize::from(self.id.next_id()) {
+        tracing::trace!("send_id {}->{}: {:?}", self.id, id, data);
+        let res = if id == usize::from(self.id.next_id()) {
             self.stats[1] += data.len();
             self.send_next
                 .send(data)
@@ -131,10 +132,14 @@ impl NetworkTrait for PartyTestNetwork {
                 .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"))
         } else {
             Err(IOError::new(io::ErrorKind::Other, "Invalid ID"))
-        }
+        };
+
+        tracing::trace!("send_id {}->{}: done", self.id, id);
+        res
     }
 
     async fn receive(&mut self, id: usize) -> std::io::Result<BytesMut> {
+        tracing::trace!("recv_id {}<-{}: ", self.id, id);
         let buf = if id == usize::from(self.id.prev_id()) {
             let data = self
                 .recv_prev
@@ -154,6 +159,7 @@ impl NetworkTrait for PartyTestNetwork {
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
+        tracing::trace!("recv_id {}<-{}: done", self.id, id);
 
         Ok(BytesMut::from(buf.as_ref()))
     }
@@ -184,13 +190,29 @@ impl NetworkTrait for PartyTestNetwork {
     }
 
     async fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
+        tracing::trace!("send {}->{}: {:?}", self.id, self.id.next_id(), data);
         self.stats[1] += data.len();
-        self.send_next
+        let res = self
+            .send_next
             .send(data)
-            .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"))
+            .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"));
+        tracing::trace!("send {}->{}: done", self.id, self.id.next_id());
+        res
+    }
+
+    async fn send_prev_id(&mut self, data: Bytes) -> Result<(), IOError> {
+        tracing::trace!("send {}->{}: {:?}", self.id, self.id.prev_id(), data);
+        self.stats[0] += data.len();
+        let res = self
+            .send_prev
+            .send(data)
+            .map_err(|_| IOError::new(IOErrorKind::Other, "Send failed"));
+        tracing::trace!("send {}->{}: done", self.id, self.id.prev_id());
+        res
     }
 
     async fn receive_prev_id(&mut self) -> Result<bytes::BytesMut, IOError> {
+        tracing::trace!("recv {}<-{}: ", self.id, self.id.prev_id());
         let buf = self
             .recv_prev
             .recv()
@@ -198,6 +220,20 @@ impl NetworkTrait for PartyTestNetwork {
             .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
         self.stats[2] += buf.len();
 
+        tracing::trace!("recv {}<-{}: done", self.id, self.id.prev_id());
+        Ok(BytesMut::from(buf.as_ref()))
+    }
+
+    async fn receive_next_id(&mut self) -> Result<bytes::BytesMut, IOError> {
+        tracing::trace!("recv {}<-{}: ", self.id, self.id.next_id());
+        let buf = self
+            .recv_next
+            .recv()
+            .await
+            .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+        self.stats[3] += buf.len();
+
+        tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());
         Ok(BytesMut::from(buf.as_ref()))
     }
 }
