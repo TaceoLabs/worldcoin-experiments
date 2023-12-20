@@ -62,24 +62,25 @@ impl<N: NetworkTrait> MalAby3<N> {
         }
     }
 
-    async fn jmp_send<T: Sharable>(
-        &mut self,
-        send: T::Share,
-        buffer: T::Share,
-    ) -> Result<(), Error> {
-        buffer.add_to_bytes(&mut self.send_queue_prev);
+    #[inline(always)]
+    async fn jmp_send<T: Sharable>(&mut self, send: T::Share) -> Result<(), Error> {
         utils::send_value_next(&mut self.network, send).await
     }
 
-    async fn jmp_send_many<T: Sharable>(
-        &mut self,
-        send: Vec<T::Share>,
-        buffer: Vec<T::Share>,
-    ) -> Result<(), Error> {
+    #[inline(always)]
+    fn jmp_buffer<T: Sharable>(&mut self, buffer: T::Share) {
+        buffer.add_to_bytes(&mut self.send_queue_prev);
+    }
+
+    #[inline(always)]
+    async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
+        utils::send_vec_next(&mut self.network, send).await
+    }
+
+    fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
         for value in buffer.into_iter() {
             value.add_to_bytes(&mut self.send_queue_prev);
         }
-        utils::send_vec_next(&mut self.network, send).await
     }
 
     async fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
@@ -103,7 +104,8 @@ impl<N: NetworkTrait> MalAby3<N> {
         send: T::Share,
         buffer: T::Share,
     ) -> Result<T::Share, Error> {
-        self.jmp_send::<T>(send, buffer).await?;
+        self.jmp_buffer::<T>(buffer);
+        self.jmp_send::<T>(send).await?;
         self.jmp_receive::<T>().await
     }
 
@@ -113,7 +115,8 @@ impl<N: NetworkTrait> MalAby3<N> {
         buffer: Vec<T::Share>,
     ) -> Result<Vec<T::Share>, Error> {
         let len = send.len();
-        self.jmp_send_many::<T>(send, buffer).await?;
+        self.jmp_buffer_many::<T>(buffer);
+        self.jmp_send_many::<T>(send).await?;
         self.jmp_receive_many::<T>(len).await
     }
 
@@ -127,10 +130,6 @@ impl<N: NetworkTrait> MalAby3<N> {
     }
 
     async fn jmp_verify(&mut self) -> Result<(), Error> {
-        if self.send_queue_prev.is_empty() && self.rcv_queue_next.is_empty() {
-            return Ok(());
-        }
-
         let send_prev = Self::clear_and_hash(&mut self.send_queue_prev);
         let hash_next = Self::clear_and_hash(&mut self.rcv_queue_next);
 
@@ -348,8 +347,28 @@ impl<N: NetworkTrait> MalAby3<N> {
         Ok(decomp[0].to_owned())
     }
 
-    async fn reconstruct(&mut self, a: Share<u8>) -> Result<u8, Error> {
-        todo!()
+    async fn reconstruct_id<T: Sharable>(
+        &mut self,
+        share: Share<T>,
+        id: usize,
+    ) -> Result<Option<T>, Error> {
+        if id >= self.network.get_num_parties() {
+            return Err(Error::IdError(id));
+        }
+
+        let my_id = self.network.get_id();
+        let sender = (id + 2) % 3;
+
+        if my_id == id {
+            let c = self.jmp_receive::<T>().await?;
+            Ok(Some(T::from_sharetype(share.a + share.b + c)))
+        } else if my_id == sender {
+            self.jmp_send::<T>(share.get_b()).await?;
+            Ok(None)
+        } else {
+            self.jmp_buffer::<T>(share.get_a());
+            Ok(None)
+        }
     }
 }
 
@@ -377,46 +396,57 @@ where
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
-        // TODO this is semihonest
         if id >= self.network.get_num_parties() {
             return Err(Error::IdError(id));
         }
+        let my_id = self.get_id();
 
-        let mut share_a = self.prf.gen_zero_share::<T>();
-        if id == self.network.get_id() {
+        let mut share = self.prf.gen_rand::<T>();
+        let opened = self.reconstruct_id(share.to_owned(), id).await?;
+
+        let res = if id == my_id {
             let value = match input {
-                Some(x) => x.to_sharetype(),
+                Some(x) => x,
                 None => return Err(Error::ValueError("Cannot share None".to_string())),
             };
-            share_a += value;
-        }
+            let value =
+                value.to_sharetype() - opened.expect("msg should be received").to_sharetype();
+            share.a += &value;
 
-        // Network: reshare
-        let share_b = utils::send_and_receive_value(&mut self.network, share_a.to_owned()).await?;
+            utils::send_value_next(&mut self.network, value.to_owned()).await?;
+            utils::send_value_prev(&mut self.network, value).await?;
+            share
+        } else if my_id == (id + 1) % 3 {
+            let value = utils::receive_value_prev::<_, T::Share>(&mut self.network).await?;
+            utils::send_value_next(&mut self.network, value.to_owned()).await?;
+            let value_ = utils::receive_value_next(&mut self.network).await?;
+            if value != value_ {
+                return Err(Error::VerifyError);
+            }
+            share.b += value;
+            share
+        } else {
+            let value = utils::receive_value_next::<_, T::Share>(&mut self.network).await?;
+            utils::send_value_prev(&mut self.network, value.to_owned()).await?;
+            let value_ = utils::receive_value_prev(&mut self.network).await?;
+            if value != value_ {
+                return Err(Error::VerifyError);
+            }
+            share
+        };
 
-        Ok(Share::new(share_a, share_b))
+        Ok(res)
     }
 
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
-        // TODO this is semihonest
-        let mut shares_a = Vec::with_capacity(3);
-        for i in 0..3 {
-            let mut share = self.prf.gen_zero_share::<T>();
-
-            if i == self.network.get_id() {
-                share += input.to_sharetype();
-            }
-
-            shares_a.push(share);
-        }
-
-        // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
-
+        // Since this is only for testing we perform a bad one
+        let mut inputs = [None; 3];
+        inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
-        for (share_a, share_b) in shares_a.into_iter().zip(shares_b.into_iter()) {
-            shares.push(Share::new(share_a, share_b));
+
+        for (i, inp) in inputs.into_iter().enumerate() {
+            shares.push(self.input(inp.to_owned(), i).await?);
         }
 
         Ok(shares)
