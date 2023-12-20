@@ -1,3 +1,4 @@
+use crate::aby3::id::PartyID;
 use crate::aby3::random::prf::{Prf, PrfSeed};
 use crate::aby3::share::Share;
 use crate::aby3::utils;
@@ -22,10 +23,8 @@ use std::ops::Mul;
 pub struct MalAby3<N: NetworkTrait> {
     network: N,
     prf: Prf,
-    // send_queue_next: BytesMut,
     send_queue_prev: BytesMut,
     rcv_queue_next: BytesMut,
-    // rcv_queue_prev: BytesMut,
 }
 
 impl<N: NetworkTrait> MaliciousAbort for MalAby3<N> {}
@@ -144,6 +143,148 @@ impl<N: NetworkTrait> MalAby3<N> {
         }
 
         Ok(())
+    }
+
+    async fn coin<R: Rng + SeedableRng>(&mut self) -> Result<R::Seed, Error>
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: AsRef<[u8]>,
+    {
+        let (mut seed1, seed2) = self.prf.gen_rands::<R::Seed>();
+
+        let seed3 = self
+            .jmp_send_receive_many::<u8>(
+                RingElement::convert_slice_rev(seed2.as_ref()).to_vec(),
+                RingElement::convert_slice_rev(seed1.as_ref()).to_vec(),
+            )
+            .await?;
+
+        for (s1, (s2, s3)) in seed1
+            .as_mut()
+            .iter_mut()
+            .zip(seed2.as_ref().iter().zip(seed3.into_iter()))
+        {
+            *s1 ^= s3.0 ^ s2;
+        }
+
+        Ok(seed1)
+    }
+
+    async fn aby_mul_many<T: Sharable>(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        debug_assert_eq!(a.len(), b.len());
+
+        let mut shares_a = Vec::with_capacity(a.len());
+
+        for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
+            let rand = self.prf.gen_zero_share::<T>();
+            let mut c = a_ * b_;
+            c.a += rand;
+            shares_a.push(c.a);
+        }
+
+        // Network: reshare
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+
+        let res: Vec<Share<T>> = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
+
+    #[cfg(test)]
+    async fn get_mul_triple<T: Sharable, R: Rng + SeedableRng>(
+        &mut self,
+    ) -> Result<(Share<T>, Share<T>, Share<T>), Error>
+    where
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
+        Standard: Distribution<R::Seed>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
+        R::Seed: AsRef<[u8]>,
+    {
+        #[allow(type_alias_bounds)]
+        type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
+
+        assert!(UShare::<T>::K - T::Share::K >= 40);
+
+        let a = self.prf.gen_rand::<T::VerificationShare>();
+        let a_ = self.prf.gen_rand::<T::VerificationShare>();
+        let b = self.prf.gen_rand::<T::VerificationShare>();
+
+        let cs = self
+            .aby_mul_many(
+                vec![a.to_owned(), a_.to_owned()],
+                vec![b.to_owned(), b.to_owned()],
+            )
+            .await?;
+
+        let seed = self.coin::<R>().await?;
+        let mut rng = R::from_seed(seed);
+
+        let r = rng.gen::<UShare<T>>();
+        let v_ = a.to_owned() * &r - a_;
+        let v = self.reconstruct(v_).await?.to_sharetype();
+        self.jmp_verify().await?;
+
+        let w = b.to_owned() * v - cs[0].to_owned() * r + &cs[1];
+        let (wa, wb) = w.get_ab();
+
+        // hash based verification
+        let (w0, w1, w2) = match self.network.get_id() {
+            0 => {
+                let w0 = wa;
+                let w2 = wb;
+                let w1 = -w0.to_owned() - &w2;
+                (w0, w1, w2)
+            }
+            1 => {
+                let w1 = wa;
+                let w0 = wb;
+                let w2 = -w1.to_owned() - &w0;
+                (w0, w1, w2)
+            }
+            2 => {
+                let w2 = wa;
+                let w1 = wb;
+                let w0 = -w2.to_owned() - &w1;
+                (w0, w1, w2)
+            }
+            _ => unreachable!(),
+        };
+
+        let mut hasher = Sha512::new();
+        hasher.update(w0.to_bytes());
+        hasher.update(w1.to_bytes());
+        hasher.update(w2.to_bytes());
+
+        let digest = hasher.finalize();
+
+        let hashes = self.network.broadcast(Bytes::from(digest.to_vec())).await?;
+        debug_assert_eq!(hashes.len(), 3);
+
+        if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
+            return Err(Error::VerifyError);
+        }
+
+        let a = Share::from_verificationtype(a);
+        let b = Share::from_verificationtype(b);
+        let c = Share::from_verificationtype(cs[0].to_owned());
+
+        Ok((a, b, c))
     }
 
     async fn send_seed_opening(
@@ -347,6 +488,41 @@ impl<N: NetworkTrait> MalAby3<N> {
         Ok(decomp[0].to_owned())
     }
 
+    // Open without jmp_verify
+    #[cfg(test)]
+    async fn reconstruct<T: Sharable>(&mut self, share: Share<T>) -> Result<T, Error> {
+        let (a, b) = share.to_owned().get_ab();
+        let c = self.jmp_send_receive::<T>(b, a).await?;
+
+        Ok(T::from_sharetype(share.a + share.b + c))
+    }
+
+    // Open_many without jmp_verify
+    #[cfg(test)]
+    async fn reconstruct_many<T: Sharable>(
+        &mut self,
+        shares: Vec<Share<T>>,
+    ) -> Result<Vec<T>, Error> {
+        let len = shares.len();
+        let mut shares_a = Vec::with_capacity(len);
+        let mut shares_b = Vec::with_capacity(len);
+
+        for share in shares.iter().cloned() {
+            let (a, b) = share.get_ab();
+            shares_a.push(a);
+            shares_b.push(b);
+        }
+
+        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+
+        let res = shares
+            .iter()
+            .zip(shares_c.into_iter())
+            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
+            .collect();
+        Ok(res)
+    }
+
     async fn reconstruct_id<T: Sharable>(
         &mut self,
         share: Share<T>,
@@ -375,8 +551,16 @@ impl<N: NetworkTrait> MalAby3<N> {
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for MalAby3<N>
 where
     Standard: Distribution<T::Share>,
+    Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
+    Share<T>: Mul<Output = Share<T>>,
     Share<T>: Mul<Output = Share<T>>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
+    Share<T::VerificationShare>: for<'a> Mul<
+        &'a <T::VerificationShare as Sharable>::Share,
+        Output = Share<T::VerificationShare>,
+    >,
+    Share<T::VerificationShare>:
+        Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
 {
     fn get_id(&self) -> usize {
         self.network.get_id()
@@ -564,13 +748,21 @@ where
 
     #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
-        // TODO this is semihonest
-        let rand = self.prf.gen_zero_share::<T>();
-        let mut c = a * b;
-        c.a += rand;
+        let (x, y, z) = self.get_mul_triple::<T, ChaCha12Rng>().await?;
 
-        // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        let u = a.to_owned() - &x;
+        let v = b.to_owned() - &y;
+
+        let uv = self.reconstruct_many(vec![u, v]).await?;
+        let u = uv[0].to_sharetype();
+        let v = uv[1].to_sharetype();
+        let uv = u.to_owned() * &v;
+
+        let mut c = z + b * u + a * v;
+        c.sub_assign_const(
+            &uv,
+            PartyID::try_from(self.get_id() as u8).expect("ID is in range"),
+        );
 
         Ok(c)
     }

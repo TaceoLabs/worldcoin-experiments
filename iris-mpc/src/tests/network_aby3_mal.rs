@@ -23,8 +23,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -79,8 +86,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -129,8 +143,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -185,8 +206,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -243,8 +271,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -312,8 +347,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -378,8 +420,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -437,8 +486,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();
@@ -503,8 +559,15 @@ mod aby3_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut protocol = MalAby3::<PartyTestNetwork>::new(net);
         protocol.preprocess().await.unwrap();

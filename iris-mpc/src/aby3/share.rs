@@ -33,6 +33,15 @@ impl<T: Sharable> Share<T> {
         }
     }
 
+    pub fn from_verificationtype(a: Share<T::VerificationShare>) -> Self {
+        let (a, b) = a.get_ab();
+        Share {
+            a: T::from_verificationtype(a),
+            b: T::from_verificationtype(b),
+            sharetype: PhantomData,
+        }
+    }
+
     pub fn get_a(self) -> T::Share {
         self.a
     }

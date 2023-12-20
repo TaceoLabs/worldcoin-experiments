@@ -55,7 +55,14 @@ struct Args {
 
 fn print_stats<T: Sharable>(iris: &IrisAby3<T, MalAby3<Aby3Network>>) -> Result<()>
 where
+    Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T::VerificationShare>:
+        Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T::VerificationShare>: for<'a> Mul<
+        &'a <T::VerificationShare as Sharable>::Share,
+        Output = Aby3Share<T::VerificationShare>,
+    >,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     Standard: Distribution<T::Share>,
 {
@@ -141,6 +148,13 @@ fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
 where
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     Standard: Distribution<T::Share>,
+    Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
+    Aby3Share<T::VerificationShare>:
+        Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T::VerificationShare>: for<'a> Mul<
+        &'a <T::VerificationShare as Sharable>::Share,
+        Output = Aby3Share<T::VerificationShare>,
+    >,
 {
     let mut rng = SmallRng::seed_from_u64(args.iris_seed);
     let iris = if args.should_match {

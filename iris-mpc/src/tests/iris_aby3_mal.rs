@@ -35,8 +35,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
     {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
@@ -55,8 +62,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -93,8 +107,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -145,8 +166,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -182,8 +210,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -331,8 +366,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -370,8 +412,15 @@ mod iris_mpc_test {
     ) where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -396,8 +445,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -525,8 +581,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -569,8 +632,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -598,8 +668,15 @@ mod iris_mpc_test {
     ) where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -647,8 +724,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -741,8 +825,15 @@ mod iris_mpc_test {
     ) where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -800,8 +891,15 @@ mod iris_mpc_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
