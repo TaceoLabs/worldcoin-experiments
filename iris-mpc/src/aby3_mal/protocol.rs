@@ -12,6 +12,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
 use bytes::{Bytes, BytesMut};
+use itertools::Itertools;
 use num_traits::Zero;
 use rand::distributions::{Distribution, Standard};
 use rand::{Rng, SeedableRng};
@@ -560,6 +561,169 @@ impl<N: NetworkTrait> MalAby3<N> {
         Ok(res_c)
     }
 
+    async fn dot_sacrifice_many<T: Sharable, R: Rng + SeedableRng>(
+        &mut self,
+        a: Vec<Vec<Share<T>>>,
+        b: Vec<Vec<Share<T>>>,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
+        Standard: Distribution<R::Seed>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
+        Share<T::VerificationShare>: for<'a> Mul<
+            &'a <T::VerificationShare as Sharable>::Share,
+            Output = Share<T::VerificationShare>,
+        >,
+        Share<T::VerificationShare>:
+            Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
+        R::Seed: AsRef<[u8]>,
+    {
+        let len = a.len();
+        debug_assert_eq!(len, b.len());
+
+        #[allow(type_alias_bounds)]
+        type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
+
+        assert!(UShare::<T>::K - T::Share::K >= 40);
+
+        let mut a_mul = a
+            .into_iter()
+            .map(|a_| {
+                a_.into_iter()
+                    .map(|a__| a__.to_verificationtype())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let mut b_mul = b
+            .into_iter()
+            .map(|b_| {
+                b_.into_iter()
+                    .map(|b__| b__.to_verificationtype())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        let mut v_ = a_mul.to_owned();
+
+        // Get the second mul triple
+        a_mul.reserve(len);
+        for b in b_mul.iter() {
+            a_mul.push(
+                (0..b.len())
+                    .map(|_| self.prf.gen_rand())
+                    .collect::<Vec<_>>(),
+            );
+        }
+        let b_mul_ = b_mul.clone();
+        let b_mul__ = b_mul.clone();
+        b_mul.extend(b_mul_);
+        let a_ = a_mul[len..].to_vec();
+
+        let cs = self.aby_dot_many(a_mul, b_mul).await?;
+
+        let seed = self.coin::<R>().await?;
+        let mut rng = R::from_seed(seed);
+        let r = rng.gen::<UShare<T>>();
+
+        for (des, a_) in v_.iter_mut().zip(a_.into_iter()) {
+            for (des_, a__) in des.iter_mut().zip(a_.into_iter()) {
+                *des_ *= &r;
+                *des_ -= a__;
+            }
+        }
+
+        let v_ = v_.into_iter().flatten().collect_vec();
+        let v = self.reconstruct_many(v_).await?;
+        self.jmp_verify().await?;
+
+        // hash based verification
+        let mut hasher = Sha512::new();
+
+        match self.network.get_id() {
+            0 => {
+                let mut v_iter = v.into_iter();
+                for (b_, (c_0, c_1)) in b_mul__
+                    .into_iter()
+                    .take(len)
+                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                {
+                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    for b__ in b_.into_iter() {
+                        let tmp = v_iter.next().expect("Sizes are checked");
+                        w_ += b__.to_owned() * tmp.to_sharetype();
+                    }
+
+                    let (wa, wb) = w_.get_ab();
+                    let w_neg = -wa.to_owned() - &wb;
+
+                    hasher.update(wa.to_bytes());
+                    hasher.update(w_neg.to_bytes());
+                    hasher.update(wb.to_bytes());
+                }
+            }
+            1 => {
+                let mut v_iter = v.into_iter();
+                for (b_, (c_0, c_1)) in b_mul__
+                    .into_iter()
+                    .take(len)
+                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                {
+                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    for b__ in b_.into_iter() {
+                        let tmp = v_iter.next().expect("Sizes are checked");
+                        w_ += b__.to_owned() * tmp.to_sharetype();
+                    }
+
+                    let (wa, wb) = w_.get_ab();
+                    let w_neg = -wa.to_owned() - &wb;
+
+                    hasher.update(wb.to_bytes());
+                    hasher.update(wa.to_bytes());
+                    hasher.update(w_neg.to_bytes());
+                }
+            }
+            2 => {
+                let mut v_iter = v.into_iter();
+                for (b_, (c_0, c_1)) in b_mul__
+                    .into_iter()
+                    .take(len)
+                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                {
+                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    for b__ in b_.into_iter() {
+                        let tmp = v_iter.next().expect("Sizes are checked");
+                        w_ += b__.to_owned() * tmp.to_sharetype();
+                    }
+
+                    let (wa, wb) = w_.get_ab();
+                    let w_neg = -wa.to_owned() - &wb;
+
+                    hasher.update(w_neg.to_bytes());
+                    hasher.update(wb.to_bytes());
+                    hasher.update(wa.to_bytes());
+                }
+            }
+            _ => unreachable!(),
+        }
+
+        let digest = hasher.finalize();
+
+        let hashes = self.network.broadcast(Bytes::from(digest.to_vec())).await?;
+        debug_assert_eq!(hashes.len(), 3);
+
+        if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
+            return Err(Error::VerifyError);
+        }
+
+        let mut c = Vec::with_capacity(len);
+        for c_ in cs.into_iter().take(len) {
+            c.push(Share::from_verificationtype(c_));
+        }
+
+        Ok(c)
+    }
+
     async fn send_seed_opening(
         &mut self,
         opening1: &CommitOpening<RingElement<u8>>,
@@ -1090,8 +1254,12 @@ where
         a: Vec<Vec<Share<T>>>,
         b: Vec<Vec<Share<T>>>,
     ) -> Result<Vec<Share<T>>, Error> {
-        // TODO this is semihonest
-        self.aby_dot_many(a, b).await
+        let len = a.len();
+        if len != b.len() {
+            return Err(Error::InvalidSizeError);
+        }
+
+        self.dot_sacrifice_many::<T, ChaCha12Rng>(a, b).await
     }
 
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
