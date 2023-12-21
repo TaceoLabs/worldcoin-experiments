@@ -43,3 +43,15 @@ criterion = { workspace = true }
 [[bench]]
 name = "iris"
 harness = false
+
+[[bench]]
+name = "iris_aby3"
+harness = false
+
+[[bench]]
+name = "iris_aby3_mal"
+harness = false
+
+[[bench]]
+name = "iris_swift3"
+harness = false

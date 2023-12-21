@@ -1,3 +1,4 @@
+use super::bit::Bit;
 use super::ring_element::RingElement;
 use super::{int_ring::IntRing2k, ring_element::RingImpl};
 use num_traits::{
@@ -45,6 +46,9 @@ pub trait Sharable:
     /// Each Sharable type has a corresponding internal ABY3 representation. In the easiest cases this is just the unsigned version of the type with the same size, i.e., u32 for i32 or u32 for u32.
     type Share: RingImpl + Send + Sync;
 
+    /// The type used for verifying triples. Should be at least 40 bit larger than the Share type.
+    type VerificationShare: Sharable + Send + Sync;
+
     /// Converts the Sharable type to its ABY3 internal representation.
     fn to_sharetype(self) -> Self::Share;
 
@@ -67,10 +71,17 @@ pub trait Sharable:
     fn arithmetic_shr(lhs: Self::Share, rhs: u32) -> Self::Share {
         Self::from_sharetype(lhs).wrapping_shr(rhs).to_sharetype()
     }
+
+    /// Casts down from verificationtype
+    fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share;
+
+    /// Casts up to verificationtype
+    fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share;
 }
 
-impl<T: IntRing2k> Sharable for T {
+impl Sharable for Bit {
     type Share = RingElement<Self>;
+    type VerificationShare = u64;
 
     #[inline(always)]
     fn to_sharetype(self) -> Self::Share {
@@ -97,10 +108,70 @@ impl<T: IntRing2k> Sharable for T {
     fn vec_from_sharetype(rhs: Vec<Self::Share>) -> Vec<Self> {
         RingElement::convert_vec(rhs)
     }
+
+    fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share {
+        RingElement(Bit(a.0 == 1))
+    }
+
+    fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+        RingElement(a.0 .0 as Self::VerificationShare)
+    }
 }
 
-macro_rules! sharable_impl {
-    ($($s:ty=>($t:ty, $u:ident)),*) => ($(
+macro_rules! unsigned_sharable_impl {
+    ($($s:ty=>($t:ty, $vs:ty)),*) => ($(
+        impl Sharable for $t {
+            type Share = RingElement<Self>;
+            type VerificationShare = $vs;
+
+            #[inline(always)]
+            fn to_sharetype(self) -> Self::Share {
+                RingElement(self)
+            }
+
+            #[inline(always)]
+            fn from_sharetype(rhs: Self::Share) -> Self {
+                rhs.0
+            }
+
+            fn slice_to_sharetype(rhs: &[Self]) -> &[Self::Share] {
+                RingElement::convert_slice_rev(rhs)
+            }
+
+            fn slice_from_sharetype(rhs: &[Self::Share]) -> &[Self] {
+                RingElement::convert_slice(rhs)
+            }
+
+            fn vec_to_sharetype(rhs: Vec<Self>) -> Vec<Self::Share> {
+                RingElement::convert_vec_rev(rhs)
+            }
+
+            fn vec_from_sharetype(rhs: Vec<Self::Share>) -> Vec<Self> {
+                RingElement::convert_vec(rhs)
+            }
+
+            fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share {
+                RingElement(a.0 as $t)
+            }
+
+            fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+                RingElement(a.0 as Self::VerificationShare)
+            }
+        }
+
+    )*)
+}
+
+unsigned_sharable_impl! {
+    u8 => (u8, u64),
+    u16 => (u16, u64),
+    u32 => (u32, u64),
+    u64 => (u64, u128),
+    u128 => (u128, u128)
+}
+
+macro_rules! signed_sharable_impl {
+    ($($s:ty=>($t:ty, $vs:ty)),*) => ($(
 
         impl Mul<$s> for RingElement<$t> {
             type Output = Self;
@@ -202,6 +273,7 @@ macro_rules! sharable_impl {
 
         impl Sharable for $s {
             type Share = RingElement<$t>;
+            type VerificationShare = $vs;
 
             #[inline(always)]
             fn to_sharetype(self) -> Self::Share {
@@ -238,17 +310,25 @@ macro_rules! sharable_impl {
                 // SAFETY: RingElement has repr(transparent) and $s and $t have same size
                 unsafe { Vec::from_raw_parts(me.as_ptr() as *mut Self, me.len(), me.capacity()) }
             }
+
+            fn from_verificationtype(a:<Self::VerificationShare as Sharable>::Share) -> Self::Share {
+                RingElement(a.0 as $t)
+            }
+
+            fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+                RingElement(a.0 as Self::VerificationShare)
+            }
         }
     )*)
 }
 
 // SAFETY: the two unsigned + signed types are the same size
-sharable_impl! {
-    i8 => (u8, I8),
-    i16 => (u16, I16),
-    i32 => (u32, I32),
-    i64 => (u64, I64),
-    i128 => (u128, I128)
+signed_sharable_impl! {
+    i8 => (u8, u64),
+    i16 => (u16, u64),
+    i32 => (u32, u64),
+    i64 => (u64, u128),
+    i128 => (u128, u128)
 }
 
 #[cfg(test)]

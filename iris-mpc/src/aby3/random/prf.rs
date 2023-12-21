@@ -1,3 +1,4 @@
+use crate::aby3::share::Share;
 use crate::types::sharable::Sharable;
 use rand::{distributions::Standard, prelude::Distribution, Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
@@ -38,6 +39,13 @@ impl Prf {
         let a = self.my_prf.gen::<T>();
         let b = self.next_prf.gen::<T>();
         (a, b)
+    }
+
+    pub(crate) fn gen_rand<T: Sharable>(&mut self) -> Share<T>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        Share::new(self.my_prf.gen(), self.next_prf.gen())
     }
 
     pub(crate) fn gen_zero_share<T: Sharable>(&mut self) -> T::Share

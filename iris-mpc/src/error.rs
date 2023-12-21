@@ -24,6 +24,9 @@ pub enum Error {
     /// JMP verify failed Error
     #[error("JMP verify failed")]
     JmpVerifyError,
+    /// Verify failed Error
+    #[error("Verify failed")]
+    VerifyError,
     /// DZKP verify failed Error
     #[error("DZKP verify failed")]
     DZKPVerifyError,

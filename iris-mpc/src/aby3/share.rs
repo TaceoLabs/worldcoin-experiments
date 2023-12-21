@@ -16,7 +16,7 @@ use std::{
 
 use super::id::PartyID;
 
-// share x = x1 + x2 + x3 where party i has (xi, x{i+1})
+// share x = x1 + x2 + x3 where party i has (xi, x{i-1})
 #[derive(Clone, Debug, PartialEq, Default, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Share<T: Sharable> {
     pub(crate) a: T::Share,
@@ -33,8 +33,30 @@ impl<T: Sharable> Share<T> {
         }
     }
 
+    pub fn from_verificationtype(a: Share<T::VerificationShare>) -> Self {
+        let (a, b) = a.get_ab();
+        Share {
+            a: T::from_verificationtype(a),
+            b: T::from_verificationtype(b),
+            sharetype: PhantomData,
+        }
+    }
+
+    pub fn to_verificationtype(self) -> Share<T::VerificationShare> {
+        let (a, b) = self.get_ab();
+        Share {
+            a: T::to_verificationtype(a),
+            b: T::to_verificationtype(b),
+            sharetype: PhantomData,
+        }
+    }
+
     pub fn get_a(self) -> T::Share {
         self.a
+    }
+
+    pub fn get_b(self) -> T::Share {
+        self.b
     }
 
     pub fn get_ab(self) -> (T::Share, T::Share) {
@@ -71,6 +93,14 @@ impl<T: Sharable> Share<T> {
         match id {
             PartyID::ID0 => self.a -= other,
             PartyID::ID1 => self.b -= other,
+            PartyID::ID2 => {}
+        }
+    }
+
+    pub(crate) fn xor_assign_const(&mut self, other: &T::Share, id: PartyID) {
+        match id {
+            PartyID::ID0 => self.a ^= other,
+            PartyID::ID1 => self.b ^= other,
             PartyID::ID2 => {}
         }
     }

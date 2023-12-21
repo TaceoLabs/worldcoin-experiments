@@ -1,6 +1,6 @@
 mod aby3_test {
     use crate::{
-        aby3::{network::Aby3Network, protocol::Aby3, share::Share},
+        aby3::{protocol::Aby3, share::Share},
         prelude::{PartyTestNetwork, TestNetwork3p},
         traits::mpc_trait::{MpcTrait, Plain},
         types::{bit::Bit, int_ring::IntRing2k, sharable::Sharable},
@@ -33,7 +33,7 @@ mod aby3_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = Aby3::<Aby3Network>::share(input, &mut rng);
+        let shares = Aby3::<PartyTestNetwork>::share(input, &mut rng);
         protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
