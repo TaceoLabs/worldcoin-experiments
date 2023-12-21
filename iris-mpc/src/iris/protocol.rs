@@ -1,5 +1,5 @@
 use crate::aby3::utils::ceil_log2;
-use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, Swift3Share};
+use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpzWiseShare, Swift3Share};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
@@ -13,6 +13,13 @@ const PACK_SIZE: usize = 256; // TODO adjust
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
+#[allow(type_alias_bounds)]
+pub type IrisSpdzWise<T: Sharable, Mpc> = IrisProtocol<
+    T,
+    SpzWiseShare<T::VerificationShare>,
+    SpzWiseShare<<Bit as Sharable>::VerificationShare>,
+    Mpc,
+>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,

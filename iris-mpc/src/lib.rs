@@ -5,6 +5,7 @@ pub(crate) mod dzkp;
 pub(crate) mod error;
 pub(crate) mod iris;
 pub mod prelude;
+pub(crate) mod spdzwise;
 pub(crate) mod swift3;
 #[cfg(test)]
 pub(crate) mod tests;
