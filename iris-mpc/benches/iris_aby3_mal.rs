@@ -8,7 +8,7 @@ use rand::{
     rngs::SmallRng,
     Rng, SeedableRng,
 };
-use std::ops::Mul;
+use std::ops::{BitAnd, Mul};
 use tokio::runtime;
 
 async fn iris_aby3_mal_task<T: Sharable>(
@@ -23,6 +23,8 @@ where
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<Output = Aby3Share<T>>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<T::Share, Output = Aby3Share<T>>,
     Aby3Share<T::VerificationShare>: for<'a> Mul<
         &'a <T::VerificationShare as Sharable>::Share,
         Output = Aby3Share<T::VerificationShare>,
@@ -55,6 +57,8 @@ fn iris_aby3_mal<T: Sharable, R: Rng>(
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<Output = Aby3Share<T>>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<T::Share, Output = Aby3Share<T>>,
     Aby3Share<T::VerificationShare>: for<'a> Mul<
         &'a <T::VerificationShare as Sharable>::Share,
         Output = Aby3Share<T::VerificationShare>,
@@ -132,6 +136,7 @@ where
     Standard: Distribution<T::Share>,
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<T::Share, Output = Aby3Share<T>>,
     Aby3Share<T::VerificationShare>: for<'a> Mul<
         &'a <T::VerificationShare as Sharable>::Share,
         Output = Aby3Share<T::VerificationShare>,

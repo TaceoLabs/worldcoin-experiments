@@ -87,6 +87,14 @@ impl<T: Sharable> Share<T> {
             PartyID::ID2 => {}
         }
     }
+
+    pub(crate) fn xor_assign_const(&mut self, other: &T::Share, id: PartyID) {
+        match id {
+            PartyID::ID0 => self.a ^= other,
+            PartyID::ID1 => self.b ^= other,
+            PartyID::ID2 => {}
+        }
+    }
 }
 
 impl<T: Sharable> Add for Share<T> {

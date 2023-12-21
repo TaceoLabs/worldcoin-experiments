@@ -9,7 +9,11 @@ use rand::{
     SeedableRng,
 };
 use rusqlite::Connection;
-use std::{fs::File, ops::Mul, path::PathBuf};
+use std::{
+    fs::File,
+    ops::{BitAnd, Mul},
+    path::PathBuf,
+};
 use tokio::time::Instant;
 
 macro_rules! println0  {
@@ -57,6 +61,7 @@ fn print_stats<T: Sharable>(iris: &IrisAby3<T, MalAby3<Aby3Network>>) -> Result<
 where
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<T::Share, Output = Aby3Share<T>>,
     Aby3Share<T::VerificationShare>:
         Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: for<'a> Mul<
@@ -147,6 +152,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
 fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
 where
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T>: BitAnd<T::Share, Output = Aby3Share<T>>,
     Standard: Distribution<T::Share>,
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T::VerificationShare>:

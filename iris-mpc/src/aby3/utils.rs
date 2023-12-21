@@ -131,6 +131,7 @@ pub(crate) async fn send_vec_next<N: NetworkTrait, R: RingImpl>(
     Ok(network.send_next_id(ring_vec_to_bytes(value)).await?)
 }
 
+#[allow(dead_code)]
 pub(crate) async fn send_vec_prev<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     value: Vec<R>,
@@ -155,6 +156,7 @@ pub(crate) async fn receive_vec_prev<N: NetworkTrait, R: RingImpl>(
     ring_vec_from_bytes(response, len)
 }
 
+#[allow(dead_code)]
 pub(crate) async fn receive_vec_next<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     len: usize,

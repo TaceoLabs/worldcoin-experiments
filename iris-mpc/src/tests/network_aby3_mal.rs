@@ -11,7 +11,7 @@ mod aby3_test {
         rngs::SmallRng,
         Rng, SeedableRng,
     };
-    use std::ops::Mul;
+    use std::ops::{BitAnd, Mul};
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DOT_SIZE: usize = 1000;
@@ -26,6 +26,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -89,6 +91,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -146,6 +150,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -209,6 +215,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -274,6 +282,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -350,6 +360,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -423,6 +435,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -489,6 +503,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
@@ -562,6 +578,8 @@ mod aby3_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T>: BitAnd<Output = Share<T>>,
+        Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
             &'a <T::VerificationShare as Sharable>::Share,
             Output = Share<T::VerificationShare>,
