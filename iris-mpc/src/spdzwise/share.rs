@@ -18,6 +18,10 @@ impl<T: Sharable> Share<T> {
     pub fn get(self) -> (Aby3Share<T>, Aby3Share<T>) {
         (self.value, self.mac)
     }
+
+    pub fn get_value(self) -> Aby3Share<T> {
+        self.value
+    }
 }
 
 impl<T: Sharable> Add for Share<T> {

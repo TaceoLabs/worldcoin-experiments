@@ -6,11 +6,13 @@ use std::ops::Mul;
 #[allow(type_alias_bounds)]
 pub(crate) type TShare<T: Sharable> = Share<T::VerificationShare>;
 pub(crate) type BitShare = Share<<Bit as Sharable>::VerificationShare>;
+pub(crate) type BitShareType = <Bit as Sharable>::VerificationShare;
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
 pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     aby3: Aby3<N>,
+    mac_key: Aby3Share<U>,
     verifyqueue: Vec<Share<U>>,
 }
 
@@ -19,8 +21,13 @@ impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U> {
         let aby3 = Aby3::new(network);
         Self {
             aby3,
+            mac_key: Aby3Share::default(),
             verifyqueue: Vec::new(),
         }
+    }
+
+    fn get_r(&self) -> Aby3Share<U> {
+        self.mac_key.to_owned()
     }
 
     fn get_id(&self) -> usize {
@@ -45,7 +52,11 @@ where
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
         >>::preprocess(&mut self.aby3)
-        .await
+        .await?;
+
+        self.mac_key = self.aby3.prf.gen_rand::<T::VerificationShare>();
+
+        Ok(())
     }
 
     async fn finish(self) -> Result<(), Error> {
@@ -66,9 +77,7 @@ where
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<TShare<T>, Error> {
-        let input = input.map(|i| {
-            T::VerificationShare::from_sharetype(T::to_verificationtype(i.to_sharetype()))
-        });
+        let input = input.map(|i| T::to_verificationshare(i));
 
         let value = <_ as MpcTrait<
             T::VerificationShare,
@@ -77,8 +86,7 @@ where
         >>::input(&mut self.aby3, input, id)
         .await?;
 
-        let r = self.aby3.prf.gen_rand::<T::VerificationShare>();
-
+        let r = self.get_r();
         let mac = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
@@ -110,13 +118,13 @@ where
     fn share<R: rand::prelude::Rng>(input: T, rng: &mut R) -> Vec<TShare<T>> {
         let input = T::to_verificationtype(input.to_sharetype());
         let r = rng.gen::<UShare<T>>();
-        let rz = input * &r;
+        let rz = r * &input;
 
         let values = <Aby3<N> as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::share(T::VerificationShare::from_sharetype(r), rng);
+        >>::share(T::VerificationShare::from_sharetype(input), rng);
         let macs = <Aby3<N> as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
@@ -131,35 +139,148 @@ where
     }
 
     async fn open(&mut self, share: TShare<T>) -> Result<T, Error> {
-        todo!()
+        let result = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::open(&mut self.aby3, share.get_value())
+        .await?;
+
+        Ok(T::from_verificationshare(result))
     }
 
     async fn open_many(&mut self, shares: Vec<TShare<T>>) -> Result<Vec<T>, Error> {
-        todo!()
+        let values = shares.into_iter().map(|s| s.get_value()).collect();
+
+        let result = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::open_many(&mut self.aby3, values)
+        .await?;
+
+        let result = result
+            .into_iter()
+            .map(|r| T::from_verificationshare(r))
+            .collect();
+
+        Ok(result)
     }
 
     async fn open_bit(&mut self, share: BitShare) -> Result<bool, Error> {
-        todo!()
+        let result = <_ as MpcTrait<BitShareType, Aby3Share<BitShareType>, Aby3Share<Bit>>>::open(
+            &mut self.aby3,
+            share.get_value(),
+        )
+        .await?;
+
+        Ok(Bit::from_verificationshare(result).convert())
     }
 
     async fn open_bit_many(&mut self, shares: Vec<BitShare>) -> Result<Vec<bool>, Error> {
-        todo!()
+        let values = shares.into_iter().map(|s| s.get_value()).collect();
+
+        let result =
+            <_ as MpcTrait<BitShareType, Aby3Share<BitShareType>, Aby3Share<Bit>>>::open_many(
+                &mut self.aby3,
+                values,
+            )
+            .await?;
+
+        let result = result
+            .into_iter()
+            .map(|r| Bit::from_verificationshare(r).convert())
+            .collect();
+
+        Ok(result)
     }
 
     fn add(&self, a: TShare<T>, b: TShare<T>) -> TShare<T> {
-        todo!()
+        let (a_v, a_m) = a.get();
+        let (b_v, b_m) = b.get();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::add(&self.aby3, a_v, b_v);
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::add(&self.aby3, a_m, b_m);
+
+        Share::new(value, mac)
     }
 
     fn add_const(&self, a: TShare<T>, b: T) -> TShare<T> {
-        todo!()
+        let b = T::to_verificationshare(b);
+        let (a_v, a_m) = a.get();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::add_const(&self.aby3, a_v, b);
+
+        let mac_b = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul_const(&self.aby3, self.get_r(), b);
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::add(&self.aby3, a_m, mac_b);
+
+        Share::new(value, mac)
     }
 
     fn sub(&self, a: TShare<T>, b: TShare<T>) -> TShare<T> {
-        todo!()
+        let (a_v, a_m) = a.get();
+        let (b_v, b_m) = b.get();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::sub(&self.aby3, a_v, b_v);
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::sub(&self.aby3, a_m, b_m);
+
+        Share::new(value, mac)
     }
 
     fn sub_const(&self, a: TShare<T>, b: T) -> TShare<T> {
-        todo!()
+        let b = T::to_verificationshare(b);
+        let (a_v, a_m) = a.get();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::sub_const(&self.aby3, a_v, b);
+
+        let mac_b = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul_const(&self.aby3, self.get_r(), b);
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::sub(&self.aby3, a_m, mac_b);
+
+        Share::new(value, mac)
     }
 
     async fn mul(&mut self, a: TShare<T>, b: TShare<T>) -> Result<TShare<T>, Error> {
@@ -167,7 +288,22 @@ where
     }
 
     fn mul_const(&self, a: TShare<T>, b: T) -> TShare<T> {
-        todo!()
+        let b = T::to_verificationshare(b);
+        let (a_v, a_m) = a.get();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul_const(&self.aby3, a_v, b);
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul_const(&self.aby3, a_m, b);
+
+        Share::new(value, mac)
     }
 
     async fn dot(&mut self, a: Vec<TShare<T>>, b: Vec<TShare<T>>) -> Result<TShare<T>, Error> {
