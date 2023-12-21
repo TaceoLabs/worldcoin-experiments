@@ -104,6 +104,25 @@ where
         Ok(code)
     }
 
+    pub(crate) fn apply_mask_twice(
+        &self,
+        mut code1: Vec<Ashare>,
+        mut code2: Vec<Ashare>,
+        mask: &IrisCodeArray,
+    ) -> Result<(Vec<Ashare>, Vec<Ashare>), Error> {
+        if code1.len() != IRIS_CODE_SIZE || code2.len() != IRIS_CODE_SIZE {
+            return Err(Error::InvalidCodeSizeError);
+        }
+
+        for i in 0..IRIS_CODE_SIZE {
+            if !mask.get_bit(i) {
+                code1[i] = Ashare::zero();
+                code2[i] = Ashare::zero();
+            }
+        }
+        Ok((code1, code2))
+    }
+
     fn hamming_distance_post(
         &self,
         a: Vec<Ashare>,
@@ -206,8 +225,7 @@ where
         mask_b: &IrisCodeArray,
     ) -> Result<Bshare, Error> {
         let mask = self.combine_masks(mask_a, mask_b)?;
-        let a = self.apply_mask(a, &mask)?;
-        let b = self.apply_mask(b, &mask)?;
+        let (a, b) = self.apply_mask_twice(a, b, &mask)?;
 
         let hwd = self.hamming_distance(a, b).await?;
 
@@ -231,8 +249,7 @@ where
 
         for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
-            let iris_a = self.apply_mask(a.to_owned(), &mask)?;
-            let iris_b = self.apply_mask(b_, &mask)?;
+            let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_, &mask)?;
 
             a_vec.push(iris_a);
             b_vec.push(iris_b);
