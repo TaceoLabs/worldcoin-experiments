@@ -284,7 +284,27 @@ where
     }
 
     async fn mul(&mut self, a: TShare<T>, b: TShare<T>) -> Result<TShare<T>, Error> {
-        todo!()
+        let (a_v, a_m) = a.get();
+        let b_v = b.get_value();
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul(&mut self.aby3, a_v, b_v.to_owned())
+        .await?;
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul(&mut self.aby3, a_m, b_v)
+        .await?;
+
+        let result = Share::new(value, mac);
+
+        self.verifyqueue.push(result.to_owned());
+        Ok(result)
     }
 
     fn mul_const(&self, a: TShare<T>, b: T) -> TShare<T> {
@@ -307,7 +327,40 @@ where
     }
 
     async fn dot(&mut self, a: Vec<TShare<T>>, b: Vec<TShare<T>>) -> Result<TShare<T>, Error> {
-        todo!()
+        let len = a.len();
+        if len != b.len() {
+            return Err(Error::InvalidSizeError);
+        }
+        let mut a_values = Vec::with_capacity(len);
+        let mut a_macs = Vec::with_capacity(len);
+        let mut b_values = Vec::with_capacity(len);
+
+        for (a, b) in a.into_iter().zip(b.into_iter()) {
+            let (a_v, a_m) = a.get();
+            let b_v = b.get_value();
+            a_values.push(a_v);
+            a_macs.push(a_m);
+            b_values.push(b_v);
+        }
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::dot(&mut self.aby3, a_values, b_values.to_owned())
+        .await?;
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::dot(&mut self.aby3, a_macs, b_values)
+        .await?;
+
+        let result = Share::new(value, mac);
+
+        self.verifyqueue.push(result.to_owned());
+        Ok(result)
     }
 
     async fn dot_many(
@@ -335,6 +388,7 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        todo!()
+        // todo!()
+        Ok(())
     }
 }
