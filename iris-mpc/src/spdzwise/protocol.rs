@@ -9,29 +9,34 @@ pub(crate) type BitShare = Share<<Bit as Sharable>::VerificationShare>;
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
-pub struct SpdzWise<N: NetworkTrait> {
+pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     aby3: Aby3<N>,
+    verifyqueue: Vec<Share<U>>,
 }
 
-impl<N: NetworkTrait> SpdzWise<N> {
+impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U> {
     pub fn new(network: N) -> Self {
         let aby3 = Aby3::new(network);
-        Self { aby3 }
+        Self {
+            aby3,
+            verifyqueue: Vec::new(),
+        }
+    }
+
+    fn get_id(&self) -> usize {
+        self.aby3.network.get_id()
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, TShare<T>, BitShare> for SpdzWise<N>
+impl<N: NetworkTrait, T: Sharable> MpcTrait<T, TShare<T>, BitShare>
+    for SpdzWise<N, T::VerificationShare>
 where
     Standard: Distribution<UShare<T>>,
     Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
 {
     fn get_id(&self) -> usize {
-        <_ as MpcTrait<
-            T::VerificationShare,
-            Aby3Share<T::VerificationShare>,
-            Aby3Share<Bit>,
-        >>::get_id(&self.aby3)
+        self.get_id()
     }
 
     async fn preprocess(&mut self) -> Result<(), Error> {
@@ -61,12 +66,45 @@ where
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<TShare<T>, Error> {
-        todo!()
+        let input = input.map(|i| {
+            T::VerificationShare::from_sharetype(T::to_verificationtype(i.to_sharetype()))
+        });
+
+        let value = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::input(&mut self.aby3, input, id)
+        .await?;
+
+        let r = self.aby3.prf.gen_rand::<T::VerificationShare>();
+
+        let mac = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::mul(&mut self.aby3, value.to_owned(), r)
+        .await?;
+
+        let share = Share::new(value, mac);
+
+        self.verifyqueue.push(share.to_owned());
+
+        Ok(share)
     }
 
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<TShare<T>>, Error> {
-        todo!()
+        // Since this is only for testing we perform a bad one
+        let mut inputs = [None; 3];
+        inputs[self.get_id()] = Some(input);
+        let mut shares = Vec::with_capacity(3);
+
+        for (i, inp) in inputs.into_iter().enumerate() {
+            shares.push(self.input(inp.to_owned(), i).await?);
+        }
+
+        Ok(shares)
     }
 
     fn share<R: rand::prelude::Rng>(input: T, rng: &mut R) -> Vec<TShare<T>> {
@@ -105,7 +143,6 @@ where
         todo!()
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: TShare<T>, b: TShare<T>) -> Result<TShare<T>, Error> {
         todo!()
     }

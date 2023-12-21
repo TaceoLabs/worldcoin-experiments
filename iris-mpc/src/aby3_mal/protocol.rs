@@ -239,7 +239,6 @@ impl<N: NetworkTrait> MalAby3<N> {
         Ok(res)
     }
 
-    #[cfg(test)]
     async fn get_mul_triple<T: Sharable, R: Rng + SeedableRng>(
         &mut self,
     ) -> Result<(Share<T>, Share<T>, Share<T>), Error>
@@ -933,7 +932,6 @@ impl<N: NetworkTrait> MalAby3<N> {
     }
 
     // Open without jmp_verify
-    #[cfg(test)]
     async fn reconstruct<T: Sharable>(&mut self, share: Share<T>) -> Result<T, Error> {
         let (a, b) = share.to_owned().get_ab();
         let c = self.jmp_send_receive::<T>(b, a).await?;
@@ -1217,7 +1215,6 @@ where
         )
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (x, y, z) = self.get_mul_triple::<T, ChaCha12Rng>().await?;
 

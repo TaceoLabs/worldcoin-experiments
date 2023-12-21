@@ -39,7 +39,10 @@ mod iris_mpc_test {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = SpdzWise::<PartyTestNetwork>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(
+                T::from(code.code.get_bit(i)),
+                rng,
+            );
             shared_code.push(shares[id].to_owned());
         }
         shared_code
@@ -56,7 +59,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -144,7 +147,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
         let id = iris.get_id();
 
@@ -342,7 +345,8 @@ mod iris_mpc_test {
         let distance: T = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = SpdzWise::<PartyTestNetwork>::share(distance, rng)[id].to_owned();
+        let share =
+            SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(distance, rng)[id].to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())
@@ -366,7 +370,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -590,7 +594,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
 
         iris.preprocessing().await.unwrap();
@@ -731,7 +735,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
         let id = iris.get_id();
 

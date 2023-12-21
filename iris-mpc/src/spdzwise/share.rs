@@ -10,6 +10,16 @@ pub struct Share<T: Sharable> {
     mac: Aby3Share<T>,
 }
 
+impl<T: Sharable> Share<T> {
+    pub fn new(value: Aby3Share<T>, mac: Aby3Share<T>) -> Self {
+        Self { value, mac }
+    }
+
+    pub fn get(self) -> (Aby3Share<T>, Aby3Share<T>) {
+        (self.value, self.mac)
+    }
+}
+
 impl<T: Sharable> Add for Share<T> {
     type Output = Self;
 

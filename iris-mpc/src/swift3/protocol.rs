@@ -2,7 +2,6 @@ use super::{
     random::prf::{Prf, PrfSeed},
     share::Share,
 };
-#[cfg(test)]
 use crate::dzkp::mul_proof::{MulProof, Proof as MulProofStruct};
 use crate::{
     aby3::utils,
@@ -35,7 +34,6 @@ pub struct Swift3<N: NetworkTrait, U: Sharable> {
     rcv_queue_next: BytesMut,
     rcv_queue_prev: BytesMut,
     and_proof: AndProof,
-    #[cfg(test)]
     mul_proof: MulProof<U::Share>,
     dot_proof: DotProof<U::Share>,
     _data: PhantomData<U>,
@@ -81,7 +79,6 @@ where
             rcv_queue_next,
             rcv_queue_prev,
             and_proof: AndProof::default(),
-            #[cfg(test)]
             mul_proof: MulProof::default(),
             dot_proof: DotProof::default(),
             _data: PhantomData,
@@ -198,7 +195,6 @@ where
         (d, e)
     }
 
-    #[cfg(test)]
     async fn mul_post(
         &mut self,
         a: Share<U>,
@@ -715,7 +711,6 @@ where
         Ok(())
     }
 
-    #[cfg(test)]
     async fn mul_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.mul_proof.calc_params();
         self.mul_proof.set_parameters(l, m);
@@ -881,7 +876,6 @@ where
         Ok(())
     }
 
-    #[cfg(test)]
     async fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
@@ -1775,7 +1769,7 @@ where
         Ok((proof_prev, proof_next))
     }
 
-    #[cfg(test)]
+    #[allow(unused)]
     async fn send_receive_mul_dzkp<R: Rng + SeedableRng>(
         &mut self,
         proof: &MulProofStruct<U::Share>,
@@ -2212,7 +2206,6 @@ where
         a.sub_const(&b.to_sharetype())
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
         let de = self.aby_mul(d, e).await?;
@@ -2295,7 +2288,6 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        #[cfg(test)]
         {
             // We do this here seperately since it is only active during testing
             if self.mul_proof.get_muls() != 0 {

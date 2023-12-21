@@ -29,7 +29,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -38,7 +38,7 @@ mod spdzwise_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = SpdzWise::<PartyTestNetwork>::share(input, &mut rng);
+        let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input, &mut rng);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
             .await
             .unwrap();
@@ -89,7 +89,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -143,7 +143,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -203,7 +203,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -265,7 +265,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -338,7 +338,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -408,7 +408,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -473,7 +473,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
@@ -543,7 +543,7 @@ mod spdzwise_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut protocol = SpdzWise::<PartyTestNetwork>::new(net);
+        let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();

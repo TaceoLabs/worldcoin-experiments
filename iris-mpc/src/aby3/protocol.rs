@@ -16,8 +16,8 @@ use rand::Rng;
 use std::ops::Mul;
 
 pub struct Aby3<N: NetworkTrait> {
-    network: N,
-    prf: Prf,
+    pub(crate) network: N,
+    pub(crate) prf: Prf,
 }
 
 impl<N: NetworkTrait> SemiHonest for Aby3<N> {}
@@ -279,7 +279,6 @@ where
         )
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;
