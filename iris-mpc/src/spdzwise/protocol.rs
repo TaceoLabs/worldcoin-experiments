@@ -108,7 +108,26 @@ where
     }
 
     fn share<R: rand::prelude::Rng>(input: T, rng: &mut R) -> Vec<TShare<T>> {
-        todo!()
+        let input = T::to_verificationtype(input.to_sharetype());
+        let r = rng.gen::<UShare<T>>();
+        let rz = input * &r;
+
+        let values = <Aby3<N> as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::share(T::VerificationShare::from_sharetype(r), rng);
+        let macs = <Aby3<N> as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::share(T::VerificationShare::from_sharetype(rz), rng);
+
+        values
+            .into_iter()
+            .zip(macs)
+            .map(|(v, m)| Share::new(v, m))
+            .collect()
     }
 
     async fn open(&mut self, share: TShare<T>) -> Result<T, Error> {
