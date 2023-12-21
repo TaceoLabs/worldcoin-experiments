@@ -1050,26 +1050,47 @@ where
         a: Vec<Share<T>>,
         b: Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
-        // TODO this is semihonest
-        if a.len() != b.len() {
+        let len = a.len();
+        if len != b.len() {
             return Err(Error::InvalidSizeError);
         }
-        let mut shares_a = Vec::with_capacity(a.len());
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            let rand = self.prf.gen_binary_zero_share::<T>();
-            let mut c = a_ & b_;
-            c.a ^= rand;
-            shares_a.push(c.a);
+
+        let triple_len = T::Share::K * len;
+        let (x, y, z) = self
+            .get_mul_triple_many::<Bit, ChaCha12Rng>(triple_len)
+            .await?;
+        let x = self.pack::<T>(x);
+        let y = self.pack::<T>(y);
+        let z = self.pack::<T>(z);
+
+        let mut uv_ = Vec::with_capacity(2 * len);
+        for (a_, x_) in a.iter().cloned().zip(x.iter()) {
+            uv_.push(a_ ^ x_);
+        }
+        for (b_, y_) in b.iter().cloned().zip(y.iter()) {
+            uv_.push(b_ ^ y_);
         }
 
-        // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let uv = self.reconstruct_binary_many(uv_).await?;
 
-        let res = shares_a
-            .into_iter()
-            .zip(shares_b.into_iter())
-            .map(|(a_, b_)| Share::new(a_, b_))
-            .collect();
+        let mut res = Vec::with_capacity(len);
+
+        for (z, ((a, b), (u, v))) in z.into_iter().zip(
+            a.into_iter()
+                .zip(b.into_iter())
+                .zip(uv.iter().take(len).zip(uv.iter().skip(len))),
+        ) {
+            let u = u.to_sharetype();
+            let v = v.to_sharetype();
+            let uv = u.to_owned() & &v;
+
+            let mut c = z ^ (b & u) ^ (a & v);
+            c.xor_assign_const(
+                &uv,
+                PartyID::try_from(self.network.get_id() as u8).expect("ID is in range"),
+            );
+            res.push(c);
+        }
 
         Ok(res)
     }
