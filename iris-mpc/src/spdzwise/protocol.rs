@@ -1,5 +1,8 @@
 use super::share::Share;
-use crate::prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable};
+use crate::{
+    prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
+    traits::binary_trait::BinaryMpcTrait,
+};
 use rand::distributions::{Distribution, Standard};
 use std::ops::Mul;
 
@@ -343,21 +346,18 @@ where
             b_values.push(b_v);
         }
 
-        let value = <_ as MpcTrait<
+        let res = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::dot(&mut self.aby3, a_values, b_values.to_owned())
+        >>::dot_many(
+            &mut self.aby3,
+            vec![a_values, a_macs],
+            vec![b_values.to_owned(), b_values],
+        )
         .await?;
 
-        let mac = <_ as MpcTrait<
-            T::VerificationShare,
-            Aby3Share<T::VerificationShare>,
-            Aby3Share<Bit>,
-        >>::dot(&mut self.aby3, a_macs, b_values)
-        .await?;
-
-        let result = Share::new(value, mac);
+        let result = Share::new(res[0].to_owned(), res[1].to_owned());
 
         self.verifyqueue.push(result.to_owned());
         Ok(result)
@@ -393,6 +393,9 @@ where
             b_values.push(b_v);
         }
 
+        a_values.extend(a_macs);
+        b_values.extend(b_values.to_owned());
+
         let values = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
@@ -400,17 +403,15 @@ where
         >>::dot_many(&mut self.aby3, a_values, b_values.to_owned())
         .await?;
 
-        let macs = <_ as MpcTrait<
-            T::VerificationShare,
-            Aby3Share<T::VerificationShare>,
-            Aby3Share<Bit>,
-        >>::dot_many(&mut self.aby3, a_macs, b_values)
-        .await?;
-
         let mut result = Vec::with_capacity(len);
         self.verifyqueue.reserve(len);
 
-        for (value, mac) in values.into_iter().zip(macs) {
+        for (value, mac) in values
+            .iter()
+            .take(len)
+            .cloned()
+            .zip(values.iter().skip(len).cloned())
+        {
             let share = Share::new(value, mac);
             self.verifyqueue.push(share.to_owned());
             result.push(share);
