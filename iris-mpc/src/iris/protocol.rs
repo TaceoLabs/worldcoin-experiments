@@ -235,7 +235,7 @@ where
     pub(crate) async fn compare_iris_many(
         &mut self,
         a: Vec<Ashare>,
-        b: Vec<Vec<Ashare>>,
+        b: &[Vec<Ashare>],
         mask_a: &IrisCodeArray,
         mask_b: &[IrisCodeArray],
     ) -> Result<Vec<Bshare>, Error> {
@@ -249,11 +249,11 @@ where
 
         for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
-            let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_, &mask)?;
+            let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_.clone(), &mask)?;
 
             a_vec.push(iris_a);
             b_vec.push(iris_b);
-            mask_lens.push(IrisCode::IRIS_CODE_SIZE);
+            mask_lens.push(mask.count_ones());
         }
 
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
@@ -276,7 +276,7 @@ where
 
         for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
             let res = self
-                .compare_iris_many(iris.to_owned(), db_.to_owned(), mask_iris, mask_)
+                .compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)
                 .await?;
             bool_shares.extend(res);
         }

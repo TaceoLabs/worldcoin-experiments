@@ -21,7 +21,11 @@ mkdir -p data
 [[ -f "data/key1.der" ]] || cargo run --bin gen_cert -- -k data/key1.der -c data/cert1.der -s localhost -s party1
 [[ -f "data/key2.der" ]] || cargo run --bin gen_cert -- -k data/key2.der -c data/cert2.der -s localhost -s party2
 
-cargo run --release --example aby3 -- -p 0 -k data/key0.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args &
-cargo run --release --example aby3 -- -p 1 -k data/key1.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args &
-cargo run --release --example aby3 -- -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
+cargo build --release --example aby3
+BIN=../target/release/examples/aby3
+
+$BIN -p 0 -k data/key0.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args &
+$BIN -p 1 -k data/key1.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args &
+$BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
+#samply record --save-only -- $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
 #CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --example aby3 -- -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
