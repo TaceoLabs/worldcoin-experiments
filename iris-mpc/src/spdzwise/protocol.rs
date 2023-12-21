@@ -368,7 +368,55 @@ where
         a: Vec<Vec<TShare<T>>>,
         b: Vec<Vec<TShare<T>>>,
     ) -> Result<Vec<TShare<T>>, Error> {
-        todo!()
+        let len = a.len();
+        if len != b.len() {
+            return Err(Error::InvalidSizeError);
+        }
+
+        let mut a_values = Vec::with_capacity(len);
+        let mut a_macs = Vec::with_capacity(len);
+        let mut b_values = Vec::with_capacity(len);
+
+        for (a, b) in a.into_iter().zip(b.into_iter()) {
+            let mut a_v = Vec::with_capacity(len);
+            let mut a_m = Vec::with_capacity(len);
+            let mut b_v = Vec::with_capacity(len);
+            for (a, b) in a.into_iter().zip(b.into_iter()) {
+                let (a_v_, a_m_) = a.get();
+                let b_v_ = b.get_value();
+                a_v.push(a_v_);
+                a_m.push(a_m_);
+                b_v.push(b_v_);
+            }
+            a_values.push(a_v);
+            a_macs.push(a_m);
+            b_values.push(b_v);
+        }
+
+        let values = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::dot_many(&mut self.aby3, a_values, b_values.to_owned())
+        .await?;
+
+        let macs = <_ as MpcTrait<
+            T::VerificationShare,
+            Aby3Share<T::VerificationShare>,
+            Aby3Share<Bit>,
+        >>::dot_many(&mut self.aby3, a_macs, b_values)
+        .await?;
+
+        let mut result = Vec::with_capacity(len);
+        self.verifyqueue.reserve(len);
+
+        for (value, mac) in values.into_iter().zip(macs) {
+            let share = Share::new(value, mac);
+            self.verifyqueue.push(share.to_owned());
+            result.push(share);
+        }
+
+        Ok(result)
     }
 
     async fn get_msb(&mut self, a: TShare<T>) -> Result<BitShare, Error> {
