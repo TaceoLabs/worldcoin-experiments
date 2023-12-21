@@ -13,7 +13,7 @@ mod iris_mpc_test {
         rngs::SmallRng,
         Rng, SeedableRng,
     };
-    use std::ops::{BitAnd, Mul};
+    use std::ops::{BitAnd, Mul, MulAssign};
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DB_SIZE: usize = 128;
@@ -38,6 +38,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -67,6 +69,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -114,6 +118,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -175,6 +181,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -221,6 +229,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -379,6 +389,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -427,6 +439,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -462,6 +476,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -600,6 +616,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -653,6 +671,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -691,6 +711,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -749,6 +771,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -852,6 +876,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<
@@ -920,6 +946,8 @@ mod iris_mpc_test {
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
+        Share<T::VerificationShare>:
+            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
         Share<T>: BitAnd<Output = Share<T>>,
         Share<T>: BitAnd<T::Share, Output = Share<T>>,
         Share<T::VerificationShare>: for<'a> Mul<

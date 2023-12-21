@@ -11,7 +11,7 @@ use rand::{
 use rusqlite::Connection;
 use std::{
     fs::File,
-    ops::{BitAnd, Mul},
+    ops::{BitAnd, Mul, MulAssign},
     path::PathBuf,
 };
 use tokio::time::Instant;
@@ -68,6 +68,8 @@ where
         &'a <T::VerificationShare as Sharable>::Share,
         Output = Aby3Share<T::VerificationShare>,
     >,
+    Aby3Share<T::VerificationShare>:
+        for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     Standard: Distribution<T::Share>,
 {
@@ -161,6 +163,8 @@ where
         &'a <T::VerificationShare as Sharable>::Share,
         Output = Aby3Share<T::VerificationShare>,
     >,
+    Aby3Share<T::VerificationShare>:
+        for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
 {
     let mut rng = SmallRng::seed_from_u64(args.iris_seed);
     let iris = if args.should_match {

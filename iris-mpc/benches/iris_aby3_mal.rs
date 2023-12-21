@@ -8,7 +8,7 @@ use rand::{
     rngs::SmallRng,
     Rng, SeedableRng,
 };
-use std::ops::{BitAnd, Mul};
+use std::ops::{BitAnd, Mul, MulAssign};
 use tokio::runtime;
 
 async fn iris_aby3_mal_task<T: Sharable>(
@@ -31,6 +31,8 @@ where
     >,
     Aby3Share<T::VerificationShare>:
         Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T::VerificationShare>:
+        for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let protocol = MalAby3::<PartyTestNetwork>::new(net);
@@ -65,6 +67,8 @@ fn iris_aby3_mal<T: Sharable, R: Rng>(
     >,
     Aby3Share<T::VerificationShare>:
         Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T::VerificationShare>:
+        for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     assert_eq!(shared_code.len(), 3);
@@ -143,6 +147,8 @@ where
     >,
     Aby3Share<T::VerificationShare>:
         Mul<<T::VerificationShare as Sharable>::Share, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T::VerificationShare>:
+        for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
 {
     let mut shares_a = Vec::with_capacity(db.len());
     let mut shares_b = Vec::with_capacity(db.len());

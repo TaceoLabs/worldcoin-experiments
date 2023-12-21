@@ -74,6 +74,9 @@ pub trait Sharable:
 
     /// Casts down from verificationtype
     fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share;
+
+    /// Casts up to verificationtype
+    fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share;
 }
 
 impl Sharable for Bit {
@@ -108,6 +111,10 @@ impl Sharable for Bit {
 
     fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share {
         RingElement(Bit(a.0 == 1))
+    }
+
+    fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+        RingElement(a.0 .0 as Self::VerificationShare)
     }
 }
 
@@ -145,6 +152,10 @@ macro_rules! unsigned_sharable_impl {
 
             fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share {
                 RingElement(a.0 as $t)
+            }
+
+            fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+                RingElement(a.0 as Self::VerificationShare)
             }
         }
 
@@ -302,6 +313,10 @@ macro_rules! signed_sharable_impl {
 
             fn from_verificationtype(a:<Self::VerificationShare as Sharable>::Share) -> Self::Share {
                 RingElement(a.0 as $t)
+            }
+
+            fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
+                RingElement(a.0 as Self::VerificationShare)
             }
         }
     )*)
