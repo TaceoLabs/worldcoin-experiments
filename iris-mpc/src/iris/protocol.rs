@@ -164,7 +164,7 @@ where
         a: Vec<Vec<Ashare>>,
         b: Vec<Vec<Ashare>>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.dot_many(a.to_owned(), b.to_owned()).await?;
+        let dots = self.mpc.dot_many(&a, &b).await?;
 
         let mut res = Vec::with_capacity(dots.len());
         for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
