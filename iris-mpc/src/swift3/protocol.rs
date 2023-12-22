@@ -2,8 +2,6 @@ use super::{
     random::prf::{Prf, PrfSeed},
     share::Share,
 };
-#[cfg(test)]
-use crate::dzkp::mul_proof::{MulProof, Proof as MulProofStruct};
 use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
@@ -16,6 +14,10 @@ use crate::{
     prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
     traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{RingElement, RingImpl},
+};
+use crate::{
+    dzkp::mul_proof::{MulProof, Proof as MulProofStruct},
+    iris::protocol::OR_TREE_PACK_SIZE,
 };
 use bytes::{Bytes, BytesMut};
 use num_traits::Zero;
@@ -35,7 +37,6 @@ pub struct Swift3<N: NetworkTrait, U: Sharable> {
     rcv_queue_next: BytesMut,
     rcv_queue_prev: BytesMut,
     and_proof: AndProof,
-    #[cfg(test)]
     mul_proof: MulProof<U::Share>,
     dot_proof: DotProof<U::Share>,
     _data: PhantomData<U>,
@@ -81,7 +82,6 @@ where
             rcv_queue_next,
             rcv_queue_prev,
             and_proof: AndProof::default(),
-            #[cfg(test)]
             mul_proof: MulProof::default(),
             dot_proof: DotProof::default(),
             _data: PhantomData,
@@ -198,7 +198,6 @@ where
         (d, e)
     }
 
-    #[cfg(test)]
     async fn mul_post(
         &mut self,
         a: Share<U>,
@@ -511,7 +510,7 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -520,7 +519,7 @@ where
                     let mut y1 = de_a - &r1;
                     let mut y3 = de_b - &r2;
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
@@ -548,7 +547,7 @@ where
                 let mut y1s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -558,7 +557,7 @@ where
                     let mut y1 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
@@ -591,7 +590,7 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -601,7 +600,7 @@ where
                     let mut y2 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
@@ -715,7 +714,6 @@ where
         Ok(())
     }
 
-    #[cfg(test)]
     async fn mul_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.mul_proof.calc_params();
         self.mul_proof.set_parameters(l, m);
@@ -881,7 +879,6 @@ where
         Ok(())
     }
 
-    #[cfg(test)]
     async fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
@@ -1775,7 +1772,7 @@ where
         Ok((proof_prev, proof_next))
     }
 
-    #[cfg(test)]
+    #[allow(unused)]
     async fn send_receive_mul_dzkp<R: Rng + SeedableRng>(
         &mut self,
         proof: &MulProofStruct<U::Share>,
@@ -1936,6 +1933,13 @@ where
         self.setup_prf().await
     }
 
+    fn set_mac_key(&mut self, _key: Share<T>) {}
+    fn set_new_mac_key(&mut self) {}
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        Ok(T::VerificationShare::default())
+    }
+
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         Ok(self.network.print_connection_stats(out)?)
     }
@@ -2042,7 +2046,7 @@ where
         Ok(shares)
     }
 
-    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let alpha1 = rng.gen::<T::Share>();
         let alpha2 = rng.gen::<T::Share>();
         let alpha3 = rng.gen::<T::Share>();
@@ -2212,7 +2216,6 @@ where
         a.sub_const(&b.to_sharetype())
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
         let de = self.aby_mul(d, e).await?;
@@ -2290,12 +2293,11 @@ where
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
+        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
         self.reduce_or_u128(reduced).await
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        #[cfg(test)]
         {
             // We do this here seperately since it is only active during testing
             if self.mul_proof.get_muls() != 0 {

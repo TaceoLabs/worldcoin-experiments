@@ -2,6 +2,7 @@ use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
 use crate::error::Error;
+use crate::iris::protocol::OR_TREE_PACK_SIZE;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
@@ -16,8 +17,8 @@ use rand::Rng;
 use std::ops::Mul;
 
 pub struct Aby3<N: NetworkTrait> {
-    network: N,
-    prf: Prf,
+    pub(crate) network: N,
+    pub(crate) prf: Prf,
 }
 
 impl<N: NetworkTrait> SemiHonest for Aby3<N> {}
@@ -60,7 +61,7 @@ impl<N: NetworkTrait> Aby3<N> {
         Ok(())
     }
 
-    fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
+    pub(crate) fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
         let (a, b) = x.get_ab();
 
         let mut x1 = Share::<T>::zero();
@@ -138,6 +139,37 @@ impl<N: NetworkTrait> Aby3<N> {
 
         Ok(decomp[0].to_owned())
     }
+
+    pub(crate) async fn mul_many<T: Sharable>(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        debug_assert_eq!(a.len(), b.len());
+
+        let mut shares_a = Vec::with_capacity(a.len());
+
+        for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
+            let rand = self.prf.gen_zero_share::<T>();
+            let mut c = a_ * b_;
+            c.a += rand;
+            shares_a.push(c.a);
+        }
+
+        // Network: reshare
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+
+        let res: Vec<Share<T>> = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
@@ -157,6 +189,13 @@ where
 
     async fn preprocess(&mut self) -> Result<(), Error> {
         self.setup_prf().await
+    }
+
+    fn set_mac_key(&mut self, _key: Share<T>) {}
+    fn set_new_mac_key(&mut self) {}
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        Ok(T::VerificationShare::default())
     }
 
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
@@ -207,7 +246,7 @@ where
         Ok(shares)
     }
 
-    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
         let c = input.to_sharetype() - &a - &b;
@@ -279,7 +318,6 @@ where
         )
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;
@@ -323,12 +361,12 @@ where
 
         let mut shares_a = Vec::with_capacity(a.len());
 
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        for (a_, b_) in a.iter().zip(b.iter()) {
             let mut rand = self.prf.gen_zero_share::<T>();
             if a_.len() != b_.len() {
                 return Err(Error::InvalidSizeError);
             }
-            for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
+            for (a__, b__) in a_.iter().zip(b_.iter()) {
                 rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
             }
             shares_a.push(rand);
@@ -363,7 +401,7 @@ where
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
+        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
         self.reduce_or_u128(reduced).await
     }
 

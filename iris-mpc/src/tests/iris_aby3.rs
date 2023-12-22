@@ -41,7 +41,11 @@ mod iris_mpc_test {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<PartyTestNetwork>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = Aby3::<PartyTestNetwork>::share(
+                T::from(code.code.get_bit(i)),
+                T::VerificationShare::default(),
+                rng,
+            );
             shared_code.push(shares[id].to_owned());
         }
         shared_code
@@ -349,7 +353,9 @@ mod iris_mpc_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Aby3::<PartyTestNetwork>::share(distance, rng)[id].to_owned();
+        let share = Aby3::<PartyTestNetwork>::share(distance, T::VerificationShare::default(), rng)
+            [id]
+            .to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())
@@ -453,7 +459,7 @@ mod iris_mpc_test {
         }
 
         let cmp = iris
-            .compare_iris_many(inp1, inp2s, &code1.mask, &mask2)
+            .compare_iris_many(inp1, &inp2s, &code1.mask, &mask2)
             .await
             .unwrap();
 
@@ -545,7 +551,7 @@ mod iris_mpc_test {
         }
 
         let share_cmp = protocol
-            .compare_iris_many(shared_code1, shared_codes2, &code1.mask, &mask2)
+            .compare_iris_many(shared_code1, &shared_codes2, &code1.mask, &mask2)
             .await
             .unwrap();
 

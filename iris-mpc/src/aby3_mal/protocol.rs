@@ -4,6 +4,7 @@ use crate::aby3::share::Share;
 use crate::aby3::utils;
 use crate::commitment::{CommitOpening, Commitment};
 use crate::error::Error;
+use crate::iris::protocol::OR_TREE_PACK_SIZE;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
@@ -29,24 +30,6 @@ pub struct MalAby3<N: NetworkTrait> {
 }
 
 impl<N: NetworkTrait> MaliciousAbort for MalAby3<N> {}
-
-macro_rules! reduce_or {
-    ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
-        $(
-            async fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
-                let (a, b) = a.get_ab();
-                let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
-                let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
-
-                let share_a = Share::new(a1, b1);
-                let share_b = Share::new(a2, b2);
-
-                let out = self.or(share_a, share_b).await?;
-                self.$name_b(out).await
-            }
-        )*
-    };
-}
 
 impl<N: NetworkTrait> MalAby3<N> {
     pub fn new(network: N) -> Self {
@@ -239,7 +222,6 @@ impl<N: NetworkTrait> MalAby3<N> {
         Ok(res)
     }
 
-    #[cfg(test)]
     async fn get_mul_triple<T: Sharable, R: Rng + SeedableRng>(
         &mut self,
     ) -> Result<(Share<T>, Share<T>, Share<T>), Error>
@@ -588,18 +570,18 @@ impl<N: NetworkTrait> MalAby3<N> {
         assert!(UShare::<T>::K - T::Share::K >= 40);
 
         let mut a_mul = a
-            .into_iter()
+            .iter()
             .map(|a_| {
-                a_.into_iter()
+                a_.iter()
                     .cloned()
                     .map(|a__| a__.to_verificationtype())
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
         let mut b_mul = b
-            .into_iter()
+            .iter()
             .map(|b_| {
-                b_.into_iter()
+                b_.iter()
                     .cloned()
                     .map(|b__| b__.to_verificationtype())
                     .collect::<Vec<_>>()
@@ -897,43 +879,7 @@ impl<N: NetworkTrait> MalAby3<N> {
         out
     }
 
-    reduce_or!(
-        [u128, u64, reduce_or_u128, reduce_or_u64],
-        [u64, u32, reduce_or_u64, reduce_or_u32],
-        [u32, u16, reduce_or_u32, reduce_or_u16],
-        [u16, u8, reduce_or_u16, reduce_or_u8]
-    );
-
-    async fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
-        const K: usize = 8;
-
-        let mut decomp: Vec<Share<Bit>> = Vec::with_capacity(K);
-        for i in 0..K as u32 {
-            let bit_a = ((a.a.to_owned() >> i) & RingElement(1)) == RingElement(1);
-            let bit_b = ((a.b.to_owned() >> i) & RingElement(1)) == RingElement(1);
-
-            decomp.push(Share::new(
-                <Bit as Sharable>::Share::from(bit_a),
-                <Bit as Sharable>::Share::from(bit_b),
-            ));
-        }
-
-        let mut k = K;
-        while k != 1 {
-            k >>= 1;
-            decomp = <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or_many(
-                self,
-                decomp[..k].to_vec(),
-                decomp[k..].to_vec(),
-            )
-            .await?;
-        }
-
-        Ok(decomp[0].to_owned())
-    }
-
     // Open without jmp_verify
-    #[cfg(test)]
     async fn reconstruct<T: Sharable>(&mut self, share: Share<T>) -> Result<T, Error> {
         let (a, b) = share.to_owned().get_ab();
         let c = self.jmp_send_receive::<T>(b, a).await?;
@@ -1046,6 +992,13 @@ where
         self.setup_prf().await
     }
 
+    fn set_mac_key(&mut self, _key: Share<T>) {}
+    fn set_new_mac_key(&mut self) {}
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        Ok(T::VerificationShare::default())
+    }
+
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         Ok(self.network.print_connection_stats(out)?)
     }
@@ -1107,7 +1060,7 @@ where
         Ok(shares)
     }
 
-    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
         let c = input.to_sharetype() - &a - &b;
@@ -1217,7 +1170,6 @@ where
         )
     }
 
-    #[cfg(test)]
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (x, y, z) = self.get_mul_triple::<T, ChaCha12Rng>().await?;
 
@@ -1280,9 +1232,8 @@ where
     }
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
-        let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
-        self.reduce_or_u128(reduced).await
+        const PACK_SIZE: usize = OR_TREE_PACK_SIZE * 128;
+        utils::or_tree::<Bit, _, _, PACK_SIZE>(self, a).await
     }
 
     async fn verify(&mut self) -> Result<(), Error> {

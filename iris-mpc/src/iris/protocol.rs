@@ -1,18 +1,22 @@
 use crate::aby3::utils::ceil_log2;
-use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, Swift3Share};
+use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpzWiseShare, Swift3Share};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
-use plain_reference::{IrisCode, IrisCodeArray};
+use plain_reference::IrisCodeArray;
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 const PACK_SIZE: usize = 256; // TODO adjust
+pub(crate) const OR_TREE_PACK_SIZE: usize = 256; // TODO adjust
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
+#[allow(type_alias_bounds)]
+pub type IrisSpdzWise<T: Sharable, Mpc> =
+    IrisProtocol<T, SpzWiseShare<T::VerificationShare>, Aby3Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,
@@ -64,6 +68,19 @@ where
         self.mpc.preprocess().await
     }
 
+    pub fn set_mac_key(&mut self, key: Ashare) {
+        self.mpc.set_mac_key(key);
+    }
+
+    pub fn set_new_mac_key(&mut self) {
+        self.mpc.set_new_mac_key();
+    }
+
+    #[cfg(test)]
+    pub async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        self.mpc.open_mac_key().await
+    }
+
     pub async fn finish(self) -> Result<(), Error> {
         self.mpc.finish().await
     }
@@ -87,6 +104,7 @@ where
         Ok(combined_mask)
     }
 
+    #[cfg(test)]
     pub(crate) fn apply_mask(
         &self,
         mut code: Vec<Ashare>,
@@ -185,7 +203,6 @@ where
         )
     }
 
-    #[allow(unused)]
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
@@ -247,7 +264,7 @@ where
         let mut b_vec = Vec::with_capacity(amount);
         let mut mask_lens = Vec::with_capacity(amount);
 
-        for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
+        for (b_, mask_b_) in b.iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
             let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_.clone(), &mask)?;
 

@@ -63,7 +63,11 @@ fn iris_swift3<T: Sharable, R: Rng>(
     let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
     let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
     for i in 0..IrisCode::IRIS_CODE_SIZE {
-        let shares = Swift3::<PartyTestNetwork, T>::share(T::from(iris.code.get_bit(i)), rng);
+        let shares = Swift3::<PartyTestNetwork, T>::share(
+            T::from(iris.code.get_bit(i)),
+            T::VerificationShare::default(),
+            rng,
+        );
         assert_eq!(shares.len(), 3);
         code_a.push(shares[0].to_owned());
         code_b.push(shares[1].to_owned());
@@ -126,7 +130,11 @@ where
         let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
-            let shares = Swift3::<PartyTestNetwork, T>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = Swift3::<PartyTestNetwork, T>::share(
+                T::from(code.code.get_bit(i)),
+                T::VerificationShare::default(),
+                rng,
+            );
             assert_eq!(shares.len(), 3);
             code_a.push(shares[0].to_owned());
             code_b.push(shares[1].to_owned());

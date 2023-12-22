@@ -75,8 +75,14 @@ pub trait Sharable:
     /// Casts down from verificationtype
     fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share;
 
+    /// Casts down from verificationtype
+    fn from_verificationshare(a: Self::VerificationShare) -> Self;
+
     /// Casts up to verificationtype
     fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share;
+
+    /// Casts up to verificationtype
+    fn to_verificationshare(self) -> Self::VerificationShare;
 }
 
 impl Sharable for Bit {
@@ -110,11 +116,19 @@ impl Sharable for Bit {
     }
 
     fn from_verificationtype(a: <Self::VerificationShare as Sharable>::Share) -> Self::Share {
-        RingElement(Bit(a.0 == 1))
+        RingElement(Bit(a.0 & 1 == 1))
+    }
+
+    fn from_verificationshare(a: Self::VerificationShare) -> Self {
+        Bit(a & 1 == 1)
     }
 
     fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
         RingElement(a.0 .0 as Self::VerificationShare)
+    }
+
+    fn to_verificationshare(self) -> Self::VerificationShare {
+        self.0 as Self::VerificationShare
     }
 }
 
@@ -154,8 +168,16 @@ macro_rules! unsigned_sharable_impl {
                 RingElement(a.0 as $t)
             }
 
+            fn from_verificationshare(a: Self::VerificationShare) -> Self {
+                a as $t
+            }
+
             fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
                 RingElement(a.0 as Self::VerificationShare)
+            }
+
+            fn to_verificationshare(self) -> Self::VerificationShare {
+                self as Self::VerificationShare
             }
         }
 
@@ -315,8 +337,16 @@ macro_rules! signed_sharable_impl {
                 RingElement(a.0 as $t)
             }
 
+            fn from_verificationshare(a: Self::VerificationShare) -> Self {
+                a as $s
+            }
+
             fn to_verificationtype(a: Self::Share) -> <Self::VerificationShare as Sharable>::Share {
                 RingElement(a.0 as Self::VerificationShare)
+            }
+
+            fn to_verificationshare(self) -> Self::VerificationShare {
+                self as Self::VerificationShare
             }
         }
     )*)
