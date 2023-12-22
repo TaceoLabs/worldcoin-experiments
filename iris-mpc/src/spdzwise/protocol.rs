@@ -571,6 +571,9 @@ where
     }
 
     async fn open(&mut self, share: TShare<T>) -> Result<T, Error> {
+        self.verifyqueue.push(share.to_owned());
+        self.verify_macs().await?;
+
         let result = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
@@ -582,6 +585,9 @@ where
     }
 
     async fn open_many(&mut self, shares: Vec<TShare<T>>) -> Result<Vec<T>, Error> {
+        self.verifyqueue.extend(shares.to_owned());
+        self.verify_macs().await?;
+
         let values = shares.into_iter().map(|s| s.get_value()).collect();
 
         let result = <_ as MpcTrait<
