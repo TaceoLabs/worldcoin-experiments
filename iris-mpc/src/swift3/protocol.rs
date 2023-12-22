@@ -2,7 +2,6 @@ use super::{
     random::prf::{Prf, PrfSeed},
     share::Share,
 };
-use crate::dzkp::mul_proof::{MulProof, Proof as MulProofStruct};
 use crate::{
     aby3::utils,
     commitment::{CommitOpening, Commitment},
@@ -15,6 +14,10 @@ use crate::{
     prelude::{Aby3Share, Bit, Error, MpcTrait, Sharable},
     traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait, security::MaliciousAbort},
     types::ring_element::{RingElement, RingImpl},
+};
+use crate::{
+    dzkp::mul_proof::{MulProof, Proof as MulProofStruct},
+    iris::protocol::OR_TREE_PACK_SIZE,
 };
 use bytes::{Bytes, BytesMut};
 use num_traits::Zero;
@@ -2290,7 +2293,7 @@ where
 
     async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _>(self, packed).await?;
+        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
         self.reduce_or_u128(reduced).await
     }
 

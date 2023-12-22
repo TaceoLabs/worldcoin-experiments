@@ -10,6 +10,7 @@ const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 const PACK_SIZE: usize = 256; // TODO adjust
+pub(crate) const OR_TREE_PACK_SIZE: usize = 256; // TODO adjust
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;

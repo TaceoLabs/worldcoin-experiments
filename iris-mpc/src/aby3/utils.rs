@@ -191,7 +191,7 @@ where
     out.freeze()
 }
 
-pub(crate) async fn or_tree<T, Mpc, Share>(
+pub(crate) async fn or_tree<T, Mpc, Share, const PACK_SIZE: usize>(
     engine: &mut Mpc,
     mut inputs: Vec<Share>,
 ) -> Result<Share, Error>
@@ -207,8 +207,6 @@ where
         + Sync
         + 'static,
 {
-    const PACK_SIZE: usize = 256; // TODO Move
-
     let mut num = inputs.len();
 
     while num > 1 {
