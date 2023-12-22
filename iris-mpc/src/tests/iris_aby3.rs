@@ -288,8 +288,6 @@ mod iris_mpc_test {
         let threshold =
             ((combined_mask.count_ones() as f64) * plain_reference::MATCH_THRESHOLD_RATIO) as usize;
         let cmp_ = distance < threshold;
-        println!("Distance: {}", distance);
-        println!("Threshold: {}", threshold);
 
         let distance = distance.try_into().expect("Overflow should not happen");
 
