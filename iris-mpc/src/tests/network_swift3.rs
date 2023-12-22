@@ -32,7 +32,8 @@ mod swift3_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = Swift3::<PartyTestNetwork, _>::share(input, &mut rng);
+        let shares =
+            Swift3::<PartyTestNetwork, _>::share(input, T::VerificationShare::default(), &mut rng);
         protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 

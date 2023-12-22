@@ -33,12 +33,17 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+
+        let r = <_ as MpcTrait<T, TShare<T>, BitShare>>::open_mac_key(&mut protocol)
+            .await
+            .unwrap();
         let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
 
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input, &mut rng);
+        let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input, r, &mut rng);
         <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
             .await
             .unwrap();
@@ -93,6 +98,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -147,6 +153,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -207,6 +214,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -269,6 +277,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
@@ -342,6 +351,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
@@ -412,6 +422,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -477,6 +488,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
@@ -547,6 +559,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
             .await
             .unwrap();
+        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
 
         let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
         let mut rng = SmallRng::from_entropy();

@@ -71,6 +71,19 @@ where
         self.mpc.preprocess().await
     }
 
+    pub fn set_mac_key(&mut self, key: Ashare) {
+        self.mpc.set_mac_key(key);
+    }
+
+    pub fn set_new_mac_key(&mut self) {
+        self.mpc.set_new_mac_key();
+    }
+
+    #[cfg(test)]
+    pub async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        self.mpc.open_mac_key().await
+    }
+
     pub async fn finish(self) -> Result<(), Error> {
         self.mpc.finish().await
     }

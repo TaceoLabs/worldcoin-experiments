@@ -1930,6 +1930,13 @@ where
         self.setup_prf().await
     }
 
+    fn set_mac_key(&mut self, _key: Share<T>) {}
+    fn set_new_mac_key(&mut self) {}
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        Ok(T::VerificationShare::default())
+    }
+
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         Ok(self.network.print_connection_stats(out)?)
     }
@@ -2036,7 +2043,7 @@ where
         Ok(shares)
     }
 
-    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Share<T>> {
+    fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let alpha1 = rng.gen::<T::Share>();
         let alpha2 = rng.gen::<T::Share>();
         let alpha3 = rng.gen::<T::Share>();

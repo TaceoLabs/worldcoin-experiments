@@ -8,6 +8,11 @@ use rand::Rng;
 pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn get_id(&self) -> usize;
     async fn preprocess(&mut self) -> Result<(), Error>;
+    fn set_mac_key(&mut self, key: Ashare);
+    fn set_new_mac_key(&mut self);
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error>;
+
     async fn finish(self) -> Result<(), Error>;
 
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
@@ -17,7 +22,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     // Each party inputs an arithmetic share
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Ashare>, Error>;
-    fn share<R: Rng>(input: T, rng: &mut R) -> Vec<Ashare>;
+    fn share<R: Rng>(input: T, mac_key: T::VerificationShare, rng: &mut R) -> Vec<Ashare>;
 
     async fn open(&mut self, share: Ashare) -> Result<T, Error>;
     async fn open_many(&mut self, shares: Vec<Ashare>) -> Result<Vec<T>, Error>;
@@ -62,6 +67,13 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         Ok(())
     }
 
+    fn set_mac_key(&mut self, _key: T) {}
+    fn set_new_mac_key(&mut self) {}
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        Ok(T::VerificationShare::default())
+    }
+
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         writeln!(out, "Connection 0 stats:\n\tSENT: 0 bytes\n\tRECV: 0 bytes")?;
         Ok(())
@@ -76,7 +88,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         Ok(vec![input])
     }
 
-    fn share<R: Rng>(input: T, _rng: &mut R) -> Vec<T> {
+    fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, _rng: &mut R) -> Vec<T> {
         vec![input]
     }
 

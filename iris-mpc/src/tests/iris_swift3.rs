@@ -40,7 +40,11 @@ mod iris_swift3_test {
         let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Swift3::<PartyTestNetwork, _>::share(T::from(code.code.get_bit(i)), rng);
+            let shares = Swift3::<PartyTestNetwork, _>::share(
+                T::from(code.code.get_bit(i)),
+                T::VerificationShare::default(),
+                rng,
+            );
             shared_code.push(shares[id].to_owned());
         }
         shared_code
@@ -344,7 +348,10 @@ mod iris_swift3_test {
         let distance = distance.try_into().expect("Overflow should not happen");
 
         // We simulate the parties already knowing the share of the distance
-        let share = Swift3::<PartyTestNetwork, _>::share(distance, rng)[id].to_owned();
+        let share =
+            Swift3::<PartyTestNetwork, _>::share(distance, T::VerificationShare::default(), rng)
+                [id]
+                .to_owned();
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())

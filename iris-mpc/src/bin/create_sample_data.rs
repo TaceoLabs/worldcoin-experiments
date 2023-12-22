@@ -66,7 +66,7 @@ fn create_aby3_db(opts: Opts) -> Result<()> {
         let mut shared_code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(u16::from(code.code.get_bit(i)), &mut rng);
+            let shares = Aby3::<Aby3Network>::share(u16::from(code.code.get_bit(i)), 0, &mut rng);
             shared_code_a.push(shares[0].to_owned().get_a());
             shared_code_b.push(shares[1].to_owned().get_a());
             shared_code_c.push(shares[2].to_owned().get_a());
@@ -130,7 +130,7 @@ fn create_swift3_db(opts: Opts) -> Result<()> {
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
             let shares =
-                Swift3::<Swift3Network, u16>::share(u16::from(code.code.get_bit(i)), &mut rng);
+                Swift3::<Swift3Network, u16>::share(u16::from(code.code.get_bit(i)), 0, &mut rng);
             let (a, d) = shares[0].to_owned().get_ac();
             shared_code_a.push(a);
             shared_code_b.push(shares[1].to_owned().get_a());

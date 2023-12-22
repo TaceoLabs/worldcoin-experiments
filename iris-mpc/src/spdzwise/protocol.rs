@@ -1,9 +1,11 @@
 use super::share::Share;
 use crate::{
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
-    traits::binary_trait::BinaryMpcTrait,
+    types::ring_element::RingImpl,
 };
+use bytes::Bytes;
 use rand::distributions::{Distribution, Standard};
+use sha2::{Digest, Sha512};
 use std::ops::Mul;
 
 #[allow(type_alias_bounds)]
@@ -19,7 +21,11 @@ pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     verifyqueue: Vec<Share<U>>,
 }
 
-impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U> {
+impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U>
+where
+    Standard: Distribution<U::Share>,
+    Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,
+{
     pub fn new(network: N) -> Self {
         let aby3 = Aby3::new(network);
         Self {
@@ -29,12 +35,96 @@ impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U> {
         }
     }
 
-    fn get_r(&self) -> Aby3Share<U> {
+    pub fn get_r(&self) -> Aby3Share<U> {
         self.mac_key.to_owned()
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn aby_open(&mut self, share: Aby3Share<U>) -> Result<U, Error> {
+        self.aby3.open(share).await
     }
 
     fn get_id(&self) -> usize {
         self.aby3.network.get_id()
+    }
+
+    async fn hash_based_zero_verifiy(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
+        let (wa, wb) = w.get_ab();
+        let w_neg = -wa.to_owned() - &wb;
+
+        let mut hasher = Sha512::new();
+        match self.get_id() {
+            0 => {
+                hasher.update(wa.to_bytes());
+                hasher.update(w_neg.to_bytes());
+                hasher.update(wb.to_bytes());
+            }
+            1 => {
+                hasher.update(wb.to_bytes());
+                hasher.update(wa.to_bytes());
+                hasher.update(w_neg.to_bytes());
+            }
+            2 => {
+                hasher.update(w_neg.to_bytes());
+                hasher.update(wb.to_bytes());
+                hasher.update(wa.to_bytes());
+            }
+            _ => unreachable!(),
+        };
+        let digest = hasher.finalize();
+
+        let hashes = self
+            .aby3
+            .network
+            .broadcast(Bytes::from(digest.to_vec()))
+            .await?;
+        debug_assert_eq!(hashes.len(), 3);
+
+        if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
+            Err(Error::VerifyError)
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn verify_macs(&mut self) -> Result<(), Error> {
+        if self.verifyqueue.is_empty() {
+            return Ok(());
+        }
+
+        let len = self.verifyqueue.len();
+        let rands = (0..len)
+            .map(|_| self.aby3.prf.gen_rand::<U>())
+            .collect::<Vec<_>>();
+
+        let mut swap = Vec::new();
+        std::mem::swap(&mut swap, &mut self.verifyqueue);
+
+        let mut values = Vec::with_capacity(len);
+        let mut macs = Vec::with_capacity(len);
+
+        for share in swap.into_iter() {
+            let (value, mac) = share.get();
+            values.push(value);
+            macs.push(mac);
+        }
+
+        let res = <_ as MpcTrait<U, Aby3Share<U>, Aby3Share<Bit>>>::dot_many(
+            &mut self.aby3,
+            vec![values, macs],
+            vec![rands.to_owned(), rands.to_owned()],
+        )
+        .await?;
+
+        let r = self.get_r();
+        let mul = <_ as MpcTrait<U, Aby3Share<U>, Aby3Share<Bit>>>::mul(
+            &mut self.aby3,
+            res[0].to_owned(),
+            r,
+        )
+        .await?;
+        let zero = mul - &res[1];
+        self.hash_based_zero_verifiy(zero).await
     }
 }
 
@@ -57,9 +147,22 @@ where
         >>::preprocess(&mut self.aby3)
         .await?;
 
-        self.mac_key = self.aby3.prf.gen_rand::<T::VerificationShare>();
-
         Ok(())
+    }
+
+    fn set_mac_key(&mut self, key: TShare<T>) {
+        let mac = key.get_mac();
+        self.mac_key = mac;
+    }
+
+    fn set_new_mac_key(&mut self) {
+        self.mac_key = self.aby3.prf.gen_rand::<T::VerificationShare>();
+    }
+
+    #[cfg(test)]
+    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        let r = self.get_r();
+        self.aby_open(r).await
     }
 
     async fn finish(self) -> Result<(), Error> {
@@ -118,21 +221,33 @@ where
         Ok(shares)
     }
 
-    fn share<R: rand::prelude::Rng>(input: T, rng: &mut R) -> Vec<TShare<T>> {
+    fn share<R: rand::prelude::Rng>(
+        input: T,
+        mac_key: T::VerificationShare,
+        rng: &mut R,
+    ) -> Vec<TShare<T>> {
         let input = T::to_verificationtype(input.to_sharetype());
-        let r = rng.gen::<UShare<T>>();
-        let rz = r * &input;
+        let rz = mac_key.to_sharetype() * &input;
 
         let values = <Aby3<N> as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::share(T::VerificationShare::from_sharetype(input), rng);
+        >>::share(
+            T::VerificationShare::from_sharetype(input),
+            <T::VerificationShare as Sharable>::VerificationShare::default(),
+            rng,
+        );
+
         let macs = <Aby3<N> as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::share(T::VerificationShare::from_sharetype(rz), rng);
+        >>::share(
+            T::VerificationShare::from_sharetype(rz),
+            <T::VerificationShare as Sharable>::VerificationShare::default(),
+            rng,
+        );
 
         values
             .into_iter()
@@ -290,6 +405,8 @@ where
         let (a_v, a_m) = a.get();
         let b_v = b.get_value();
 
+        // We make 2 muls because this mul is not part of the iris protocol and aby has no mul_many
+
         let value = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
@@ -421,10 +538,12 @@ where
     }
 
     async fn get_msb(&mut self, a: TShare<T>) -> Result<BitShare, Error> {
+        self.verify_macs().await?;
         todo!()
     }
 
     async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<BitShare>, Error> {
+        self.verify_macs().await?;
         todo!()
     }
 
@@ -437,7 +556,6 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        // todo!()
-        Ok(())
+        self.verify_macs().await
     }
 }

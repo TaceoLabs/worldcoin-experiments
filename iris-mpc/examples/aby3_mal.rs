@@ -198,7 +198,11 @@ where
 
     for i in 0..IrisCode::IRIS_CODE_SIZE {
         // We simulate the parties already knowing the shares of the code.
-        let shares = MalAby3::<Aby3Network>::share(T::from(iris.code.get_bit(i)), &mut rng);
+        let shares = MalAby3::<Aby3Network>::share(
+            T::from(iris.code.get_bit(i)),
+            T::VerificationShare::default(),
+            &mut rng,
+        );
         if args.party > 2 {
             Err(Error::IdError(args.party))?;
         }
