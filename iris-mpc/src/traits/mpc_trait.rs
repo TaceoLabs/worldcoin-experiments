@@ -149,7 +149,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         }
 
         let mut res = Vec::with_capacity(a.len());
-        for (a_, b_) in a.into_iter().zip(b) {
+        for (a_, b_) in a.iter().zip(b) {
             let r = self.dot(a_.to_owned(), b_.to_owned()).await?;
             res.push(r);
         }

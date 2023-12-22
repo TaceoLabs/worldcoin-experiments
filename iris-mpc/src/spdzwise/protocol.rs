@@ -908,50 +908,28 @@ where
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error> {
-        todo!()
-        // let len = a.len();
-        // if len != b.len() {
-        //     return Err(Error::InvalidSizeError);
-        // }
+        let len = a.len();
+        if len != b.len() {
+            return Err(Error::InvalidSizeError);
+        }
 
-        // let triple_len = T::Share::K * len;
-        // let (x, y, z) = self
-        //     .get_mul_triple_many::<Bit, ChaCha12Rng>(triple_len)
-        //     .await?;
-        // let x = self.pack::<T>(x);
-        // let y = self.pack::<T>(y);
-        // let z = self.pack::<T>(z);
+        let mut a_bits = Vec::with_capacity(T::Share::K * len);
+        let mut b_bits = Vec::with_capacity(T::Share::K * len);
 
-        // let mut uv_ = Vec::with_capacity(2 * len);
-        // for (a_, x_) in a.iter().cloned().zip(x.iter()) {
-        //     uv_.push(a_ ^ x_);
-        // }
-        // for (b_, y_) in b.iter().cloned().zip(y.iter()) {
-        //     uv_.push(b_ ^ y_);
-        // }
+        for a in a.into_iter() {
+            a_bits.extend(a.to_bits());
+        }
 
-        // let uv = self.reconstruct_binary_many(uv_).await?;
+        for b in b.into_iter() {
+            b_bits.extend(b.to_bits());
+        }
 
-        // let mut res = Vec::with_capacity(len);
+        let c_bits = self
+            .mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)
+            .await?;
 
-        // for (z, ((a, b), (u, v))) in z.into_iter().zip(
-        //     a.into_iter()
-        //         .zip(b.into_iter())
-        //         .zip(uv.iter().take(len).zip(uv.iter().skip(len))),
-        // ) {
-        //     let u = u.to_sharetype();
-        //     let v = v.to_sharetype();
-        //     let uv = u.to_owned() & &v;
-
-        //     let mut c = z ^ (b & u) ^ (a & v);
-        //     c.xor_assign_const(
-        //         &uv,
-        //         PartyID::try_from(self.network.get_id() as u8).expect("ID is in range"),
-        //     );
-        //     res.push(c);
-        // }
-
-        // Ok(res)
+        let c = self.pack::<T>(c_bits);
+        Ok(c)
     }
 
     async fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
