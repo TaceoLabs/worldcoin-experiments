@@ -236,8 +236,8 @@ fn create_spdzwise_db(opts: Opts) -> Result<()> {
                 &mut rng,
             );
             let (v1, m1) = shares[0].to_owned().get();
-            let (v2, m2) = shares[0].to_owned().get();
-            let (v3, m3) = shares[0].to_owned().get();
+            let (v2, m2) = shares[1].to_owned().get();
+            let (v3, m3) = shares[2].to_owned().get();
 
             shared_code_a.push(v1.get_a());
             shared_code_b.push(v2.get_a());

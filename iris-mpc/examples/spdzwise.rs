@@ -163,7 +163,11 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         let share_b: Vec<UShare<T>> = bincode::deserialize(&row.get::<_, Vec<u8>>(2)?)?;
         let mac_b: Vec<UShare<T>> = bincode::deserialize(&row.get::<_, Vec<u8>>(3)?)?;
 
-        if share_a.len() != IrisCode::IRIS_CODE_SIZE || share_b.len() != IrisCode::IRIS_CODE_SIZE {
+        if share_a.len() != IrisCode::IRIS_CODE_SIZE
+            || share_b.len() != IrisCode::IRIS_CODE_SIZE
+            || mac_a.len() != IrisCode::IRIS_CODE_SIZE
+            || mac_b.len() != IrisCode::IRIS_CODE_SIZE
+        {
             Err(Error::InvalidCodeSizeError)?;
         }
         let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
