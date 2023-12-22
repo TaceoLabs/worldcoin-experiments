@@ -141,7 +141,7 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     res.mac_key_share = mac_share;
 
     if rows.next()?.is_some() {
-        Err(Report::msg("Invalid MPC protocol specified"))?
+        Err(Report::msg("Too many mac keys"))?
     }
 
     // read the codes from the database using rusqlite and iterate over them
