@@ -55,3 +55,7 @@ harness = false
 [[bench]]
 name = "iris_swift3"
 harness = false
+
+[[bench]]
+name = "iris_spdzwise"
+harness = false
