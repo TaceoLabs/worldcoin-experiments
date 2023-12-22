@@ -123,8 +123,8 @@ where
 
         let res = <_ as MpcTrait<U, Aby3Share<U>, Aby3Share<Bit>>>::dot_many(
             &mut self.aby3,
-            vec![values, macs],
-            vec![rands.to_owned(), rands.to_owned()],
+            &[values, macs],
+            &[rands.to_owned(), rands.to_owned()],
         )
         .await?;
 
@@ -779,8 +779,8 @@ where
             Aby3Share<Bit>,
         >>::dot_many(
             &mut self.aby3,
-            vec![a_values, a_macs],
-            vec![b_values.to_owned(), b_values],
+            &[a_values, a_macs],
+            &[b_values.to_owned(), b_values],
         )
         .await?;
 
@@ -792,8 +792,8 @@ where
 
     async fn dot_many(
         &mut self,
-        a: Vec<Vec<TShare<T>>>,
-        b: Vec<Vec<TShare<T>>>,
+        a: &[Vec<TShare<T>>],
+        b: &[Vec<TShare<T>>],
     ) -> Result<Vec<TShare<T>>, Error> {
         let len = a.len();
         if len != b.len() {
@@ -804,11 +804,11 @@ where
         let mut a_macs = Vec::with_capacity(len);
         let mut b_values = Vec::with_capacity(len);
 
-        for (a, b) in a.into_iter().zip(b.into_iter()) {
+        for (a, b) in a.iter().zip(b.iter()) {
             let mut a_v = Vec::with_capacity(len);
             let mut a_m = Vec::with_capacity(len);
             let mut b_v = Vec::with_capacity(len);
-            for (a, b) in a.into_iter().zip(b.into_iter()) {
+            for (a, b) in a.iter().cloned().zip(b.iter().cloned()) {
                 let (a_v_, a_m_) = a.get();
                 let b_v_ = b.get_value();
                 a_v.push(a_v_);
@@ -827,7 +827,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::dot_many(&mut self.aby3, a_values, b_values.to_owned())
+        >>::dot_many(&mut self.aby3, &a_values, &b_values)
         .await?;
 
         let mut result = Vec::with_capacity(len);

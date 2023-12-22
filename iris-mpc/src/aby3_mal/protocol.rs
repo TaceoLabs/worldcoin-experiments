@@ -587,18 +587,18 @@ impl<N: NetworkTrait> MalAby3<N> {
         assert!(UShare::<T>::K - T::Share::K >= 40);
 
         let mut a_mul = a
-            .into_iter()
+            .iter()
             .map(|a_| {
-                a_.into_iter()
+                a_.iter()
                     .cloned()
                     .map(|a__| a__.to_verificationtype())
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
         let mut b_mul = b
-            .into_iter()
+            .iter()
             .map(|b_| {
-                b_.into_iter()
+                b_.iter()
                     .cloned()
                     .map(|b__| b__.to_verificationtype())
                     .collect::<Vec<_>>()

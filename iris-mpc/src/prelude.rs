@@ -5,6 +5,7 @@ pub use super::aby3_mal::protocol::MalAby3;
 pub use super::error::Error;
 pub use super::iris::protocol::IrisAby3;
 pub use super::iris::protocol::IrisProtocol;
+pub use super::iris::protocol::IrisSpdzWise;
 pub use super::iris::protocol::IrisSwift3;
 pub use super::spdzwise::share::Share as SpzWiseShare;
 pub use super::swift3::network::Swift3Network;

@@ -360,12 +360,12 @@ where
 
         let mut shares_a = Vec::with_capacity(a.len());
 
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        for (a_, b_) in a.iter().zip(b.iter()) {
             let mut rand = self.prf.gen_zero_share::<T>();
             if a_.len() != b_.len() {
                 return Err(Error::InvalidSizeError);
             }
-            for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
+            for (a__, b__) in a_.iter().zip(b_.iter()) {
                 rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
             }
             shares_a.push(rand);

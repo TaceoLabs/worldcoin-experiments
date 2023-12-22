@@ -507,7 +507,7 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -516,7 +516,7 @@ where
                     let mut y1 = de_a - &r1;
                     let mut y3 = de_b - &r2;
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
@@ -544,7 +544,7 @@ where
                 let mut y1s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -554,7 +554,7 @@ where
                     let mut y1 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
@@ -587,7 +587,7 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<U::Share>();
@@ -597,7 +597,7 @@ where
                     let mut y2 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
-                    for (a, b) in a.into_iter().zip(b) {
+                    for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 

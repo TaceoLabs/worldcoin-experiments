@@ -547,7 +547,7 @@ mod iris_mpc_test {
         }
 
         let cmp = iris
-            .compare_iris_many(inp1, inp2s, &code1.mask, &mask2)
+            .compare_iris_many(inp1, &inp2s, &code1.mask, &mask2)
             .await
             .unwrap();
 
@@ -650,7 +650,7 @@ mod iris_mpc_test {
         }
 
         let share_cmp = protocol
-            .compare_iris_many(shared_code1, shared_codes2, &code1.mask, &mask2)
+            .compare_iris_many(shared_code1, &shared_codes2, &code1.mask, &mask2)
             .await
             .unwrap();
 

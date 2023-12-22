@@ -3,7 +3,7 @@ use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpzWiseShare, Swift3S
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
-use plain_reference::{IrisCode, IrisCodeArray};
+use plain_reference::IrisCodeArray;
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
@@ -103,6 +103,7 @@ where
         Ok(combined_mask)
     }
 
+    #[cfg(test)]
     pub(crate) fn apply_mask(
         &self,
         mut code: Vec<Ashare>,
@@ -201,7 +202,6 @@ where
         )
     }
 
-    #[allow(unused)]
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
@@ -263,7 +263,7 @@ where
         let mut b_vec = Vec::with_capacity(amount);
         let mut mask_lens = Vec::with_capacity(amount);
 
-        for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
+        for (b_, mask_b_) in b.iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
             let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_.clone(), &mask)?;
 
