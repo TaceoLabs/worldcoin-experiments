@@ -138,6 +138,37 @@ impl<N: NetworkTrait> Aby3<N> {
 
         Ok(decomp[0].to_owned())
     }
+
+    pub(crate) async fn mul_many<T: Sharable>(
+        &mut self,
+        a: Vec<Share<T>>,
+        b: Vec<Share<T>>,
+    ) -> Result<Vec<Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+    {
+        debug_assert_eq!(a.len(), b.len());
+
+        let mut shares_a = Vec::with_capacity(a.len());
+
+        for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
+            let rand = self.prf.gen_zero_share::<T>();
+            let mut c = a_ * b_;
+            c.a += rand;
+            shares_a.push(c.a);
+        }
+
+        // Network: reshare
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+
+        let res: Vec<Share<T>> = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
+            .map(|(a_, b_)| Share::new(a_, b_))
+            .collect();
+
+        Ok(res)
+    }
 }
 
 impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>

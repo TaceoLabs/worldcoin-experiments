@@ -51,6 +51,16 @@ impl<T: Sharable> Share<T> {
         }
     }
 
+    pub fn to_bits(self) -> Vec<Share<Bit>> {
+        let (a, b) = self.get_ab();
+        let a = a.to_bits();
+        let b = b.to_bits();
+        a.into_iter()
+            .zip(b)
+            .map(|(a, b)| Share::new(a, b))
+            .collect()
+    }
+
     pub fn get_a(self) -> T::Share {
         self.a
     }
