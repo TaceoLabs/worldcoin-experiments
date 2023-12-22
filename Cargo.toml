@@ -4,9 +4,9 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.66"
+rust-version = "1.75"
 authors = ["TACEO GmbH <hello@taceo.io>"]
-description = "Experiments for WorldCoin"
+description = "Experiments for WorldCoin Iris Matching in MPC"
 readme = "./README.md"
 homepage = "www.taceo.io"
 repository = "https://github.com/TaceoLabs/worldcoin-experiments"
