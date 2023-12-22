@@ -490,8 +490,8 @@ where
 
     async fn dot_post_many(
         &mut self,
-        a: Vec<Vec<Share<U>>>,
-        b: Vec<Vec<Share<U>>>,
+        a: &[Vec<Share<U>>],
+        b: &[Vec<Share<U>>],
         de: Vec<Aby3Share<U>>,
     ) -> Result<Vec<Share<U>>, Error>
     where
@@ -521,8 +521,8 @@ where
                     let mut y3 = de_b - &r2;
 
                     for (a, b) in a.into_iter().zip(b) {
-                        let (x_a, x_b, x_c) = a.get_abc();
-                        let (y_a, y_b, y_c) = b.get_abc();
+                        let (x_a, x_b, x_c) = a.clone().get_abc();
+                        let (y_a, y_b, y_c) = b.clone().get_abc();
 
                         y1 -= x_a * &y_c + y_a * &x_c;
                         y3 -= x_b * &y_c + y_b * &x_c;
@@ -559,8 +559,8 @@ where
                     let mut z_c = U::Share::zero();
 
                     for (a, b) in a.into_iter().zip(b) {
-                        let (x_a, x_b, x_c) = a.get_abc();
-                        let (y_a, y_b, y_c) = b.get_abc();
+                        let (x_a, x_b, x_c) = a.clone().get_abc();
+                        let (y_a, y_b, y_c) = b.clone().get_abc();
 
                         y2 -= x_a * &y_c + y_a * &x_c;
                         y1 -= x_b * &y_c + y_b * &x_c;
@@ -602,8 +602,8 @@ where
                     let mut z_c = U::Share::zero();
 
                     for (a, b) in a.into_iter().zip(b) {
-                        let (x_a, x_b, x_c) = a.get_abc();
-                        let (y_a, y_b, y_c) = b.get_abc();
+                        let (x_a, x_b, x_c) = a.clone().get_abc();
+                        let (y_a, y_b, y_c) = b.clone().get_abc();
 
                         y3 -= x_a * &y_c + y_a * &x_c;
                         y2 -= x_b * &y_c + y_b * &x_c;
@@ -2244,8 +2244,8 @@ where
 
     async fn dot_many(
         &mut self,
-        a: Vec<Vec<Share<T>>>,
-        b: Vec<Vec<Share<T>>>,
+        a: &[Vec<Share<T>>],
+        b: &[Vec<Share<T>>],
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {

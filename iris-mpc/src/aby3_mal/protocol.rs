@@ -563,8 +563,8 @@ impl<N: NetworkTrait> MalAby3<N> {
 
     async fn dot_sacrifice_many<T: Sharable, R: Rng + SeedableRng>(
         &mut self,
-        a: Vec<Vec<Share<T>>>,
-        b: Vec<Vec<Share<T>>>,
+        a: &[Vec<Share<T>>],
+        b: &[Vec<Share<T>>],
     ) -> Result<Vec<Share<T>>, Error>
     where
         Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
@@ -591,6 +591,7 @@ impl<N: NetworkTrait> MalAby3<N> {
             .into_iter()
             .map(|a_| {
                 a_.into_iter()
+                    .cloned()
                     .map(|a__| a__.to_verificationtype())
                     .collect::<Vec<_>>()
             })
@@ -599,6 +600,7 @@ impl<N: NetworkTrait> MalAby3<N> {
             .into_iter()
             .map(|b_| {
                 b_.into_iter()
+                    .cloned()
                     .map(|b__| b__.to_verificationtype())
                     .collect::<Vec<_>>()
             })
@@ -1251,8 +1253,8 @@ where
 
     async fn dot_many(
         &mut self,
-        a: Vec<Vec<Share<T>>>,
-        b: Vec<Vec<Share<T>>>,
+        a: &[Vec<Share<T>>],
+        b: &[Vec<Share<T>>],
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {

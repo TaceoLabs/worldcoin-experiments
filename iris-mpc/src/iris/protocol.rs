@@ -104,6 +104,25 @@ where
         Ok(code)
     }
 
+    pub(crate) fn apply_mask_twice(
+        &self,
+        mut code1: Vec<Ashare>,
+        mut code2: Vec<Ashare>,
+        mask: &IrisCodeArray,
+    ) -> Result<(Vec<Ashare>, Vec<Ashare>), Error> {
+        if code1.len() != IRIS_CODE_SIZE || code2.len() != IRIS_CODE_SIZE {
+            return Err(Error::InvalidCodeSizeError);
+        }
+
+        for i in 0..IRIS_CODE_SIZE {
+            if !mask.get_bit(i) {
+                code1[i] = Ashare::zero();
+                code2[i] = Ashare::zero();
+            }
+        }
+        Ok((code1, code2))
+    }
+
     fn hamming_distance_post(
         &self,
         a: Vec<Ashare>,
@@ -145,7 +164,7 @@ where
         a: Vec<Vec<Ashare>>,
         b: Vec<Vec<Ashare>>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.dot_many(a.to_owned(), b.to_owned()).await?;
+        let dots = self.mpc.dot_many(&a, &b).await?;
 
         let mut res = Vec::with_capacity(dots.len());
         for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
@@ -206,8 +225,7 @@ where
         mask_b: &IrisCodeArray,
     ) -> Result<Bshare, Error> {
         let mask = self.combine_masks(mask_a, mask_b)?;
-        let a = self.apply_mask(a, &mask)?;
-        let b = self.apply_mask(b, &mask)?;
+        let (a, b) = self.apply_mask_twice(a, b, &mask)?;
 
         let hwd = self.hamming_distance(a, b).await?;
 
@@ -217,7 +235,7 @@ where
     pub(crate) async fn compare_iris_many(
         &mut self,
         a: Vec<Ashare>,
-        b: Vec<Vec<Ashare>>,
+        b: &[Vec<Ashare>],
         mask_a: &IrisCodeArray,
         mask_b: &[IrisCodeArray],
     ) -> Result<Vec<Bshare>, Error> {
@@ -231,12 +249,11 @@ where
 
         for (b_, mask_b_) in b.into_iter().zip(mask_b.iter()) {
             let mask = self.combine_masks(mask_a, mask_b_)?;
-            let iris_a = self.apply_mask(a.to_owned(), &mask)?;
-            let iris_b = self.apply_mask(b_, &mask)?;
+            let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_.clone(), &mask)?;
 
             a_vec.push(iris_a);
             b_vec.push(iris_b);
-            mask_lens.push(IrisCode::IRIS_CODE_SIZE);
+            mask_lens.push(mask.count_ones());
         }
 
         let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
@@ -259,7 +276,7 @@ where
 
         for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
             let res = self
-                .compare_iris_many(iris.to_owned(), db_.to_owned(), mask_iris, mask_)
+                .compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)
                 .await?;
             bool_shares.extend(res);
         }

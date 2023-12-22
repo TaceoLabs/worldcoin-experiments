@@ -314,8 +314,8 @@ where
 
     async fn dot_many(
         &mut self,
-        a: Vec<Vec<Share<T>>>,
-        b: Vec<Vec<Share<T>>>,
+        a: &[Vec<Share<T>>],
+        b: &[Vec<Share<T>>],
     ) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
@@ -329,7 +329,7 @@ where
                 return Err(Error::InvalidSizeError);
             }
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
-                rand += (a__ * b__).a;
+                rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
             }
             shares_a.push(rand);
         }
