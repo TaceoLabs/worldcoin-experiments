@@ -25,7 +25,7 @@ This is the repository containing code and benchmarking harnesses for _decentral
 
 The repository consists of 3 crates.
 
-- [`iris-mpc`](iris-mpc): Implementation of various base MPC protocol functionality, as well as implementations of iris code membership using said protocols.
+- [`iris-mpc`](iris-mpc): Implementation of various base MPC protocol functionalities, as well as implementations of iris code membership checks using said protocols.
 - [`plain-reference`](plain-reference): Implementation of the Iris Code Matching functionality in plain Rust, to serve as a comparison point for the MPC functionality.
   - Also contains a binary for genration of test data, which is stored in a SQlite DB for uses in tests/examples.
 - [`mpc-net`](mpc-net): Implementation of networking used in the MPC protocols
@@ -38,15 +38,21 @@ We are investigating several different MPC protocols:
 
 - [Semi-honest, honest-majority protocol based on ABY3](iris-mpc/src/aby3/)
   - Most efficient, since there is no overhead for malicious security.
+  - [Publication](https://eprint.iacr.org/2018/403.pdf)
 - [Malicious, honest-majority protocol based on SWIFT](iris-mpc/src/swift3/)
   - Has the same amortized asymptotic communication cost as semi-honest ABY3-based.
-  - However, the used distributed zero-knowledge proof for malicous security is very computationally intensive.
+  - However, the used distributed zero-knowledge proof for malicious security is very computationally intensive.
+  - [Publication](https://eprint.iacr.org/2020/592.pdf), modified to use the cleaner sharing scheme as described in [here](https://arxiv.org/pdf/2112.13338.pdf).
+  - [Distributed ZK Publication](https://eprint.iacr.org/2019/1390.pdf)
 - [Malicious, honest-majority protocol based on ABY3, with triple sacrificing](iris-mpc/src/aby3_mal/)
   - Computationally more efficient than SWIFT, but larger communication.
+  - [Publication](https://eprint.iacr.org/2019/1298.pdf)
 - [Malicious, honest-majority protocol based on SPDZ-wise, using MACs](iris-mpc/src/spdzwise)
-  - Uses a MAC to lift the semi-honest protocol to malicious security.
+  - Uses a MAC to lift the semi-honest protocol (for arithmetic operations, such as dot-products) to malicious security.
   - Working over larger ring for soundness, leading to communication overhead.
   - Additional MAC essentially doubles the communication and computation further.
+  - [Publication](https://eprint.iacr.org/2020/1330.pdf)
+  - We use [triple sacrificing](https://eprint.iacr.org/2019/1298.pdf) for binary computations, such as AND gates.
 
 ## Examples & Benchmarks
 
