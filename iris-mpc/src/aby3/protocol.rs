@@ -60,7 +60,7 @@ impl<N: NetworkTrait> Aby3<N> {
         Ok(())
     }
 
-    fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
+    pub(crate) fn a2b_pre<T: Sharable>(&self, x: Share<T>) -> (Share<T>, Share<T>, Share<T>) {
         let (a, b) = x.get_ab();
 
         let mut x1 = Share::<T>::zero();

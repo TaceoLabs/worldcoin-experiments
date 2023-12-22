@@ -14,12 +14,8 @@ const PACK_SIZE: usize = 256; // TODO adjust
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
 #[allow(type_alias_bounds)]
-pub type IrisSpdzWise<T: Sharable, Mpc> = IrisProtocol<
-    T,
-    SpzWiseShare<T::VerificationShare>,
-    SpzWiseShare<<Bit as Sharable>::VerificationShare>,
-    Mpc,
->;
+pub type IrisSpdzWise<T: Sharable, Mpc> =
+    IrisProtocol<T, SpzWiseShare<T::VerificationShare>, Aby3Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
     mpc: Mpc,

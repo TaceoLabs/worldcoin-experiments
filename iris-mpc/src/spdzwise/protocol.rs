@@ -1,17 +1,16 @@
 use super::share::Share;
 use crate::{
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
+    traits::binary_trait::BinaryMpcTrait,
     types::ring_element::RingImpl,
 };
 use bytes::Bytes;
 use rand::distributions::{Distribution, Standard};
 use sha2::{Digest, Sha512};
-use std::ops::Mul;
+use std::ops::{BitAnd, Mul};
 
 #[allow(type_alias_bounds)]
 pub(crate) type TShare<T: Sharable> = Share<T::VerificationShare>;
-pub(crate) type BitShare = Share<<Bit as Sharable>::VerificationShare>;
-pub(crate) type BitShareType = <Bit as Sharable>::VerificationShare;
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
@@ -128,10 +127,11 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, TShare<T>, BitShare>
+impl<N: NetworkTrait, T: Sharable> MpcTrait<T, TShare<T>, Aby3Share<Bit>>
     for SpdzWise<N, T::VerificationShare>
 where
     Standard: Distribution<UShare<T>>,
+    Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
 {
@@ -285,32 +285,34 @@ where
         Ok(result)
     }
 
-    async fn open_bit(&mut self, share: BitShare) -> Result<bool, Error> {
-        let result = <_ as MpcTrait<BitShareType, Aby3Share<BitShareType>, Aby3Share<Bit>>>::open(
-            &mut self.aby3,
-            share.get_value(),
-        )
-        .await?;
+    async fn open_bit(&mut self, share: Aby3Share<Bit>) -> Result<bool, Error> {
+        todo!()
+        // let result = <_ as MpcTrait<Aby3Share<Bit>Type, Aby3Share<Aby3Share<Bit>Type>, Aby3Share<Bit>>>::open(
+        //     &mut self.aby3,
+        //     share.get_value(),
+        // )
+        // .await?;
 
-        Ok(Bit::from_verificationshare(result).convert())
+        // Ok(Bit::from_verificationshare(result).convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<BitShare>) -> Result<Vec<bool>, Error> {
-        let values = shares.into_iter().map(|s| s.get_value()).collect();
+    async fn open_bit_many(&mut self, shares: Vec<Aby3Share<Bit>>) -> Result<Vec<bool>, Error> {
+        todo!()
+        // let values = shares.into_iter().map(|s| s.get_value()).collect();
 
-        let result =
-            <_ as MpcTrait<BitShareType, Aby3Share<BitShareType>, Aby3Share<Bit>>>::open_many(
-                &mut self.aby3,
-                values,
-            )
-            .await?;
+        // let result =
+        //     <_ as MpcTrait<Aby3Share<Bit>Type, Aby3Share<Aby3Share<Bit>Type>, Aby3Share<Bit>>>::open_many(
+        //         &mut self.aby3,
+        //         values,
+        //     )
+        //     .await?;
 
-        let result = result
-            .into_iter()
-            .map(|r| Bit::from_verificationshare(r).convert())
-            .collect();
+        // let result = result
+        //     .into_iter()
+        //     .map(|r| Bit::from_verificationshare(r).convert())
+        //     .collect();
 
-        Ok(result)
+        // Ok(result)
     }
 
     fn add(&self, a: TShare<T>, b: TShare<T>) -> TShare<T> {
@@ -537,25 +539,148 @@ where
         Ok(result)
     }
 
-    async fn get_msb(&mut self, a: TShare<T>) -> Result<BitShare, Error> {
+    async fn get_msb(&mut self, a: TShare<T>) -> Result<Aby3Share<Bit>, Error> {
         self.verify_macs().await?;
-        todo!()
+
+        // protocol switch
+        let value = Aby3Share::<T>::from_verificationtype(a.get_value());
+        let bits = self.arithmetic_to_binary(value).await?;
+        Ok(bits.get_msb())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<BitShare>, Error> {
+    async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<Aby3Share<Bit>>, Error> {
         self.verify_macs().await?;
+
+        // protocol switch
+        let values = a
+            .into_iter()
+            .map(|a| Aby3Share::<T>::from_verificationtype(a.get_value()))
+            .collect();
+        let bits = self.arithmetic_to_binary_many(values).await?;
+        let res = bits.into_iter().map(|a| a.get_msb()).collect();
+        Ok(res)
+    }
+
+    async fn binary_or(
+        &mut self,
+        a: Aby3Share<Bit>,
+        b: Aby3Share<Bit>,
+    ) -> Result<Aby3Share<Bit>, Error> {
         todo!()
     }
 
-    async fn binary_or(&mut self, a: BitShare, b: BitShare) -> Result<BitShare, Error> {
-        todo!()
-    }
-
-    async fn reduce_binary_or(&mut self, a: Vec<BitShare>) -> Result<BitShare, Error> {
+    async fn reduce_binary_or(&mut self, a: Vec<Aby3Share<Bit>>) -> Result<Aby3Share<Bit>, Error> {
         todo!()
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
         self.verify_macs().await
+    }
+}
+
+impl<N: NetworkTrait, T: Sharable, U: Sharable> BinaryMpcTrait<T, Aby3Share<T>> for SpdzWise<N, U>
+where
+    Standard: Distribution<T::Share>,
+    // Share<T>: BitAnd<T::Share, Output = Share<T>>,
+    // Share<T>: BitAnd<Share<T>, Output = Share<T>>,
+{
+    async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
+        todo!()
+        // let len = T::Share::K;
+        // let (x, y, z) = self.get_mul_triple_many::<Bit, ChaCha12Rng>(len).await?;
+
+        // let x = self.pack_exact::<T>(x);
+        // let y = self.pack_exact::<T>(y);
+        // let z = self.pack_exact::<T>(z);
+
+        // let u = a.to_owned() ^ &x;
+        // let v = b.to_owned() ^ &y;
+
+        // let uv = self.reconstruct_binary_many(vec![u, v]).await?;
+        // let u = uv[0].to_sharetype();
+        // let v = uv[1].to_sharetype();
+        // let uv = u.to_owned() & &v;
+
+        // let mut c = z ^ (b & u) ^ (a & v);
+        // c.xor_assign_const(
+        //     &uv,
+        //     PartyID::try_from(self.network.get_id() as u8).expect("ID is in range"),
+        // );
+
+        // Ok(c)
+    }
+
+    async fn and_many(
+        &mut self,
+        a: Vec<Aby3Share<T>>,
+        b: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<Aby3Share<T>>, Error> {
+        todo!()
+        // let len = a.len();
+        // if len != b.len() {
+        //     return Err(Error::InvalidSizeError);
+        // }
+
+        // let triple_len = T::Share::K * len;
+        // let (x, y, z) = self
+        //     .get_mul_triple_many::<Bit, ChaCha12Rng>(triple_len)
+        //     .await?;
+        // let x = self.pack::<T>(x);
+        // let y = self.pack::<T>(y);
+        // let z = self.pack::<T>(z);
+
+        // let mut uv_ = Vec::with_capacity(2 * len);
+        // for (a_, x_) in a.iter().cloned().zip(x.iter()) {
+        //     uv_.push(a_ ^ x_);
+        // }
+        // for (b_, y_) in b.iter().cloned().zip(y.iter()) {
+        //     uv_.push(b_ ^ y_);
+        // }
+
+        // let uv = self.reconstruct_binary_many(uv_).await?;
+
+        // let mut res = Vec::with_capacity(len);
+
+        // for (z, ((a, b), (u, v))) in z.into_iter().zip(
+        //     a.into_iter()
+        //         .zip(b.into_iter())
+        //         .zip(uv.iter().take(len).zip(uv.iter().skip(len))),
+        // ) {
+        //     let u = u.to_sharetype();
+        //     let v = v.to_sharetype();
+        //     let uv = u.to_owned() & &v;
+
+        //     let mut c = z ^ (b & u) ^ (a & v);
+        //     c.xor_assign_const(
+        //         &uv,
+        //         PartyID::try_from(self.network.get_id() as u8).expect("ID is in range"),
+        //     );
+        //     res.push(c);
+        // }
+
+        // Ok(res)
+    }
+
+    async fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
+        let (x1, x2, x3) = self.aby3.a2b_pre(x);
+        self.binary_add_3(x1, x2, x3).await
+    }
+
+    async fn arithmetic_to_binary_many(
+        &mut self,
+        x: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<Aby3Share<T>>, Error> {
+        let len = x.len();
+        let mut x1 = Vec::with_capacity(len);
+        let mut x2 = Vec::with_capacity(len);
+        let mut x3 = Vec::with_capacity(len);
+
+        for x_ in x {
+            let (x1_, x2_, x3_) = self.aby3.a2b_pre(x_);
+            x1.push(x1_);
+            x2.push(x2_);
+            x3.push(x3_);
+        }
+        self.binary_add_3_many(x1, x2, x3).await
     }
 }

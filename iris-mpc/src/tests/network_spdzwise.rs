@@ -1,8 +1,8 @@
 mod spdzwise_test {
     use crate::{
-        prelude::{Aby3Share, PartyTestNetwork, TestNetwork3p},
+        prelude::{Aby3Share, Bit, PartyTestNetwork, TestNetwork3p},
         spdzwise::{
-            protocol::{BitShare, SpdzWise, TShare, UShare},
+            protocol::{SpdzWise, TShare, UShare},
             share::Share,
         },
         traits::mpc_trait::{MpcTrait, Plain},
@@ -26,30 +26,31 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let r = <_ as MpcTrait<T, TShare<T>, BitShare>>::open_mac_key(&mut protocol)
+        let r = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::open_mac_key(&mut protocol)
             .await
             .unwrap();
-        let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
+        let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
 
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
         let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input, r, &mut rng);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -91,25 +92,26 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open_many(shares).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -146,14 +148,15 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -162,15 +165,15 @@ mod spdzwise_test {
 
         let result = shares
             .into_iter()
-            .reduce(|acc, x| <_ as MpcTrait<T, TShare<T>, BitShare>>::add(&protocol, acc, x))
+            .reduce(|acc, x| <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::add(&protocol, acc, x))
             .unwrap();
 
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -207,14 +210,15 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -222,15 +226,15 @@ mod spdzwise_test {
         let shares = protocol.input_all(input).await.unwrap();
 
         let result = shares.into_iter().fold(Share::zero(), |acc, x| {
-            <_ as MpcTrait<T, TShare<T>, BitShare>>::sub(&protocol, acc, x)
+            <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::sub(&protocol, acc, x)
         });
 
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -270,16 +274,17 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
+        let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
         let mul = rng.gen::<T>();
 
@@ -292,12 +297,12 @@ mod spdzwise_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.add_const(share, mul);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input.unwrap_or(T::zero()), open)
@@ -344,16 +349,17 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
+        let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
         let mul = rng.gen::<T>();
 
@@ -366,12 +372,12 @@ mod spdzwise_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.sub_const(share, mul);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input.unwrap_or(T::zero()), open)
@@ -415,14 +421,15 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
@@ -431,17 +438,18 @@ mod spdzwise_test {
 
         let mut result = shares[0].to_owned();
         for share in shares.into_iter().skip(1) {
-            result = <_ as MpcTrait<T, TShare<T>, BitShare>>::mul(&mut protocol, result, share)
-                .await
-                .unwrap();
+            result =
+                <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::mul(&mut protocol, result, share)
+                    .await
+                    .unwrap();
         }
 
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)
@@ -481,16 +489,17 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
+        let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
         let mut rng = R::from_seed(seed);
         let mul = rng.gen::<T>();
 
@@ -503,12 +512,12 @@ mod spdzwise_test {
         };
         let share = protocol.input(input, 0).await.unwrap();
         let result = protocol.mul_const(share, mul);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input.unwrap_or(T::zero()), open)
@@ -552,16 +561,17 @@ mod spdzwise_test {
     where
         Standard: Distribution<T>,
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
         let mut protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::preprocess(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::preprocess(&mut protocol)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::set_new_mac_key(&mut protocol);
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let id = <_ as MpcTrait<T, TShare<T>, BitShare>>::get_id(&protocol);
+        let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
         let mut rng = SmallRng::from_entropy();
 
         let mut input = Vec::with_capacity(DOT_SIZE);
@@ -588,15 +598,15 @@ mod spdzwise_test {
             b.push(share2);
         }
 
-        let result = <_ as MpcTrait<T, TShare<T>, BitShare>>::dot(&mut protocol, a, b)
+        let result = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::dot(&mut protocol, a, b)
             .await
             .unwrap();
-        <_ as MpcTrait<T, TShare<T>, BitShare>>::verify(&mut protocol)
+        <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
         let open = protocol.open(result).await.unwrap();
 
-        MpcTrait::<T, TShare<T>, BitShare>::finish(protocol)
+        MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
             .await
             .unwrap();
         (input, open)

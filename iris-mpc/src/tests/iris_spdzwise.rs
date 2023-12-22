@@ -1,8 +1,8 @@
 mod iris_mpc_test {
     use crate::{
         iris::protocol::{IrisProtocol, IrisSpdzWise},
-        prelude::{Aby3Share, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
-        spdzwise::protocol::{BitShare, SpdzWise, TShare, UShare},
+        prelude::{Aby3Share, Bit, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
+        spdzwise::protocol::{SpdzWise, TShare, UShare},
         tests::iris_config::iris_config::create_database,
         traits::mpc_trait::Plain,
     };
@@ -34,6 +34,7 @@ mod iris_mpc_test {
     ) -> Vec<TShare<T>>
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
@@ -57,6 +58,7 @@ mod iris_mpc_test {
     ) -> Vec<IrisCodeArray>
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -96,6 +98,7 @@ mod iris_mpc_test {
     async fn mask_test_spdzwise_impl<T: Sharable>()
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -147,6 +150,7 @@ mod iris_mpc_test {
     ) -> Vec<T>
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -185,6 +189,7 @@ mod iris_mpc_test {
     async fn hwd_test_spdzwise_impl<T: Sharable>()
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -325,7 +330,7 @@ mod iris_mpc_test {
         plain_lt_test_inner::<u16>().await
     }
 
-    async fn lt_tester_spdzwise<T: Sharable, R: Rng, Mpc: MpcTrait<T, TShare<T>, BitShare>>(
+    async fn lt_tester_spdzwise<T: Sharable, R: Rng, Mpc: MpcTrait<T, TShare<T>, Aby3Share<Bit>>>(
         protocol: &mut IrisSpdzWise<T, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -334,6 +339,7 @@ mod iris_mpc_test {
     ) -> bool
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -374,6 +380,7 @@ mod iris_mpc_test {
         iris_seed: R::Seed,
     ) where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -401,6 +408,7 @@ mod iris_mpc_test {
     async fn lt_test_spdzwise_impl<T: Sharable>()
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -520,7 +528,7 @@ mod iris_mpc_test {
     async fn cmp_many_iris_tester_spdzwise<
         T: Sharable,
         R: Rng,
-        Mpc: MpcTrait<T, TShare<T>, BitShare>,
+        Mpc: MpcTrait<T, TShare<T>, Aby3Share<Bit>>,
     >(
         protocol: &mut IrisSpdzWise<T, Mpc>,
         rng: &mut R,
@@ -530,6 +538,7 @@ mod iris_mpc_test {
     ) -> Vec<bool>
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -565,7 +574,11 @@ mod iris_mpc_test {
         cmp
     }
 
-    async fn cmp_iris_tester_spdzwise<T: Sharable, R: Rng, Mpc: MpcTrait<T, TShare<T>, BitShare>>(
+    async fn cmp_iris_tester_spdzwise<
+        T: Sharable,
+        R: Rng,
+        Mpc: MpcTrait<T, TShare<T>, Aby3Share<Bit>>,
+    >(
         protocol: &mut IrisSpdzWise<T, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -574,6 +587,7 @@ mod iris_mpc_test {
     ) -> bool
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -602,6 +616,7 @@ mod iris_mpc_test {
         iris_seed: R::Seed,
     ) where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -655,6 +670,7 @@ mod iris_mpc_test {
     async fn cmp_iris_test_spdzwise_impl<T: Sharable>()
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -748,6 +764,7 @@ mod iris_mpc_test {
         iris_seed: R::Seed,
     ) where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -808,6 +825,7 @@ mod iris_mpc_test {
     async fn full_test_spdzwise_impl<T: Sharable>()
     where
         Standard: Distribution<UShare<T>>,
+        Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
