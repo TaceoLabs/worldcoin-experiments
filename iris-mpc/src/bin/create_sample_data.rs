@@ -207,12 +207,12 @@ fn create_spdzwise_db(opts: Opts) -> Result<()> {
 
     let shares = Aby3::<Aby3Network>::share(mac_key, 0, &mut rng);
 
-    let mac_key = bincode::serialize(&mac_key)?;
+    let mac_key_ = bincode::serialize(&mac_key)?;
     let data_a = bincode::serialize(&shares[0].to_owned().get_a())?;
     let data_b = bincode::serialize(&shares[1].to_owned().get_a())?;
     let data_c = bincode::serialize(&shares[2].to_owned().get_a())?;
 
-    stmt.execute([&mac_key, &data_a, &data_b, &data_c])?;
+    stmt.execute([&mac_key_, &data_a, &data_b, &data_c])?;
 
     drop(stmt);
     transaction.commit()?;

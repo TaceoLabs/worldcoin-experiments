@@ -4,7 +4,7 @@ use color_eyre::{
     Report, Result,
 };
 use iris_mpc::prelude::{
-    Aby3, Aby3Network, Aby3Share, Error, IrisAby3, MpcTrait, Sharable, SpdzWiseShare,
+    Aby3Network, Aby3Share, Error, IrisSpdzWise, MpcTrait, Sharable, SpdzWise, SpdzWiseShare,
 };
 use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
@@ -61,10 +61,13 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisAby3<T, Aby3<Aby3Network>>) -> Result<()>
+fn print_stats<T: Sharable>(
+    iris: &IrisSpdzWise<T, SpdzWise<Aby3Network, T::VerificationShare>>,
+) -> Result<()>
 where
-    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    Standard: Distribution<UShare<T>>,
     Standard: Distribution<T::Share>,
 {
     let id = iris.get_id();
@@ -96,7 +99,7 @@ struct SharedDB<T: Sharable> {
     shares: Vec<Vec<SpdzWiseShare<T::VerificationShare>>>,
     masks: Vec<IrisCodeArray>,
     mac_key: T::VerificationShare,
-    mac_key_shares: SpdzWiseShare<T::VerificationShare>,
+    mac_key_share: SpdzWiseShare<T::VerificationShare>,
 }
 
 #[derive(Default)]
@@ -113,6 +116,7 @@ fn open_database(database_file: &PathBuf) -> Result<Connection> {
 
 fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     let conn = open_database(&args.database)?;
+    let mut res = SharedDB::<T>::default();
 
     // read the mac_key from the database using rusqlite
     let mut stmt = match args.party {
@@ -122,7 +126,6 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         i => Err(Error::IdError(i))?,
     };
 
-    let mut res = SharedDB::<T>::default();
     let mut rows = stmt.query([])?;
     let row = rows.next()?.context("no mac key in database")?;
 
@@ -134,6 +137,9 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     let mac_key = row.get::<_, Vec<u8>>(2)?;
     let mac_key: T::VerificationShare = bincode::deserialize(&mac_key)?;
 
+    res.mac_key = mac_key;
+    res.mac_key_share = mac_share;
+
     if rows.next()?.is_some() {
         Err(Report::msg("Invalid MPC protocol specified"))?
     }
@@ -142,13 +148,10 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     let mut stmt = match args.party {
         0 => conn.prepare("SELECT share_a, mac_a, share_c, mac_c, mask from iris_codes;")?,
         1 => conn.prepare("SELECT share_b, mac_b, share_a, mac_a, mask from iris_codes;")?,
-        2 => conn.prepare("SELECT share_c, mac_c share_b, mac_b, mask from iris_codes;")?,
+        2 => conn.prepare("SELECT share_c, mac_c, share_b, mac_b, mask from iris_codes;")?,
         i => Err(Error::IdError(i))?,
     };
 
-    let mut res = SharedDB::<T>::default();
-    res.mac_key = mac_key;
-    res.mac_key_shares = mac_share;
     let mut rows = stmt.query([])?;
 
     while let Some(row) = rows.next()? {
@@ -182,56 +185,54 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
     Ok(res)
 }
 
-// fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
-// where
-//     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
-//     Standard: Distribution<T::Share>,
-// {
-//     let mut rng = SmallRng::seed_from_u64(args.iris_seed);
-//     let iris = if args.should_match {
-//         let conn = open_database(&args.database)?;
-//         // read the codes from the database using rusqlite and iterate over them
-//         conn.query_row(
-//             "SELECT code, mask from iris_codes WHERE id = 1;",
-//             [],
-//             |row| {
-//                 let mut res = IrisCode::default();
-//                 res.code
-//                     .as_raw_mut_slice()
-//                     .copy_from_slice(&row.get::<_, Vec<u8>>(0)?);
-//                 res.mask
-//                     .as_raw_mut_slice()
-//                     .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
+fn get_iris_share<T: Sharable>(args: Args, mac_key: T::VerificationShare) -> Result<SharedIris<T>>
+where
+    Standard: Distribution<UShare<T>>,
+    Standard: Distribution<T::Share>,
+    Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+{
+    let mut rng = SmallRng::seed_from_u64(args.iris_seed);
+    let iris = if args.should_match {
+        let conn = open_database(&args.database)?;
+        // read the codes from the database using rusqlite and iterate over them
+        conn.query_row(
+            "SELECT code, mask from iris_codes WHERE id = 1;",
+            [],
+            |row| {
+                let mut res = IrisCode::default();
+                res.code
+                    .as_raw_mut_slice()
+                    .copy_from_slice(&row.get::<_, Vec<u8>>(0)?);
+                res.mask
+                    .as_raw_mut_slice()
+                    .copy_from_slice(&row.get::<_, Vec<u8>>(1)?);
 
-//                 res = res.get_similar_iris(&mut rng);
+                res = res.get_similar_iris(&mut rng);
 
-//                 Ok(res)
-//             },
-//         )?
-//     } else {
-//         IrisCode::random_rng(&mut rng)
-//     };
+                Ok(res)
+            },
+        )?
+    } else {
+        IrisCode::random_rng(&mut rng)
+    };
 
-//     let mut res = SharedIris::<T>::default();
-//     res.mask
-//         .as_raw_mut_slice()
-//         .copy_from_slice(iris.mask.as_raw_slice());
+    let mut res = SharedIris::<T>::default();
+    res.mask
+        .as_raw_mut_slice()
+        .copy_from_slice(iris.mask.as_raw_slice());
 
-//     for i in 0..IrisCode::IRIS_CODE_SIZE {
-//         // We simulate the parties already knowing the shares of the code.
-//         let shares = Aby3::<Aby3Network>::share(
-//             T::from(iris.code.get_bit(i)),
-//             T::VerificationShare::default(),
-//             &mut rng,
-//         );
-//         if args.party > 2 {
-//             Err(Error::IdError(args.party))?;
-//         }
-//         res.shares.push(shares[args.party].to_owned());
-//     }
+    for i in 0..IrisCode::IRIS_CODE_SIZE {
+        // We simulate the parties already knowing the shares of the code.
+        let shares =
+            SpdzWise::<Aby3Network, _>::share(T::from(iris.code.get_bit(i)), mac_key, &mut rng);
+        if args.party > 2 {
+            Err(Error::IdError(args.party))?;
+        }
+        res.shares.push(shares[args.party].to_owned());
+    }
 
-//     Ok(res)
-// }
+    Ok(res)
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -244,48 +245,49 @@ async fn main() -> Result<()> {
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
 
-    // println0!(id, "Get shares:");
-    // let start = Instant::now();
-    // let shares = get_iris_share::<u16>(args.to_owned())?;
-    // let duration = start.elapsed();
-    // println0!(id, "...done, took {} ms\n", duration.as_millis());
+    println0!(id, "Get shares:");
+    let start = Instant::now();
+    let shares = get_iris_share::<u16>(args.to_owned(), db.mac_key)?;
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
 
-    // println0!(id, "Setting up network:");
-    // let start = Instant::now();
-    // let network = setup_network(args.to_owned()).await?;
-    // let duration = start.elapsed();
-    // println0!(id, "...done, took {} ms\n", duration.as_millis());
+    println0!(id, "Setting up network:");
+    let start = Instant::now();
+    let network = setup_network(args.to_owned()).await?;
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
 
-    // println0!(id, "\nInitialize protocol:");
-    // let start = Instant::now();
-    // let protocol = Aby3::new(network);
-    // let mut iris = IrisAby3::<u16, _>::new(protocol)?;
-    // let duration = start.elapsed();
-    // println0!(id, "...done, took {} ms\n", duration.as_millis());
-    // print_stats(&iris)?;
+    println0!(id, "\nInitialize protocol:");
+    let start = Instant::now();
+    let protocol = SpdzWise::new(network);
+    let mut iris = IrisSpdzWise::<u16, _>::new(protocol)?;
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
+    print_stats(&iris)?;
 
-    // println0!(id, "\nPreprocessing:");
-    // let start = Instant::now();
-    // iris.preprocessing().await?;
-    // let duration = start.elapsed();
-    // println0!(id, "...done, took {} ms\n", duration.as_millis());
-    // print_stats(&iris)?;
+    println0!(id, "\nPreprocessing:");
+    let start = Instant::now();
+    iris.preprocessing().await?;
+    iris.set_mac_key(db.mac_key_share);
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms\n", duration.as_millis());
+    print_stats(&iris)?;
 
-    // println0!(id, "\nMPC matching:");
-    // let start = Instant::now();
-    // let res = iris
-    //     .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
-    //     .await?;
-    // let duration = start.elapsed();
-    // println0!(id, "...done, took {} ms", duration.as_millis());
-    // println0!(id, "Result is {res}\n");
-    // print_stats(&iris)?;
+    println0!(id, "\nMPC matching:");
+    let start = Instant::now();
+    let res = iris
+        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
+        .await?;
+    let duration = start.elapsed();
+    println0!(id, "...done, took {} ms", duration.as_millis());
+    println0!(id, "Result is {res}\n");
+    print_stats(&iris)?;
 
-    // if args.should_match && !res {
-    //     println0!(id, "ERROR: should match but doesn't");
-    // }
+    if args.should_match && !res {
+        println0!(id, "ERROR: should match but doesn't");
+    }
 
-    // iris.finish().await?;
+    iris.finish().await?;
 
     Ok(())
 }
