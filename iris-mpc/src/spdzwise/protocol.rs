@@ -855,6 +855,7 @@ where
     }
 
     async fn get_msb(&mut self, a: TShare<T>) -> Result<Aby3Share<Bit>, Error> {
+        self.verifyqueue.push(a.to_owned());
         self.verify_macs().await?;
 
         // protocol switch
@@ -864,6 +865,7 @@ where
     }
 
     async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<Aby3Share<Bit>>, Error> {
+        self.verifyqueue.extend(a.to_owned());
         self.verify_macs().await?;
 
         // protocol switch
