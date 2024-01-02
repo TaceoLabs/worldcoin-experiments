@@ -1,4 +1,3 @@
-use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::{
     io::{self},
@@ -11,38 +10,28 @@ pub type ReadChannel<T, D> = FramedRead<T, D>;
 pub type WriteChannel<T, E> = FramedWrite<T, E>;
 
 #[derive(Debug)]
-pub struct Channel<
-    R: AsyncReadExt + Send + 'static + std::marker::Unpin,
-    W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-    MSend,
-    MRecv,
-    C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
-> {
+pub struct Channel<R, W, C> {
     read_conn: ReadChannel<R, C>,
     write_conn: WriteChannel<W, C>,
-    _phantom: std::marker::PhantomData<(MSend, MRecv)>,
 }
 
-pub type BytesChannel<R, W> = Channel<R, W, Bytes, BytesMut, LengthDelimitedCodec>;
+pub type BytesChannel<R, W> = Channel<R, W, LengthDelimitedCodec>;
 
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-        MSend,
-        MRecv,
-        C: Encoder<MSend, Error = io::Error>
-            + Decoder<Item = MRecv, Error = io::Error>
-            + Clone
-            + 'static,
-    > Channel<R, W, MSend, MRecv, C>
+        C,
+    > Channel<R, W, C>
 {
     /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
     /// are automatically handled by [`LengthDelimitedCodec`].
-    pub fn new(read_half: R, write_half: W, codec: C) -> Self {
+    pub fn new<MSend>(read_half: R, write_half: W, codec: C) -> Self
+    where
+        C: Clone + Decoder + Encoder<MSend>,
+    {
         Channel {
             write_conn: FramedWrite::new(write_half, codec.clone()),
             read_conn: FramedRead::new(read_half, codec),
-            _phantom: std::marker::PhantomData,
         }
     }
     /// Split Connection into a ([`WriteChannel`],[`ReadChannel`]) pair.
@@ -50,7 +39,10 @@ impl<
         (self.write_conn, self.read_conn)
     }
 
-    pub async fn close(self) -> Result<(), io::Error> {
+    pub async fn close<MSend>(self) -> Result<(), io::Error>
+    where
+        C: Encoder<MSend, Error = std::io::Error> + Decoder<Error = std::io::Error>,
+    {
         let Channel {
             mut read_conn,
             mut write_conn,
@@ -79,9 +71,8 @@ impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
         MSend: 'static + std::marker::Unpin,
-        MRecv: 'static + std::marker::Unpin,
-        C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
-    > Sink<MSend> for Channel<R, W, MSend, MRecv, C>
+        C: Encoder<MSend, Error = io::Error> + 'static,
+    > Sink<MSend> for Channel<R, W, C>
 where
     Self: 'static + std::marker::Unpin,
 {
@@ -115,10 +106,9 @@ where
 impl<
         R: AsyncReadExt + Send + 'static + std::marker::Unpin,
         W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-        MSend,
         MRecv,
-        C: Encoder<MSend, Error = io::Error> + Decoder<Item = MRecv, Error = io::Error> + 'static,
-    > Stream for Channel<R, W, MSend, MRecv, C>
+        C: Decoder<Item = MRecv, Error = io::Error> + 'static,
+    > Stream for Channel<R, W, C>
 where
     Self: 'static + std::marker::Unpin,
 {

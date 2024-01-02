@@ -161,10 +161,9 @@ impl MpcNetworkHandler {
         self.get_custom_channels(LengthDelimitedCodec::new()).await
     }
 
-    pub async fn get_serde_bincode_channels<M: Serialize + DeserializeOwned>(
+    pub async fn get_serde_bincode_channels<M: Serialize + DeserializeOwned + 'static>(
         &mut self,
-    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, M, M, BincodeCodec<M>>>>
-    {
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, BincodeCodec<M>>>> {
         let bincodec = BincodeCodec::<M>::new();
         self.get_custom_channels(bincodec).await
     }
@@ -179,7 +178,7 @@ impl MpcNetworkHandler {
     >(
         &mut self,
         codec: C,
-    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, MSend, MRecv, C>>> {
+    ) -> std::io::Result<HashMap<usize, Channel<RecvStream, SendStream, C>>> {
         let mut channels = HashMap::with_capacity(self.connections.len() - 1);
         for (&id, conn) in &mut self.connections {
             if id < self.my_id {
