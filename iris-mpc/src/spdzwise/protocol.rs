@@ -142,7 +142,7 @@ where
 
     #[inline(always)]
     async fn jmp_send<T: Sharable>(&mut self, send: T::Share) -> Result<(), Error> {
-        utils::send_value_next(&mut self.aby3.network, send).await
+        Ok(self.aby3.network.send_value_next_id(send).await?)
     }
 
     #[inline(always)]
@@ -152,7 +152,7 @@ where
 
     #[inline(always)]
     async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
-        utils::send_vec_next(&mut self.aby3.network, send).await
+        Ok(self.aby3.network.send_vec_next_id(send).await?)
     }
 
     fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
@@ -162,13 +162,13 @@ where
     }
 
     async fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
-        let value: T::Share = utils::receive_value_prev(&mut self.aby3.network).await?;
+        let value: T::Share = self.aby3.network.receive_value_prev_id().await?;
         value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
         Ok(value)
     }
 
-    async fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
-        let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.aby3.network, len).await?;
+    async fn jmp_receive_many<T: Sharable>(&mut self) -> Result<Vec<T::Share>, Error> {
+        let values: Vec<T::Share> = self.aby3.network.receive_vec_prev_id().await?;
 
         for value in values.iter().cloned() {
             value.add_to_bytes(&mut self.rcv_queue_next);
@@ -192,10 +192,9 @@ where
         send: Vec<T::Share>,
         buffer: Vec<T::Share>,
     ) -> Result<Vec<T::Share>, Error> {
-        let len = send.len();
         self.jmp_buffer_many::<T>(buffer);
         self.jmp_send_many::<T>(send).await?;
-        self.jmp_receive_many::<T>(len).await
+        self.jmp_receive_many::<T>().await
     }
 
     fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {

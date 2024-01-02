@@ -47,7 +47,7 @@ impl<N: NetworkTrait> MalAby3<N> {
 
     #[inline(always)]
     async fn jmp_send<T: Sharable>(&mut self, send: T::Share) -> Result<(), Error> {
-        utils::send_value_next(&mut self.network, send).await
+        Ok(self.network.send_value_next_id(send).await?)
     }
 
     #[inline(always)]
@@ -57,7 +57,7 @@ impl<N: NetworkTrait> MalAby3<N> {
 
     #[inline(always)]
     async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
-        utils::send_vec_next(&mut self.network, send).await
+        Ok(self.network.send_vec_next_id(send).await?)
     }
 
     fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
@@ -67,13 +67,13 @@ impl<N: NetworkTrait> MalAby3<N> {
     }
 
     async fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
-        let value: T::Share = utils::receive_value_prev(&mut self.network).await?;
+        let value: T::Share = self.network.receive_value_prev_id().await?;
         value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
         Ok(value)
     }
 
-    async fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
-        let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.network, len).await?;
+    async fn jmp_receive_many<T: Sharable>(&mut self) -> Result<Vec<T::Share>, Error> {
+        let values: Vec<T::Share> = self.network.receive_vec_prev_id().await?;
 
         for value in values.iter().cloned() {
             value.add_to_bytes(&mut self.rcv_queue_next);
@@ -97,10 +97,9 @@ impl<N: NetworkTrait> MalAby3<N> {
         send: Vec<T::Share>,
         buffer: Vec<T::Share>,
     ) -> Result<Vec<T::Share>, Error> {
-        let len = send.len();
         self.jmp_buffer_many::<T>(buffer);
         self.jmp_send_many::<T>(send).await?;
-        self.jmp_receive_many::<T>(len).await
+        self.jmp_receive_many::<T>().await
     }
 
     fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
@@ -1021,22 +1020,22 @@ where
                 value.to_sharetype() - opened.expect("msg should be received").to_sharetype();
             share.a += &value;
 
-            utils::send_value_next(&mut self.network, value.to_owned()).await?;
-            utils::send_value_prev(&mut self.network, value).await?;
+            self.network.send_value_next_id(value.to_owned()).await?;
+            self.network.send_value_prev_id(value).await?;
             share
         } else if my_id == (id + 1) % 3 {
-            let value = utils::receive_value_prev::<_, T::Share>(&mut self.network).await?;
-            utils::send_value_next(&mut self.network, value.to_owned()).await?;
-            let value_ = utils::receive_value_next(&mut self.network).await?;
+            let value = self.network.receive_value_prev_id::<T::Share>().await?;
+            self.network.send_value_next_id(value.to_owned()).await?;
+            let value_ = self.network.receive_value_next_id().await?;
             if value != value_ {
                 return Err(Error::VerifyError);
             }
             share.b += value;
             share
         } else {
-            let value = utils::receive_value_next::<_, T::Share>(&mut self.network).await?;
-            utils::send_value_prev(&mut self.network, value.to_owned()).await?;
-            let value_ = utils::receive_value_prev(&mut self.network).await?;
+            let value = self.network.receive_value_next_id::<T::Share>().await?;
+            self.network.send_value_prev_id(value.to_owned()).await?;
+            let value_ = self.network.receive_value_prev_id().await?;
             if value != value_ {
                 return Err(Error::VerifyError);
             }
