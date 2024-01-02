@@ -17,11 +17,8 @@ pub struct Channel<R, W, C> {
 
 pub type BytesChannel<R, W> = Channel<R, W, LengthDelimitedCodec>;
 
-impl<
-        R: AsyncReadExt + Send + 'static + std::marker::Unpin,
-        W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-        C,
-    > Channel<R, W, C>
+impl<R: AsyncReadExt + std::marker::Unpin, W: AsyncWriteExt + std::marker::Unpin, C>
+    Channel<R, W, C>
 {
     /// Create a new [`Channel`], backed by a read and write half. Read and write buffers
     /// are automatically handled by [`LengthDelimitedCodec`].
@@ -67,14 +64,10 @@ impl<
         Ok(())
     }
 }
-impl<
-        R: AsyncReadExt + Send + 'static + std::marker::Unpin,
-        W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
-        MSend: 'static + std::marker::Unpin,
-        C: Encoder<MSend, Error = io::Error> + 'static,
-    > Sink<MSend> for Channel<R, W, C>
+impl<R, W: AsyncWriteExt + std::marker::Unpin, MSend, C: Encoder<MSend, Error = io::Error>>
+    Sink<MSend> for Channel<R, W, C>
 where
-    Self: 'static + std::marker::Unpin,
+    Self: std::marker::Unpin,
 {
     type Error = <C as Encoder<MSend>>::Error;
 
@@ -104,13 +97,13 @@ where
     }
 }
 impl<
-        R: AsyncReadExt + Send + 'static + std::marker::Unpin,
-        W: AsyncWriteExt + Send + 'static + std::marker::Unpin,
+        R: AsyncReadExt + std::marker::Unpin,
+        W,
         MRecv,
-        C: Decoder<Item = MRecv, Error = io::Error> + 'static,
+        C: Decoder<Item = MRecv, Error = io::Error>,
     > Stream for Channel<R, W, C>
 where
-    Self: 'static + std::marker::Unpin,
+    Self: std::marker::Unpin,
 {
     type Item = Result<MRecv, <C as Decoder>::Error>;
 
