@@ -14,7 +14,7 @@ use std::ops::{
 };
 
 pub trait RingImpl:
-    Clone
+    Copy
     + Zero
     + One
     + Debug
@@ -155,7 +155,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, PartialOrd, Eq, Ord)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, PartialOrd, Eq, Ord)]
 #[serde(bound = "")]
 #[repr(transparent)]
 /// This transparent is important due to some typecasts!
