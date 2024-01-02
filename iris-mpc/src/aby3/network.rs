@@ -88,9 +88,9 @@ impl NetworkTrait for Aby3Network {
     async fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
         tracing::trace!("recv_id {}<-{}: ", self.id, id);
         let buf = if id == usize::from(self.id.prev_id()) {
-            self.channel_recv.recv().await
+            self.channel_recv.recv().await.await
         } else if id == usize::from(self.id.next_id()) {
-            self.channel_send.recv().await
+            self.channel_send.recv().await.await
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
@@ -108,7 +108,7 @@ impl NetworkTrait for Aby3Network {
 
     async fn receive_prev_id(&mut self) -> io::Result<BytesMut> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.prev_id());
-        let buf = self.channel_recv.recv().await;
+        let buf = self.channel_recv.recv().await.await;
         tracing::trace!("recv {}<-{}: done", self.id, self.id.prev_id());
         if let Ok(maybe_packet) = buf {
             maybe_packet
@@ -122,7 +122,7 @@ impl NetworkTrait for Aby3Network {
 
     async fn receive_next_id(&mut self) -> io::Result<BytesMut> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.next_id());
-        let buf = self.channel_send.recv().await;
+        let buf = self.channel_send.recv().await.await;
         tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());
         if let Ok(maybe_packet) = buf {
             maybe_packet

@@ -133,8 +133,8 @@ pub struct ChannelHandle<MSend, MRecv> {
 
 impl<MSend, MRecv> ChannelHandle<MSend, MRecv>
 where
-    MRecv: Send + 'static,
-    MSend: Send + 'static,
+    MRecv: Send + std::fmt::Debug + 'static,
+    MSend: Send + std::fmt::Debug + 'static,
 {
     pub fn manage<R, W, C>(chan: Channel<R, W, C>) -> ChannelHandle<MSend, MRecv>
     where
@@ -185,17 +185,70 @@ where
         }
     }
 
-    pub fn send(&mut self, data: MSend) -> oneshot::Receiver<Result<(), io::Error>> {
+    pub async fn send(&mut self, data: MSend) -> oneshot::Receiver<Result<(), io::Error>> {
         let (ret, recv) = oneshot::channel();
         let job = WriteJob { data, ret };
-        self.write_job_queue.try_send(job).unwrap();
+        match self.write_job_queue.send(job).await {
+            Ok(_) => {}
+            Err(job) => job
+                .0
+                .ret
+                .send(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "ChannelHandle: send Channel is gone",
+                )))
+                .unwrap(),
+        }
         recv
     }
 
-    pub fn recv(&mut self) -> oneshot::Receiver<Result<MRecv, io::Error>> {
+    pub async fn recv(&mut self) -> oneshot::Receiver<Result<MRecv, io::Error>> {
         let (ret, recv) = oneshot::channel();
         let job = ReadJob { ret };
-        self.read_job_queue.try_send(job).unwrap();
+        match self.read_job_queue.send(job).await {
+            Ok(_) => {}
+            Err(job) => job
+                .0
+                .ret
+                .send(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "ChannelHandle: recv Channel is gone",
+                )))
+                .unwrap(),
+        }
+        recv
+    }
+    pub fn blocking_send(&mut self, data: MSend) -> oneshot::Receiver<Result<(), io::Error>> {
+        let (ret, recv) = oneshot::channel();
+        let job = WriteJob { data, ret };
+        match self.write_job_queue.blocking_send(job) {
+            Ok(_) => {}
+            Err(job) => job
+                .0
+                .ret
+                .send(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "ChannelHandle: send Channel is gone",
+                )))
+                .unwrap(),
+        }
+        recv
+    }
+
+    pub fn blocking_recv(&mut self) -> oneshot::Receiver<Result<MRecv, io::Error>> {
+        let (ret, recv) = oneshot::channel();
+        let job = ReadJob { ret };
+        match self.read_job_queue.blocking_send(job) {
+            Ok(_) => {}
+            Err(job) => job
+                .0
+                .ret
+                .send(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "ChannelHandle: recv Channel is gone",
+                )))
+                .unwrap(),
+        }
         recv
     }
 }

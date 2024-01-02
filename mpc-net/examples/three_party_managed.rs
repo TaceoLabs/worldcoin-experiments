@@ -48,11 +48,11 @@ async fn main() -> Result<()> {
     // send to all channels
     for (&i, channel) in managed_channels.iter_mut() {
         let buf = vec![i as u8; 1024];
-        let _ = channel.send(buf.into()).await?;
+        let _ = channel.send(buf.into()).await.await?;
     }
     // recv from all channels
     for (&_, channel) in managed_channels.iter_mut() {
-        let buf = channel.recv().await;
+        let buf = channel.recv().await.await;
         if let Ok(Ok(b)) = buf {
             println!("received {}, should be {}", b[0], args.party);
             assert!(b.iter().all(|&x| x == args.party as u8))
