@@ -81,7 +81,7 @@ where
     Ok(())
 }
 
-async fn setup_network(args: Args) -> Result<Aby3Network> {
+fn setup_network(args: Args) -> Result<Aby3Network> {
     let parties: Vec<NetworkParty> =
         serde_yaml::from_reader(File::open(args.config_file).context("opening config file")?)
             .context("parsing config file")?;
@@ -92,7 +92,7 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
         key_path: args.key_file,
     };
 
-    let network = Aby3Network::new(config).await?;
+    let network = Aby3Network::new(config)?;
 
     Ok(network)
 }
@@ -212,8 +212,7 @@ where
     Ok(res)
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
     let id = args.party;
 
@@ -231,7 +230,7 @@ async fn main() -> Result<()> {
 
     println0!(id, "Setting up network:");
     let start = Instant::now();
-    let network = setup_network(args.to_owned()).await?;
+    let network = setup_network(args.to_owned())?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
 
@@ -245,16 +244,14 @@ async fn main() -> Result<()> {
 
     println0!(id, "\nPreprocessing:");
     let start = Instant::now();
-    iris.preprocessing().await?;
+    iris.preprocessing()?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
     print_stats(&iris)?;
 
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
-    let res = iris
-        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
-        .await?;
+    let res = iris.iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());
     println0!(id, "Result is {res}\n");
@@ -264,7 +261,7 @@ async fn main() -> Result<()> {
         println0!(id, "ERROR: should match but doesn't");
     }
 
-    iris.finish().await?;
+    iris.finish()?;
 
     Ok(())
 }

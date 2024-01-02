@@ -7,8 +7,10 @@ use bytes::{Bytes, BytesMut};
 use mpc_net::channel::ChannelHandle;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
+use tokio::runtime::{Builder, Runtime};
 
 pub struct Aby3Network {
+    _runtime: Runtime,
     handler: MpcNetworkHandler,
     id: PartyID,
     channel_send: ChannelHandle<Bytes, BytesMut>,
@@ -16,25 +18,32 @@ pub struct Aby3Network {
 }
 
 impl Aby3Network {
-    pub async fn new(config: NetworkConfig) -> Result<Self, Error> {
+    pub fn new(config: NetworkConfig) -> Result<Self, Error> {
         let id = PartyID::try_from(config.my_id)?;
         if config.parties.len() != 3 {
             return Err(Error::NumPartyError(config.parties.len()));
         }
-
-        let mut handler = MpcNetworkHandler::establish(config).await?;
-        let mut channels = handler.get_byte_channels().await?;
-
         let next_id: usize = id.next_id().into();
         let prev_id: usize = id.prev_id().into();
 
-        let channel_send = channels.remove(&next_id).ok_or(Error::ConfigError)?;
-        let channel_recv = channels.remove(&prev_id).ok_or(Error::ConfigError)?;
+        let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        let channel_send = ChannelHandle::manage(channel_send);
-        let channel_recv = ChannelHandle::manage(channel_recv);
+        let res: Result<_, Error> = runtime.block_on(async {
+            let mut handler = MpcNetworkHandler::establish(config).await?;
+            let mut channels = handler.get_byte_channels().await?;
+
+            let channel_send = channels.remove(&next_id).ok_or(Error::ConfigError)?;
+            let channel_recv = channels.remove(&prev_id).ok_or(Error::ConfigError)?;
+
+            let channel_send = ChannelHandle::manage(channel_send);
+            let channel_recv = ChannelHandle::manage(channel_recv);
+            Ok((handler, channel_send, channel_recv))
+        });
+
+        let (handler, channel_send, channel_recv) = res?;
 
         Ok(Self {
+            _runtime: runtime,
             handler,
             id,
             channel_send,
@@ -56,13 +65,13 @@ impl NetworkTrait for Aby3Network {
         self.handler.print_connection_stats(out)
     }
 
-    async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
+    fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
         tracing::trace!("send_id {}->{}: {:?}", self.id, id, data);
         let res = if id == usize::from(self.id.next_id()) {
-            let _ = self.channel_send.send(data).await;
+            let _ = self.channel_send.blocking_send(data);
             Ok(())
         } else if id == usize::from(self.id.prev_id()) {
-            let _ = self.channel_recv.send(data).await;
+            let _ = self.channel_recv.blocking_send(data);
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"))
@@ -71,26 +80,26 @@ impl NetworkTrait for Aby3Network {
         res
     }
 
-    async fn send_next_id(&mut self, data: Bytes) -> io::Result<()> {
+    fn send_next_id(&mut self, data: Bytes) -> io::Result<()> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.next_id(), data);
-        let _ = self.channel_send.send(data).await;
+        let _ = self.channel_send.blocking_send(data);
         tracing::trace!("send {}->{}: done", self.id, self.id.next_id());
         Ok(())
     }
 
-    async fn send_prev_id(&mut self, data: Bytes) -> io::Result<()> {
+    fn send_prev_id(&mut self, data: Bytes) -> io::Result<()> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.prev_id(), data);
-        let _ = self.channel_recv.send(data).await;
+        let _ = self.channel_recv.blocking_send(data);
         tracing::trace!("send {}->{}: done", self.id, self.id.prev_id());
         Ok(())
     }
 
-    async fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
+    fn receive(&mut self, id: usize) -> Result<BytesMut, io::Error> {
         tracing::trace!("recv_id {}<-{}: ", self.id, id);
         let buf = if id == usize::from(self.id.prev_id()) {
-            self.channel_recv.recv().await.await
+            self.channel_recv.blocking_recv().blocking_recv()
         } else if id == usize::from(self.id.next_id()) {
-            self.channel_send.recv().await.await
+            self.channel_send.blocking_recv().blocking_recv()
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"));
         };
@@ -106,9 +115,9 @@ impl NetworkTrait for Aby3Network {
         }
     }
 
-    async fn receive_prev_id(&mut self) -> io::Result<BytesMut> {
+    fn receive_prev_id(&mut self) -> io::Result<BytesMut> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.prev_id());
-        let buf = self.channel_recv.recv().await.await;
+        let buf = self.channel_recv.blocking_recv().blocking_recv();
         tracing::trace!("recv {}<-{}: done", self.id, self.id.prev_id());
         if let Ok(maybe_packet) = buf {
             maybe_packet
@@ -120,9 +129,9 @@ impl NetworkTrait for Aby3Network {
         }
     }
 
-    async fn receive_next_id(&mut self) -> io::Result<BytesMut> {
+    fn receive_next_id(&mut self) -> io::Result<BytesMut> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.next_id());
-        let buf = self.channel_send.recv().await.await;
+        let buf = self.channel_send.blocking_recv().blocking_recv();
         tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());
         if let Ok(maybe_packet) = buf {
             maybe_packet
@@ -134,24 +143,24 @@ impl NetworkTrait for Aby3Network {
         }
     }
 
-    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
+    fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
         let mut result = Vec::with_capacity(3);
         for id in 0..3 {
             if id != usize::from(self.id) {
-                self.send(id, data.clone()).await?;
+                self.send(id, data.clone())?;
             }
         }
         for id in 0..3 {
             if id == usize::from(self.id) {
                 result.push(BytesMut::from(data.as_ref()));
             } else {
-                result.push(self.receive(id).await?);
+                result.push(self.receive(id)?);
             }
         }
         Ok(result)
     }
 
-    async fn shutdown(self) -> io::Result<()> {
+    fn shutdown(self) -> io::Result<()> {
         Ok(())
     }
 }

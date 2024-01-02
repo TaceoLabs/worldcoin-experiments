@@ -53,15 +53,15 @@ where
     }
 
     #[cfg(test)]
-    pub(crate) async fn aby_open(&mut self, share: Aby3Share<U>) -> Result<U, Error> {
-        self.aby3.open(share).await
+    pub(crate) fn aby_open(&mut self, share: Aby3Share<U>) -> Result<U, Error> {
+        self.aby3.open(share)
     }
 
     fn get_id(&self) -> usize {
         self.aby3.network.get_id()
     }
 
-    async fn hash_based_zero_verifiy(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
+    fn hash_based_zero_verifiy(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
         let (wa, wb) = w.get_ab();
         let w_neg = -wa.to_owned() - &wb;
 
@@ -86,11 +86,7 @@ where
         };
         let digest = hasher.finalize();
 
-        let hashes = self
-            .aby3
-            .network
-            .broadcast(Bytes::from(digest.to_vec()))
-            .await?;
+        let hashes = self.aby3.network.broadcast(Bytes::from(digest.to_vec()))?;
         debug_assert_eq!(hashes.len(), 3);
 
         if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
@@ -100,7 +96,7 @@ where
         }
     }
 
-    async fn verify_macs(&mut self) -> Result<(), Error> {
+    fn verify_macs(&mut self) -> Result<(), Error> {
         if self.verifyqueue.is_empty() {
             return Ok(());
         }
@@ -126,23 +122,21 @@ where
             &mut self.aby3,
             &[values, macs],
             &[rands.to_owned(), rands.to_owned()],
-        )
-        .await?;
+        )?;
 
         let r = self.get_r();
         let mul = <_ as MpcTrait<U, Aby3Share<U>, Aby3Share<Bit>>>::mul(
             &mut self.aby3,
             res[0].to_owned(),
             r,
-        )
-        .await?;
+        )?;
         let zero = mul - &res[1];
-        self.hash_based_zero_verifiy(zero).await
+        self.hash_based_zero_verifiy(zero)
     }
 
     #[inline(always)]
-    async fn jmp_send<T: Sharable>(&mut self, send: T::Share) -> Result<(), Error> {
-        utils::send_value_next(&mut self.aby3.network, send).await
+    fn jmp_send<T: Sharable>(&mut self, send: T::Share) -> Result<(), Error> {
+        utils::send_value_next(&mut self.aby3.network, send)
     }
 
     #[inline(always)]
@@ -151,8 +145,8 @@ where
     }
 
     #[inline(always)]
-    async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
-        utils::send_vec_next(&mut self.aby3.network, send).await
+    fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
+        utils::send_vec_next(&mut self.aby3.network, send)
     }
 
     fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
@@ -161,14 +155,14 @@ where
         }
     }
 
-    async fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
-        let value: T::Share = utils::receive_value_prev(&mut self.aby3.network).await?;
+    fn jmp_receive<T: Sharable>(&mut self) -> Result<T::Share, Error> {
+        let value: T::Share = utils::receive_value_prev(&mut self.aby3.network)?;
         value.to_owned().add_to_bytes(&mut self.rcv_queue_next);
         Ok(value)
     }
 
-    async fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
-        let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.aby3.network, len).await?;
+    fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
+        let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.aby3.network, len)?;
 
         for value in values.iter().cloned() {
             value.add_to_bytes(&mut self.rcv_queue_next);
@@ -177,25 +171,25 @@ where
         Ok(values)
     }
 
-    async fn jmp_send_receive<T: Sharable>(
+    fn jmp_send_receive<T: Sharable>(
         &mut self,
         send: T::Share,
         buffer: T::Share,
     ) -> Result<T::Share, Error> {
         self.jmp_buffer::<T>(buffer);
-        self.jmp_send::<T>(send).await?;
-        self.jmp_receive::<T>().await
+        self.jmp_send::<T>(send)?;
+        self.jmp_receive::<T>()
     }
 
-    async fn jmp_send_receive_many<T: Sharable>(
+    fn jmp_send_receive_many<T: Sharable>(
         &mut self,
         send: Vec<T::Share>,
         buffer: Vec<T::Share>,
     ) -> Result<Vec<T::Share>, Error> {
         let len = send.len();
         self.jmp_buffer_many::<T>(buffer);
-        self.jmp_send_many::<T>(send).await?;
-        self.jmp_receive_many::<T>(len).await
+        self.jmp_send_many::<T>(send)?;
+        self.jmp_receive_many::<T>(len)
     }
 
     fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
@@ -207,16 +201,15 @@ where
         hasher.finalize()
     }
 
-    async fn jmp_verify(&mut self) -> Result<(), Error> {
+    fn jmp_verify(&mut self) -> Result<(), Error> {
         let send_prev = Self::clear_and_hash(&mut self.send_queue_prev);
         let hash_next = Self::clear_and_hash(&mut self.rcv_queue_next);
 
         self.aby3
             .network
-            .send_prev_id(Bytes::from(send_prev.to_vec()))
-            .await?;
+            .send_prev_id(Bytes::from(send_prev.to_vec()))?;
 
-        let rcv_next = self.aby3.network.receive_next_id().await?;
+        let rcv_next = self.aby3.network.receive_next_id()?;
 
         if rcv_next.as_ref() != hash_next.as_slice() {
             return Err(Error::JmpVerifyError);
@@ -225,19 +218,17 @@ where
         Ok(())
     }
 
-    async fn coin<R: Rng + SeedableRng>(&mut self) -> Result<R::Seed, Error>
+    fn coin<R: Rng + SeedableRng>(&mut self) -> Result<R::Seed, Error>
     where
         Standard: Distribution<R::Seed>,
         R::Seed: AsRef<[u8]>,
     {
         let (mut seed1, seed2) = self.aby3.prf.gen_rands::<R::Seed>();
 
-        let seed3 = self
-            .jmp_send_receive_many::<u8>(
-                RingElement::convert_slice_rev(seed2.as_ref()).to_vec(),
-                RingElement::convert_slice_rev(seed1.as_ref()).to_vec(),
-            )
-            .await?;
+        let seed3 = self.jmp_send_receive_many::<u8>(
+            RingElement::convert_slice_rev(seed2.as_ref()).to_vec(),
+            RingElement::convert_slice_rev(seed1.as_ref()).to_vec(),
+        )?;
 
         for (s1, (s2, s3)) in seed1
             .as_mut()
@@ -251,7 +242,7 @@ where
     }
 
     // Open_aby3_many without jmp_verify
-    async fn reconstruct_many<T: Sharable>(
+    fn reconstruct_many<T: Sharable>(
         &mut self,
         shares: Vec<Aby3Share<T>>,
     ) -> Result<Vec<T>, Error> {
@@ -265,7 +256,7 @@ where
             shares_b.push(b);
         }
 
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a)?;
 
         let res = shares
             .iter()
@@ -275,7 +266,7 @@ where
         Ok(res)
     }
 
-    async fn mul_sacrifice_many<T: Sharable, R: Rng + SeedableRng>(
+    fn mul_sacrifice_many<T: Sharable, R: Rng + SeedableRng>(
         &mut self,
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
@@ -324,9 +315,9 @@ where
         let a_ = a_mul[len..].to_vec();
 
         // Finally Mul
-        let cs = self.aby3.mul_many(a_mul, b_mul).await?;
+        let cs = self.aby3.mul_many(a_mul, b_mul)?;
 
-        let seed = self.coin::<R>().await?;
+        let seed = self.coin::<R>()?;
         let mut rng = R::from_seed(seed);
 
         let r = rng.gen::<UShare<T>>();
@@ -336,8 +327,8 @@ where
             *des -= a_;
         }
 
-        let v = self.reconstruct_many(v_).await?;
-        self.jmp_verify().await?;
+        let v = self.reconstruct_many(v_)?;
+        self.jmp_verify()?;
 
         // hash based verification
         let mut hasher = Sha512::new();
@@ -397,11 +388,7 @@ where
 
         let digest = hasher.finalize();
 
-        let hashes = self
-            .aby3
-            .network
-            .broadcast(Bytes::from(digest.to_vec()))
-            .await?;
+        let hashes = self.aby3.network.broadcast(Bytes::from(digest.to_vec()))?;
         debug_assert_eq!(hashes.len(), 3);
 
         if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
@@ -453,13 +440,13 @@ where
         self.get_id()
     }
 
-    async fn preprocess(&mut self) -> Result<(), Error> {
+    fn preprocess(&mut self) -> Result<(), Error> {
         <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
         >>::preprocess(&mut self.aby3)
-        .await?;
+        ?;
 
         Ok(())
     }
@@ -474,18 +461,17 @@ where
     }
 
     #[cfg(test)]
-    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+    fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
         let r = self.get_r();
-        self.aby_open(r).await
+        self.aby_open(r)
     }
 
-    async fn finish(self) -> Result<(), Error> {
+    fn finish(self) -> Result<(), Error> {
         <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
         >>::finish(self.aby3)
-        .await
     }
 
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
@@ -496,23 +482,21 @@ where
         >>::print_connection_stats(&self.aby3, out)
     }
 
-    async fn input(&mut self, input: Option<T>, id: usize) -> Result<TShare<T>, Error> {
+    fn input(&mut self, input: Option<T>, id: usize) -> Result<TShare<T>, Error> {
         let input = input.map(|i| T::to_verificationshare(i));
 
         let value = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::input(&mut self.aby3, input, id)
-        .await?;
+        >>::input(&mut self.aby3, input, id)?;
 
         let r = self.get_r();
         let mac = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::mul(&mut self.aby3, value.to_owned(), r)
-        .await?;
+        >>::mul(&mut self.aby3, value.to_owned(), r)?;
 
         let share = Share::new(value, mac);
 
@@ -522,14 +506,14 @@ where
     }
 
     #[cfg(test)]
-    async fn input_all(&mut self, input: T) -> Result<Vec<TShare<T>>, Error> {
+    fn input_all(&mut self, input: T) -> Result<Vec<TShare<T>>, Error> {
         // Since this is only for testing we perform a bad one
         let mut inputs = [None; 3];
         inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
 
         for (i, inp) in inputs.into_iter().enumerate() {
-            shares.push(self.input(inp.to_owned(), i).await?);
+            shares.push(self.input(inp.to_owned(), i)?);
         }
 
         Ok(shares)
@@ -570,23 +554,22 @@ where
             .collect()
     }
 
-    async fn open(&mut self, share: TShare<T>) -> Result<T, Error> {
+    fn open(&mut self, share: TShare<T>) -> Result<T, Error> {
         self.verifyqueue.push(share.to_owned());
-        self.verify_macs().await?;
+        self.verify_macs()?;
 
         let result = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::open(&mut self.aby3, share.get_value())
-        .await?;
+        >>::open(&mut self.aby3, share.get_value())?;
 
         Ok(T::from_verificationshare(result))
     }
 
-    async fn open_many(&mut self, shares: Vec<TShare<T>>) -> Result<Vec<T>, Error> {
+    fn open_many(&mut self, shares: Vec<TShare<T>>) -> Result<Vec<T>, Error> {
         self.verifyqueue.extend(shares.to_owned());
-        self.verify_macs().await?;
+        self.verify_macs()?;
 
         let values = shares.into_iter().map(|s| s.get_value()).collect();
 
@@ -594,8 +577,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::open_many(&mut self.aby3, values)
-        .await?;
+        >>::open_many(&mut self.aby3, values)?;
 
         let result = result
             .into_iter()
@@ -605,18 +587,18 @@ where
         Ok(result)
     }
 
-    async fn open_bit(&mut self, share: Aby3Share<Bit>) -> Result<bool, Error> {
-        self.jmp_verify().await?;
+    fn open_bit(&mut self, share: Aby3Share<Bit>) -> Result<bool, Error> {
+        self.jmp_verify()?;
 
         let (a, b) = share.to_owned().get_ab();
-        let c = self.jmp_send_receive::<Bit>(b, a).await?;
+        let c = self.jmp_send_receive::<Bit>(b, a)?;
 
-        self.jmp_verify().await?;
+        self.jmp_verify()?;
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<Aby3Share<Bit>>) -> Result<Vec<bool>, Error> {
-        self.jmp_verify().await?;
+    fn open_bit_many(&mut self, shares: Vec<Aby3Share<Bit>>) -> Result<Vec<bool>, Error> {
+        self.jmp_verify()?;
 
         let len = shares.len();
         let mut shares_a = Vec::with_capacity(len);
@@ -628,10 +610,8 @@ where
             shares_b.push(b);
         }
 
-        let shares_c = self
-            .jmp_send_receive_many::<Bit>(shares_b, shares_a)
-            .await?;
-        self.jmp_verify().await?;
+        let shares_c = self.jmp_send_receive_many::<Bit>(shares_b, shares_a)?;
+        self.jmp_verify()?;
 
         let res = shares
             .iter()
@@ -729,14 +709,13 @@ where
         Share::new(value, mac)
     }
 
-    async fn mul(&mut self, a: TShare<T>, b: TShare<T>) -> Result<TShare<T>, Error> {
+    fn mul(&mut self, a: TShare<T>, b: TShare<T>) -> Result<TShare<T>, Error> {
         let (a_v, a_m) = a.get();
         let b_v = b.get_value();
 
         let values = self
             .aby3
-            .mul_many(vec![a_v, a_m], vec![b_v.to_owned(), b_v])
-            .await?;
+            .mul_many(vec![a_v, a_m], vec![b_v.to_owned(), b_v])?;
 
         let result = Share::new(values[0].to_owned(), values[1].to_owned());
 
@@ -763,7 +742,7 @@ where
         Share::new(value, mac)
     }
 
-    async fn dot(&mut self, a: Vec<TShare<T>>, b: Vec<TShare<T>>) -> Result<TShare<T>, Error> {
+    fn dot(&mut self, a: Vec<TShare<T>>, b: Vec<TShare<T>>) -> Result<TShare<T>, Error> {
         let len = a.len();
         if len != b.len() {
             return Err(Error::InvalidSizeError);
@@ -788,8 +767,7 @@ where
             &mut self.aby3,
             &[a_values, a_macs],
             &[b_values.to_owned(), b_values],
-        )
-        .await?;
+        )?;
 
         let result = Share::new(res[0].to_owned(), res[1].to_owned());
 
@@ -797,7 +775,7 @@ where
         Ok(result)
     }
 
-    async fn dot_many(
+    fn dot_many(
         &mut self,
         a: &[Vec<TShare<T>>],
         b: &[Vec<TShare<T>>],
@@ -834,8 +812,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::dot_many(&mut self.aby3, &a_values, &b_values)
-        .await?;
+        >>::dot_many(&mut self.aby3, &a_values, &b_values)?;
 
         let mut result = Vec::with_capacity(len);
         self.verifyqueue.reserve(len);
@@ -854,45 +831,41 @@ where
         Ok(result)
     }
 
-    async fn get_msb(&mut self, a: TShare<T>) -> Result<Aby3Share<Bit>, Error> {
+    fn get_msb(&mut self, a: TShare<T>) -> Result<Aby3Share<Bit>, Error> {
         self.verifyqueue.push(a.to_owned());
-        self.verify_macs().await?;
+        self.verify_macs()?;
 
         // protocol switch
         let value = Aby3Share::<T>::from_verificationtype(a.get_value());
-        let bits = self.arithmetic_to_binary(value).await?;
+        let bits = self.arithmetic_to_binary(value)?;
         Ok(bits.get_msb())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<Aby3Share<Bit>>, Error> {
+    fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<Aby3Share<Bit>>, Error> {
         self.verifyqueue.extend(a.to_owned());
-        self.verify_macs().await?;
+        self.verify_macs()?;
 
         // protocol switch
         let values = a
             .into_iter()
             .map(|a| Aby3Share::<T>::from_verificationtype(a.get_value()))
             .collect();
-        let bits = self.arithmetic_to_binary_many(values).await?;
+        let bits = self.arithmetic_to_binary_many(values)?;
         let res = bits.into_iter().map(|a| a.get_msb()).collect();
         Ok(res)
     }
 
-    async fn binary_or(
-        &mut self,
-        a: Aby3Share<Bit>,
-        b: Aby3Share<Bit>,
-    ) -> Result<Aby3Share<Bit>, Error> {
-        <Self as BinaryMpcTrait<Bit, Aby3Share<Bit>>>::or(self, a, b).await
+    fn binary_or(&mut self, a: Aby3Share<Bit>, b: Aby3Share<Bit>) -> Result<Aby3Share<Bit>, Error> {
+        <Self as BinaryMpcTrait<Bit, Aby3Share<Bit>>>::or(self, a, b)
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Aby3Share<Bit>>) -> Result<Aby3Share<Bit>, Error> {
+    fn reduce_binary_or(&mut self, a: Vec<Aby3Share<Bit>>) -> Result<Aby3Share<Bit>, Error> {
         const PACK_SIZE: usize = OR_TREE_PACK_SIZE * 128;
-        utils::or_tree::<Bit, _, _, PACK_SIZE>(self, a).await
+        utils::or_tree::<Bit, _, _, PACK_SIZE>(self, a)
     }
 
-    async fn verify(&mut self) -> Result<(), Error> {
-        self.verify_macs().await
+    fn verify(&mut self) -> Result<(), Error> {
+        self.verify_macs()
     }
 }
 
@@ -901,19 +874,17 @@ where
     Standard: Distribution<U::Share>,
     Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,
 {
-    async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
+    fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
         let a_bits = a.to_bits();
         let b_bits = b.to_bits();
 
-        let c_bits = self
-            .mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)
-            .await?;
+        let c_bits = self.mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)?;
 
         let c = self.pack_exact(c_bits);
         Ok(c)
     }
 
-    async fn and_many(
+    fn and_many(
         &mut self,
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
@@ -934,20 +905,18 @@ where
             b_bits.extend(b.to_bits());
         }
 
-        let c_bits = self
-            .mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)
-            .await?;
+        let c_bits = self.mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)?;
 
         let c = self.pack::<T>(c_bits);
         Ok(c)
     }
 
-    async fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
+    fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
         let (x1, x2, x3) = self.aby3.a2b_pre(x);
-        self.binary_add_3(x1, x2, x3).await
+        self.binary_add_3(x1, x2, x3)
     }
 
-    async fn arithmetic_to_binary_many(
+    fn arithmetic_to_binary_many(
         &mut self,
         x: Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error> {
@@ -962,6 +931,6 @@ where
             x2.push(x2_);
             x3.push(x3_);
         }
-        self.binary_add_3_many(x1, x2, x3).await
+        self.binary_add_3_many(x1, x2, x3)
     }
 }

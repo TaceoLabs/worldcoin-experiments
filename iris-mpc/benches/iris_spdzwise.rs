@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use iris_mpc::prelude::{
     Aby3, Aby3Share, IrisSpdzWise, MpcTrait, PartyTestNetwork, Sharable, SpdzWise, SpdzWiseShare,
     TestNetwork3p,
@@ -10,12 +10,11 @@ use rand::{
     Rng, SeedableRng,
 };
 use std::ops::Mul;
-use tokio::runtime;
 
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
-async fn spdzwise_task<T: Sharable>(
+fn spdzwise_task<T: Sharable>(
     net: PartyTestNetwork,
     mac_key: SpdzWiseShare<T::VerificationShare>,
     code: Vec<SpdzWiseShare<T::VerificationShare>>,
@@ -32,15 +31,12 @@ where
     let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
     let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
 
-    iris.preprocessing().await.unwrap();
+    iris.preprocessing().unwrap();
     iris.set_mac_key(mac_key);
 
-    let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
-        .await
-        .unwrap();
+    let res = iris.iris_in_db(code, &shared_db, &mask, &masks).unwrap();
 
-    iris.finish().await.unwrap();
+    iris.finish().unwrap();
     res
 }
 
@@ -61,11 +57,6 @@ fn iris_spdzwise<T: Sharable, R: Rng>(
     let db_size = shared_code[0].len();
     assert_eq!(db_size, shared_code[1].len());
     assert_eq!(db_size, shared_code[2].len());
-
-    let rt = runtime::Builder::new_multi_thread()
-        .worker_threads(3)
-        .build()
-        .unwrap();
 
     // share an iris
     let iris = IrisCode::random_rng(rng);
@@ -99,25 +90,23 @@ fn iris_spdzwise<T: Sharable, R: Rng>(
     c.bench_function(
         format!("Iris_matcher spdzwise (DB: {db_size}, 3 parties)").as_str(),
         move |bench| {
-            bench.to_async(&rt).iter(|| async {
+            bench.iter(|| {
                 let network = TestNetwork3p::new();
                 let net = network.get_party_networks();
 
                 let mut parties = Vec::with_capacity(3);
                 for (i, n) in net.into_iter().enumerate() {
-                    parties.push(tokio::spawn(spdzwise_task::<T>(
-                        black_box(n),
-                        black_box(mac_keys[i].to_owned()),
-                        black_box(shares[i].to_owned()),
-                        black_box(mask),
-                        black_box(shared_code[i].to_owned()),
-                        black_box(masks.to_owned()),
-                    )));
+                    let share = shares[i].to_owned();
+                    let mac_key = mac_keys[i].to_owned();
+                    let share_code = shared_code[i].to_owned();
+                    let masks = masks.to_owned();
+                    parties.push(std::thread::spawn(move || {
+                        spdzwise_task::<T>(n, mac_key, share, mask, share_code, masks)
+                    }));
                 }
 
                 for party in parties {
-                    party.await.unwrap();
-                    black_box(())
+                    party.join().unwrap();
                 }
             });
         },

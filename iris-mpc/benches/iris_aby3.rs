@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use iris_mpc::prelude::{
     Aby3, Aby3Share, IrisProtocol, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p,
 };
@@ -9,9 +9,8 @@ use rand::{
     Rng, SeedableRng,
 };
 use std::ops::Mul;
-use tokio::runtime;
 
-async fn iris_aby3_task<T: Sharable>(
+fn iris_aby3_task<T: Sharable>(
     net: PartyTestNetwork,
     code: Vec<Aby3Share<T>>,
     mask: IrisCodeArray,
@@ -27,14 +26,11 @@ where
     let protocol = Aby3::<PartyTestNetwork>::new(net);
     let mut iris = IrisProtocol::new(protocol).unwrap();
 
-    iris.preprocessing().await.unwrap();
+    iris.preprocessing().unwrap();
 
-    let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
-        .await
-        .unwrap();
+    let res = iris.iris_in_db(code, &shared_db, &mask, &masks).unwrap();
 
-    iris.finish().await.unwrap();
+    iris.finish().unwrap();
     res
 }
 
@@ -53,11 +49,6 @@ fn iris_aby3<T: Sharable, R: Rng>(
     let db_size = shared_code[0].len();
     assert_eq!(db_size, shared_code[1].len());
     assert_eq!(db_size, shared_code[2].len());
-
-    let rt = runtime::Builder::new_multi_thread()
-        .worker_threads(3)
-        .build()
-        .unwrap();
 
     // share an iris
     let iris = IrisCode::random_rng(rng);
@@ -81,24 +72,22 @@ fn iris_aby3<T: Sharable, R: Rng>(
     c.bench_function(
         format!("Iris_matcher aby3 (DB: {db_size}, 3 parties)").as_str(),
         move |bench| {
-            bench.to_async(&rt).iter(|| async {
+            bench.iter(|| {
                 let network = TestNetwork3p::new();
                 let net = network.get_party_networks();
 
                 let mut parties = Vec::with_capacity(3);
                 for (i, n) in net.into_iter().enumerate() {
-                    parties.push(tokio::spawn(iris_aby3_task(
-                        black_box(n),
-                        black_box(shares[i].to_owned()),
-                        black_box(mask),
-                        black_box(shared_code[i].to_owned()),
-                        black_box(masks.to_owned()),
-                    )));
+                    let share = shares[i].to_owned();
+                    let share_code = shared_code[i].to_owned();
+                    let masks = masks.to_owned();
+                    parties.push(std::thread::spawn(move || {
+                        iris_aby3_task(n, share, mask, share_code, masks)
+                    }));
                 }
 
                 for party in parties {
-                    party.await.unwrap();
-                    black_box(())
+                    party.join().unwrap();
                 }
             });
         },

@@ -50,7 +50,7 @@ mod iris_swift3_test {
         shared_code
     }
 
-    async fn mask_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    fn mask_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -65,7 +65,7 @@ mod iris_swift3_test {
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
-        iris.preprocessing().await.unwrap();
+        iris.preprocessing().unwrap();
 
         let mut iris_rng = R::from_seed(iris_seed);
         let mut rng = R::from_seed(seed);
@@ -76,8 +76,8 @@ mod iris_swift3_test {
             let shared_code = share_iris_code(&code, id, &mut rng);
 
             let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
-            iris.verify().await.unwrap();
-            let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
+            iris.verify().unwrap();
+            let open_masked_code = iris.get_mpc_mut().open_many(masked_code).unwrap();
 
             let mut bitarr = IrisCodeArray::default();
             for (i, code_bit) in open_masked_code.into_iter().enumerate() {
@@ -87,11 +87,11 @@ mod iris_swift3_test {
             results.push(bitarr);
         }
 
-        iris.finish().await.unwrap();
+        iris.finish().unwrap();
         results
     }
 
-    async fn mask_test_swift3_impl<T: Sharable>()
+    fn mask_test_swift3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -109,15 +109,15 @@ mod iris_swift3_test {
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move {
-                mask_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+            let t = std::thread::spawn(move || {
+                mask_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed)
             });
             tasks.push(t);
         }
 
         let mut results = Vec::with_capacity(NUM_PARTIES);
         for t in tasks {
-            let r = t.await.expect("Task exited normally");
+            let r = t.join().expect("Task exited normally");
             results.push(r);
         }
 
@@ -133,12 +133,12 @@ mod iris_swift3_test {
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn mask_test_swift3() {
-        mask_test_swift3_impl::<u16>().await
+    #[test]
+    fn mask_test_swift3() {
+        mask_test_swift3_impl::<u16>()
     }
 
-    async fn hwd_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    fn hwd_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -153,7 +153,7 @@ mod iris_swift3_test {
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
-        iris.preprocessing().await.unwrap();
+        iris.preprocessing().unwrap();
 
         let mut iris_rng = R::from_seed(iris_seed);
         let mut rng = R::from_seed(seed);
@@ -165,20 +165,17 @@ mod iris_swift3_test {
             let shared_code1 = share_iris_code(&code1, id, &mut rng);
             let shared_code2 = share_iris_code(&code2, id, &mut rng);
 
-            let hwd = iris
-                .hamming_distance(shared_code1, shared_code2)
-                .await
-                .unwrap();
-            iris.verify().await.unwrap();
-            let open_hwd = iris.get_mpc_mut().open(hwd).await.unwrap();
+            let hwd = iris.hamming_distance(shared_code1, shared_code2).unwrap();
+            iris.verify().unwrap();
+            let open_hwd = iris.get_mpc_mut().open(hwd).unwrap();
             results.push(open_hwd);
         }
 
-        iris.finish().await.unwrap();
+        iris.finish().unwrap();
         results
     }
 
-    async fn hwd_test_swift3_impl<T: Sharable>()
+    fn hwd_test_swift3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -196,15 +193,15 @@ mod iris_swift3_test {
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move {
-                hwd_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+            let t = std::thread::spawn(move || {
+                hwd_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed)
             });
             tasks.push(t);
         }
 
         let mut results = Vec::with_capacity(NUM_PARTIES);
         for t in tasks {
-            let r = t.await.expect("Task exited normally");
+            let r = t.join().expect("Task exited normally");
             results.push(r);
         }
 
@@ -225,13 +222,13 @@ mod iris_swift3_test {
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[test]
     #[ignore]
-    async fn hwd_test_swift3() {
-        hwd_test_swift3_impl::<u16>().await
+    fn hwd_test_swift3() {
+        hwd_test_swift3_impl::<u16>()
     }
 
-    async fn plain_hwd_test_inner<T: Sharable>()
+    fn plain_hwd_test_inner<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -249,7 +246,7 @@ mod iris_swift3_test {
 
             let a = iris_code_plain_type(&code1);
             let b = iris_code_plain_type(&code2);
-            let distance = iris.hamming_distance(a, b).await.unwrap();
+            let distance = iris.hamming_distance(a, b).unwrap();
 
             let combined_code = code1.code ^ code2.code;
             let distance_: T = combined_code
@@ -261,12 +258,12 @@ mod iris_swift3_test {
         }
     }
 
-    #[tokio::test]
-    async fn plain_hwd_test() {
-        plain_hwd_test_inner::<u16>().await
+    #[test]
+    fn plain_hwd_test() {
+        plain_hwd_test_inner::<u16>()
     }
 
-    async fn plain_lt_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
+    fn plain_lt_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -289,14 +286,13 @@ mod iris_swift3_test {
 
         let cmp = iris
             .compare_threshold(distance, combined_mask.count_ones())
-            .await
             .unwrap();
 
         assert_eq!(cmp, cmp_);
         cmp
     }
 
-    async fn plain_lt_test_inner<T: Sharable>()
+    fn plain_lt_test_inner<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -310,17 +306,17 @@ mod iris_swift3_test {
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
 
-            plain_lt_tester::<T>(code1.to_owned(), code2).await;
-            assert!(plain_lt_tester::<T>(code1, code3).await);
+            plain_lt_tester::<T>(code1.to_owned(), code2);
+            assert!(plain_lt_tester::<T>(code1, code3));
         }
     }
 
-    #[tokio::test]
-    async fn plain_lt_test() {
-        plain_lt_test_inner::<u16>().await
+    #[test]
+    fn plain_lt_test() {
+        plain_lt_test_inner::<u16>()
     }
 
-    async fn lt_tester_swift3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
+    fn lt_tester_swift3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
         protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -353,17 +349,16 @@ mod iris_swift3_test {
 
         let share_cmp = protocol
             .compare_threshold(share, combined_mask.count_ones())
-            .await
             .unwrap();
 
-        protocol.verify().await.unwrap();
-        let cmp = protocol.get_mpc_mut().open_bit(share_cmp).await.unwrap();
+        protocol.verify().unwrap();
+        let cmp = protocol.get_mpc_mut().open_bit(share_cmp).unwrap();
 
         assert_eq!(cmp, cmp_);
         cmp
     }
 
-    async fn lt_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    fn lt_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -376,7 +371,7 @@ mod iris_swift3_test {
         let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
-        iris.preprocessing().await.unwrap();
+        iris.preprocessing().unwrap();
 
         let mut iris_rng = R::from_seed(iris_seed);
         let mut rng = R::from_seed(seed);
@@ -384,14 +379,16 @@ mod iris_swift3_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
-            lt_tester_swift3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2).await;
-            assert!(lt_tester_swift3::<T, _, _>(&mut iris, &mut rng, code1, code3).await);
+            lt_tester_swift3::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2);
+            assert!(lt_tester_swift3::<T, _, _>(
+                &mut iris, &mut rng, code1, code3
+            ));
         }
 
-        iris.finish().await.unwrap();
+        iris.finish().unwrap();
     }
 
-    async fn lt_test_swift3_impl<T: Sharable>()
+    fn lt_test_swift3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -408,27 +405,24 @@ mod iris_swift3_test {
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move {
-                lt_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+            let t = std::thread::spawn(move || {
+                lt_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed)
             });
             tasks.push(t);
         }
 
         for t in tasks {
-            t.await.expect("Task exited normally");
+            t.join().expect("Task exited normally");
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[test]
     #[ignore]
-    async fn lt_test_swift3() {
-        lt_test_swift3_impl::<u16>().await
+    fn lt_test_swift3() {
+        lt_test_swift3_impl::<u16>()
     }
 
-    async fn plain_cmp_many_iris_tester<T: Sharable>(
-        code1: IrisCode,
-        code2: Vec<IrisCode>,
-    ) -> Vec<bool>
+    fn plain_cmp_many_iris_tester<T: Sharable>(code1: IrisCode, code2: Vec<IrisCode>) -> Vec<bool>
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -453,14 +447,13 @@ mod iris_swift3_test {
 
         let cmp = iris
             .compare_iris_many(inp1, &inp2s, &code1.mask, &mask2)
-            .await
             .unwrap();
 
         assert_eq!(cmp, cmp_);
         cmp
     }
 
-    async fn plain_cmp_iris_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
+    fn plain_cmp_iris_tester<T: Sharable>(code1: IrisCode, code2: IrisCode) -> bool
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -475,7 +468,6 @@ mod iris_swift3_test {
 
         let cmp = iris
             .compare_iris(inp1, inp2, &code1.mask, &code2.mask)
-            .await
             .unwrap();
 
         let cmp_ = code1.is_close(&code2);
@@ -483,7 +475,7 @@ mod iris_swift3_test {
         cmp
     }
 
-    async fn plain_cmp_iris_test_inner<T: Sharable>()
+    fn plain_cmp_iris_test_inner<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -497,25 +489,21 @@ mod iris_swift3_test {
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
 
-            let c1 = plain_cmp_iris_tester::<T>(code1.to_owned(), code2.to_owned()).await;
-            let c2 = plain_cmp_iris_tester::<T>(code1.to_owned(), code3.to_owned()).await;
-            let c3 = plain_cmp_many_iris_tester::<T>(code1, vec![code2, code3]).await;
+            let c1 = plain_cmp_iris_tester::<T>(code1.to_owned(), code2.to_owned());
+            let c2 = plain_cmp_iris_tester::<T>(code1.to_owned(), code3.to_owned());
+            let c3 = plain_cmp_many_iris_tester::<T>(code1, vec![code2, code3]);
             assert_eq!(c1, c3[0]);
             assert_eq!(c2, c3[1]);
             assert!(c2);
         }
     }
 
-    #[tokio::test]
-    async fn plain_cmp_iris_test() {
-        plain_cmp_iris_test_inner::<u16>().await
+    #[test]
+    fn plain_cmp_iris_test() {
+        plain_cmp_iris_test_inner::<u16>()
     }
 
-    async fn cmp_many_iris_tester_swift3<
-        T: Sharable,
-        R: Rng,
-        Mpc: MpcTrait<T, Share<T>, Share<Bit>>,
-    >(
+    fn cmp_many_iris_tester_swift3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
         protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -544,21 +532,16 @@ mod iris_swift3_test {
 
         let share_cmp = protocol
             .compare_iris_many(shared_code1, &shared_codes2, &code1.mask, &mask2)
-            .await
             .unwrap();
 
-        protocol.verify().await.unwrap();
-        let cmp = protocol
-            .get_mpc_mut()
-            .open_bit_many(share_cmp)
-            .await
-            .unwrap();
+        protocol.verify().unwrap();
+        let cmp = protocol.get_mpc_mut().open_bit_many(share_cmp).unwrap();
 
         assert_eq!(cmp, cmp_);
         cmp
     }
 
-    async fn cmp_iris_tester_swift3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
+    fn cmp_iris_tester_swift3<T: Sharable, R: Rng, Mpc: MpcTrait<T, Share<T>, Share<Bit>>>(
         protocol: &mut IrisProtocol<T, Share<T>, Share<Bit>, Mpc>,
         rng: &mut R,
         code1: IrisCode,
@@ -577,18 +560,17 @@ mod iris_swift3_test {
 
         let share_cmp = protocol
             .compare_iris(shared_code1, shared_code2, &code1.mask, &code2.mask)
-            .await
             .unwrap();
 
-        protocol.verify().await.unwrap();
-        let cmp = protocol.get_mpc_mut().open_bit(share_cmp).await.unwrap();
+        protocol.verify().unwrap();
+        let cmp = protocol.get_mpc_mut().open_bit(share_cmp).unwrap();
 
         let cmp_ = code1.is_close(&code2);
         assert_eq!(cmp, cmp_);
         cmp
     }
 
-    async fn cmp_iris_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    fn cmp_iris_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -601,7 +583,7 @@ mod iris_swift3_test {
         let protocol = Swift3::<PartyTestNetwork, _>::new(net);
         let mut iris = IrisProtocol::new(protocol).unwrap();
 
-        iris.preprocessing().await.unwrap();
+        iris.preprocessing().unwrap();
 
         let mut iris_rng = R::from_seed(iris_seed);
         let mut rng = R::from_seed(seed);
@@ -615,31 +597,28 @@ mod iris_swift3_test {
                 &mut rng,
                 code1.to_owned(),
                 code2.to_owned(),
-            )
-            .await;
+            );
             let c2 = cmp_iris_tester_swift3::<T, _, _>(
                 &mut iris,
                 &mut rng,
                 code1.to_owned(),
                 code3.to_owned(),
-            )
-            .await;
+            );
             let c3 = cmp_many_iris_tester_swift3::<T, _, _>(
                 &mut iris,
                 &mut rng,
                 code1,
                 vec![code2, code3],
-            )
-            .await;
+            );
             assert_eq!(c1, c3[0]);
             assert_eq!(c2, c3[1]);
             assert!(c2);
         }
 
-        iris.finish().await.unwrap();
+        iris.finish().unwrap();
     }
 
-    async fn cmp_iris_test_swift3_impl<T: Sharable>()
+    fn cmp_iris_test_swift3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -656,24 +635,24 @@ mod iris_swift3_test {
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move {
-                cmp_iris_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+            let t = std::thread::spawn(move || {
+                cmp_iris_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed)
             });
             tasks.push(t);
         }
 
         for t in tasks {
-            t.await.expect("Task exited normally");
+            t.join().expect("Task exited normally");
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[test]
     #[ignore]
-    async fn cmp_iris_test_swift3() {
-        cmp_iris_test_swift3_impl::<u16>().await
+    fn cmp_iris_test_swift3() {
+        cmp_iris_test_swift3_impl::<u16>()
     }
 
-    async fn plain_full_test_inner<T: Sharable>()
+    fn plain_full_test_inner<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -710,27 +689,21 @@ mod iris_swift3_test {
         let protocol = Plain::default();
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
 
-        let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
-            .await
-            .unwrap();
+        let res1 = iris.iris_in_db(iris1_, &db_t, &iris1.mask, &masks).unwrap();
 
-        let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
-            .await
-            .unwrap();
+        let res2 = iris.iris_in_db(iris2_, &db_t, &iris2.mask, &masks).unwrap();
 
         assert_eq!(res1, is_in1);
         assert_eq!(res2, is_in2);
         assert!(res2);
     }
 
-    #[tokio::test]
-    async fn plain_full_test() {
-        plain_full_test_inner::<u16>().await
+    #[test]
+    fn plain_full_test() {
+        plain_full_test_inner::<u16>()
     }
 
-    async fn full_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
+    fn full_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
         net: PartyTestNetwork,
         seed: R::Seed,
         iris_seed: R::Seed,
@@ -744,7 +717,7 @@ mod iris_swift3_test {
         let mut iris = IrisProtocol::new(protocol).unwrap();
         let id = iris.get_id();
 
-        iris.preprocessing().await.unwrap();
+        iris.preprocessing().unwrap();
 
         let mut iris_rng = R::from_seed(iris_seed);
         let mut rng = R::from_seed(seed);
@@ -774,24 +747,18 @@ mod iris_swift3_test {
         let iris1_ = share_iris_code(&iris1, id, &mut rng);
         let iris2_ = share_iris_code(&iris2, id, &mut rng);
         // calculate
-        let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
-            .await
-            .unwrap();
+        let res1 = iris.iris_in_db(iris1_, &db_t, &iris1.mask, &masks).unwrap();
 
-        let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
-            .await
-            .unwrap();
+        let res2 = iris.iris_in_db(iris2_, &db_t, &iris2.mask, &masks).unwrap();
 
-        iris.finish().await.unwrap();
+        iris.finish().unwrap();
 
         assert_eq!(res1, is_in1);
         assert_eq!(res2, is_in2);
         assert!(res2);
     }
 
-    async fn full_test_swift3_impl<T: Sharable>()
+    fn full_test_swift3_impl<T: Sharable>()
     where
         Standard: Distribution<T>,
         Standard: Distribution<T::Share>,
@@ -808,20 +775,20 @@ mod iris_swift3_test {
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move {
-                full_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+            let t = std::thread::spawn(move || {
+                full_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed)
             });
             tasks.push(t);
         }
 
         for t in tasks {
-            t.await.expect("Task exited normally");
+            t.join().expect("Task exited normally");
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[test]
     #[ignore]
-    async fn full_test_swift3() {
-        full_test_swift3_impl::<u16>().await
+    fn full_test_swift3() {
+        full_test_swift3_impl::<u16>()
     }
 }

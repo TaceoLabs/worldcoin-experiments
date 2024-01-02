@@ -47,7 +47,7 @@ impl<N: NetworkTrait, U: Sharable> MaliciousAbort for Swift3<N, U> {}
 macro_rules! reduce_or {
     ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
         $(
-            async fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
+             fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
                 let (a, b, c) = a.get_abc();
                 let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
                 let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
@@ -56,8 +56,8 @@ macro_rules! reduce_or {
                 let share_a = Share::new(a1, b1, c1);
                 let share_b = Share::new(a2, b2, c2);
 
-                let out = <Self as BinaryMpcTrait::<$typ_b, Share<$typ_b>>>::or(self, share_a, share_b).await?;
-                self.$name_b(out).await
+                let out = <Self as BinaryMpcTrait::<$typ_b, Share<$typ_b>>>::or(self, share_a, share_b)?;
+                self.$name_b(out)
             }
         )*
     };
@@ -113,7 +113,7 @@ where
         (x1, x2, x3)
     }
 
-    async fn send_seed_commitment(
+    fn send_seed_commitment(
         &mut self,
         comm1: &[u8],
         comm2: &[u8],
@@ -131,24 +131,24 @@ where
         msg2.extend_from_slice(comm3);
         let msg2 = msg2.freeze();
 
-        self.network.send(id1, msg1).await?;
-        self.network.send(id2, msg2).await?;
+        self.network.send(id1, msg1)?;
+        self.network.send(id2, msg2)?;
 
         Ok(())
     }
 
     #[inline(always)]
-    async fn jmp_send<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
-        utils::send_value(&mut self.network, value, id).await
+    fn jmp_send<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
+        utils::send_value(&mut self.network, value, id)
     }
 
     #[inline(always)]
-    async fn jmp_send_many<T: Sharable>(
+    fn jmp_send_many<T: Sharable>(
         &mut self,
         values: Vec<T::Share>,
         id: usize,
     ) -> Result<(), Error> {
-        utils::send_vec(&mut self.network, values, id).await
+        utils::send_vec(&mut self.network, values, id)
     }
 
     fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
@@ -198,12 +198,7 @@ where
         (d, e)
     }
 
-    async fn mul_post(
-        &mut self,
-        a: Share<U>,
-        b: Share<U>,
-        de: Aby3Share<U>,
-    ) -> Result<Share<U>, Error>
+    fn mul_post(&mut self, a: Share<U>, b: Share<U>, de: Aby3Share<U>) -> Result<Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
     {
@@ -224,25 +219,25 @@ where
             0 => {
                 let y1 = y_a;
                 let y3 = y_b;
-                self.jmp_send::<U>(y1.to_owned(), 2).await?;
-                self.jmp_send::<U>(y3.to_owned(), 1).await?;
-                self.jshare(None, 1, 2, 0).await?
+                self.jmp_send::<U>(y1.to_owned(), 2)?;
+                self.jmp_send::<U>(y3.to_owned(), 1)?;
+                self.jshare(None, 1, 2, 0)?
             }
             1 => {
                 let y2 = y_a;
                 let y1 = y_b;
                 self.jmp_queue::<U>(y1.to_owned(), 2)?;
-                let y3 = self.jmp_receive::<U>(0).await?;
+                let y3 = self.jmp_receive::<U>(0)?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0)?
             }
             2 => {
                 let y3 = y_a;
                 let y2 = y_b;
                 self.jmp_queue::<U>(y3.to_owned(), 1)?;
-                let y1 = self.jmp_receive::<U>(0).await?;
+                let y1 = self.jmp_receive::<U>(0)?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0)?
             }
             _ => unreachable!(),
         };
@@ -252,7 +247,7 @@ where
         Ok(share - r)
     }
 
-    async fn and_post<T: Sharable>(
+    fn and_post<T: Sharable>(
         &mut self,
         a: Share<T>,
         b: Share<T>,
@@ -278,27 +273,25 @@ where
             0 => {
                 let y1 = y_a;
                 let y3 = y_b;
-                self.jmp_send::<T>(y1.to_owned(), 2).await?;
-                self.jmp_send::<T>(y3.to_owned(), 1).await?;
-                self.jshare_binary(None, 1, 2, 0).await?
+                self.jmp_send::<T>(y1.to_owned(), 2)?;
+                self.jmp_send::<T>(y3.to_owned(), 1)?;
+                self.jshare_binary(None, 1, 2, 0)?
             }
             1 => {
                 let y2 = y_a;
                 let y1 = y_b;
                 self.jmp_queue::<T>(y1.to_owned(), 2)?;
-                let y3 = self.jmp_receive::<T>(0).await?;
+                let y3 = self.jmp_receive::<T>(0)?;
                 let zr = y1 ^ y2 ^ y3 ^ z_c;
-                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
-                    .await?
+                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)?
             }
             2 => {
                 let y3 = y_a;
                 let y2 = y_b;
                 self.jmp_queue::<T>(y3.to_owned(), 1)?;
-                let y1 = self.jmp_receive::<T>(0).await?;
+                let y1 = self.jmp_receive::<T>(0)?;
                 let zr = y1 ^ y2 ^ y3 ^ z_c;
-                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)
-                    .await?
+                self.jshare_binary(Some(T::from_sharetype(zr)), 1, 2, 0)?
             }
             _ => unreachable!(),
         };
@@ -308,7 +301,7 @@ where
         Ok(share ^ r)
     }
 
-    async fn and_post_many<T: Sharable>(
+    fn and_post_many<T: Sharable>(
         &mut self,
         a: Vec<Share<T>>,
         b: Vec<Share<T>>,
@@ -345,10 +338,10 @@ where
                     y3s.push(y3);
                     rs.push(r);
                 }
-                self.jmp_send_many::<T>(y1s, 2).await?;
-                self.jmp_send_many::<T>(y3s, 1).await?;
+                self.jmp_send_many::<T>(y1s, 2)?;
+                self.jmp_send_many::<T>(y3s, 1)?;
 
-                let resp = self.jshare_binary_many(None, 1, 2, 0, len).await?;
+                let resp = self.jshare_binary_many(None, 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share ^ r);
                 }
@@ -375,13 +368,13 @@ where
                     rs.push(r);
                 }
                 self.jmp_queue_many::<T>(y1s, 2)?;
-                let y3s = self.jmp_receive_many::<T>(0, len).await?;
+                let y3s = self.jmp_receive_many::<T>(0, len)?;
 
                 for (zr_, y3) in zr.iter_mut().zip(y3s) {
                     *zr_ ^= T::from_sharetype(y3);
                 }
 
-                let resp = self.jshare_binary_many(Some(zr), 1, 2, 0, len).await?;
+                let resp = self.jshare_binary_many(Some(zr), 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share ^ r);
                 }
@@ -408,13 +401,13 @@ where
                     rs.push(r);
                 }
                 self.jmp_queue_many::<T>(y3s, 1)?;
-                let y1s = self.jmp_receive_many::<T>(0, len).await?;
+                let y1s = self.jmp_receive_many::<T>(0, len)?;
 
                 for (zr_, y1) in zr.iter_mut().zip(y1s) {
                     *zr_ ^= T::from_sharetype(y1);
                 }
 
-                let resp = self.jshare_binary_many(Some(zr), 1, 2, 0, len).await?;
+                let resp = self.jshare_binary_many(Some(zr), 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share ^ r);
                 }
@@ -425,7 +418,7 @@ where
         Ok(shares)
     }
 
-    async fn dot_post(
+    fn dot_post(
         &mut self,
         a: Vec<Share<U>>,
         b: Vec<Share<U>>,
@@ -459,25 +452,25 @@ where
             0 => {
                 let y1 = y_a_;
                 let y3 = y_b_;
-                self.jmp_send::<U>(y1.to_owned(), 2).await?;
-                self.jmp_send::<U>(y3.to_owned(), 1).await?;
-                self.jshare(None, 1, 2, 0).await?
+                self.jmp_send::<U>(y1.to_owned(), 2)?;
+                self.jmp_send::<U>(y3.to_owned(), 1)?;
+                self.jshare(None, 1, 2, 0)?
             }
             1 => {
                 let y2 = y_a_;
                 let y1 = y_b_;
                 self.jmp_queue::<U>(y1.to_owned(), 2)?;
-                let y3 = self.jmp_receive::<U>(0).await?;
+                let y3 = self.jmp_receive::<U>(0)?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0)?
             }
             2 => {
                 let y3 = y_a_;
                 let y2 = y_b_;
                 self.jmp_queue::<U>(y3.to_owned(), 1)?;
-                let y1 = self.jmp_receive::<U>(0).await?;
+                let y1 = self.jmp_receive::<U>(0)?;
                 let zr = y1 + y2 + y3 + z_c;
-                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0).await?
+                self.jshare(Some(U::from_sharetype(zr)), 1, 2, 0)?
             }
             _ => unreachable!(),
         };
@@ -487,7 +480,7 @@ where
         Ok(share - r)
     }
 
-    async fn dot_post_many(
+    fn dot_post_many(
         &mut self,
         a: &[Vec<Share<U>>],
         b: &[Vec<Share<U>>],
@@ -532,12 +525,12 @@ where
                     rs.push(r);
                 }
                 tracing::debug!("jmp_send_many -> 2");
-                self.jmp_send_many::<U>(y1s, 2).await?;
+                self.jmp_send_many::<U>(y1s, 2)?;
                 tracing::debug!("jmp_send_many -> 1");
-                self.jmp_send_many::<U>(y3s, 1).await?;
+                self.jmp_send_many::<U>(y3s, 1)?;
 
                 tracing::debug!("jshare_many 1,2 -> 0");
-                let resp = self.jshare_many(None, 1, 2, 0, len).await?;
+                let resp = self.jshare_many(None, 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
@@ -573,14 +566,14 @@ where
                 tracing::debug!("jmp_queue_many -> 2");
                 self.jmp_queue_many::<U>(y1s, 2)?;
                 tracing::debug!("jmp_recv_many <- 0");
-                let y3s = self.jmp_receive_many::<U>(0, len).await?;
+                let y3s = self.jmp_receive_many::<U>(0, len)?;
 
                 for (zr_, y3) in zr.iter_mut().zip(y3s) {
                     *zr_ = zr_.wrapping_add(&U::from_sharetype(y3));
                 }
 
                 tracing::debug!("jshare_many 1,2 -> 0");
-                let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
+                let resp = self.jshare_many(Some(zr), 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
@@ -616,14 +609,14 @@ where
                 tracing::debug!("jmp_queue_many -> 1");
                 self.jmp_queue_many::<U>(y3s, 1)?;
                 tracing::debug!("jmp_recv_many <- 0");
-                let y1s = self.jmp_receive_many::<U>(0, len).await?;
+                let y1s = self.jmp_receive_many::<U>(0, len)?;
 
                 for (zr_, y1) in zr.iter_mut().zip(y1s) {
                     *zr_ = zr_.wrapping_add(&U::from_sharetype(y1));
                 }
 
                 tracing::debug!("jshare_many 1,2 -> 0");
-                let resp = self.jshare_many(Some(zr), 1, 2, 0, len).await?;
+                let resp = self.jshare_many(Some(zr), 1, 2, 0, len)?;
                 for (share, r) in resp.into_iter().zip(rs) {
                     shares.push(share - r);
                 }
@@ -635,7 +628,7 @@ where
         Ok(shares)
     }
 
-    async fn and_verify(&mut self) -> Result<(), Error> {
+    fn and_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.and_proof.calc_params();
         self.and_proof.set_parameters(l, m);
 
@@ -661,13 +654,11 @@ where
         tracing::trace!("Finished proof generation");
 
         // Communication: Send proofs around
-        let (proof_prev, proof_next) = self
-            .send_receive_and_dzkp::<ChaCha12Rng>(&proof, seed, l, m)
-            .await?;
+        let (proof_prev, proof_next) =
+            self.send_receive_and_dzkp::<ChaCha12Rng>(&proof, seed, l, m)?;
 
         // coin the betas
-        let mut betas_rng =
-            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let mut betas_rng = ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng)?);
         let betas = Self::get_rands_for_and_dzkp(m, &mut betas_rng);
         let r = Self::get_and_r(m, &mut betas_rng);
 
@@ -695,12 +686,10 @@ where
         )?;
 
         // send prev_verification to next
-        self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        let bytes = self.network.receive_prev_id().await?;
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+        ))?;
+        let bytes = self.network.receive_prev_id()?;
         let shared_verify_rcv =
             bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
 
@@ -714,7 +703,7 @@ where
         Ok(())
     }
 
-    async fn mul_verify(&mut self) -> Result<(), Error> {
+    fn mul_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.mul_proof.calc_params();
         self.mul_proof.set_parameters(l, m);
 
@@ -743,13 +732,11 @@ where
         tracing::trace!("Finished proof generation");
 
         // Communication: Send proofs around
-        let (proof_prev, proof_next) = self
-            .send_receive_mul_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d)
-            .await?;
+        let (proof_prev, proof_next) =
+            self.send_receive_mul_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d)?;
 
         // coin the betas
-        let mut betas_rng =
-            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let mut betas_rng = ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng)?);
         let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
         let r = Self::get_mul_r(d, &mut betas_rng);
 
@@ -777,12 +764,10 @@ where
         )?;
 
         // send prev_verification to next
-        self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        let bytes = self.network.receive_prev_id().await?;
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+        ))?;
+        let bytes = self.network.receive_prev_id()?;
         let shared_verify_rcv =
             bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
 
@@ -796,7 +781,7 @@ where
         Ok(())
     }
 
-    async fn dot_verify(&mut self) -> Result<(), Error> {
+    fn dot_verify(&mut self) -> Result<(), Error> {
         let (l, m) = self.dot_proof.calc_params();
         self.dot_proof.set_parameters(l, m);
 
@@ -826,13 +811,11 @@ where
         tracing::trace!("Finished proof generation");
 
         // Communication: Send proofs around
-        let (proof_prev, proof_next) = self
-            .send_receive_dot_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d, dot)
-            .await?;
+        let (proof_prev, proof_next) =
+            self.send_receive_dot_dzkp::<ChaCha12Rng>(&proof, seed, l, m, d, dot)?;
 
         // coin the betas
-        let mut betas_rng =
-            ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng).await?);
+        let mut betas_rng = ChaCha12Rng::from_seed(self.coin::<ChaCha12Rng>(&mut prover_rng)?);
         let betas = Self::get_rands_for_mul_dzkp(m, d, &mut betas_rng);
         let r = Self::get_mul_r(d, &mut betas_rng);
 
@@ -860,12 +843,10 @@ where
         )?;
 
         // send prev_verification to next
-        self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        let bytes = self.network.receive_prev_id().await?;
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&shared_verify_prev).map_err(|_| Error::SerializationError)?,
+        ))?;
+        let bytes = self.network.receive_prev_id()?;
         let shared_verify_rcv =
             bincode::deserialize(&bytes).map_err(|_| Error::SerializationError)?;
 
@@ -879,7 +860,7 @@ where
         Ok(())
     }
 
-    async fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
+    fn aby_mul(&mut self, a: Aby3Share<U>, b: Aby3Share<U>) -> Result<Aby3Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
     {
@@ -889,7 +870,7 @@ where
         c.a += rand;
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         // Register for proof
         let (a0, a1) = a.get_ab();
@@ -900,7 +881,7 @@ where
         Ok(c)
     }
 
-    async fn aby_and<T: Sharable>(
+    fn aby_and<T: Sharable>(
         &mut self,
         a: Aby3Share<T>,
         b: Aby3Share<T>,
@@ -914,7 +895,7 @@ where
         c.a ^= rand;
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         // Register for proof
         let (a0, a1) = a.get_ab();
@@ -926,7 +907,7 @@ where
         Ok(c)
     }
 
-    async fn aby_and_many<T: Sharable>(
+    fn aby_and_many<T: Sharable>(
         &mut self,
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
@@ -949,7 +930,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let res: Vec<Aby3Share<T>> = shares_a
             .into_iter()
@@ -975,11 +956,7 @@ where
         Ok(res)
     }
 
-    async fn aby_dot(
-        &mut self,
-        a: Vec<Aby3Share<U>>,
-        b: Vec<Aby3Share<U>>,
-    ) -> Result<Aby3Share<U>, Error>
+    fn aby_dot(&mut self, a: Vec<Aby3Share<U>>, b: Vec<Aby3Share<U>>) -> Result<Aby3Share<U>, Error>
     where
         Standard: Distribution<U::Share>,
     {
@@ -1008,7 +985,7 @@ where
         }
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         let (s0, s1) = c.to_owned().get_ab();
 
@@ -1017,7 +994,7 @@ where
         Ok(c)
     }
 
-    async fn aby_dot_many(
+    fn aby_dot_many(
         &mut self,
         a: Vec<Vec<Aby3Share<U>>>,
         b: Vec<Vec<Aby3Share<U>>>,
@@ -1070,7 +1047,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let mut res = Vec::with_capacity(len);
 
@@ -1094,9 +1071,9 @@ where
         Ok(res)
     }
 
-    async fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
+    fn jmp_receive<T: Sharable>(&mut self, id: usize) -> Result<T::Share, Error> {
         // I should receive from id, and later the hash from the third party
-        let value: T::Share = utils::receive_value(&mut self.network, id).await?;
+        let value: T::Share = utils::receive_value(&mut self.network, id)?;
 
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
@@ -1111,13 +1088,13 @@ where
         Ok(value)
     }
 
-    async fn jmp_receive_many<T: Sharable>(
+    fn jmp_receive_many<T: Sharable>(
         &mut self,
         id: usize,
         len: usize,
     ) -> Result<Vec<T::Share>, Error> {
         // I should receive from id, and later the hash from the third party
-        let values: Vec<T::Share> = utils::receive_vec(&mut self.network, id, len).await?;
+        let values: Vec<T::Share> = utils::receive_vec(&mut self.network, id, len)?;
 
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
@@ -1145,7 +1122,7 @@ where
         hasher.finalize()
     }
 
-    async fn jmp_verify(&mut self) -> Result<(), Error> {
+    fn jmp_verify(&mut self) -> Result<(), Error> {
         let id = self.network.get_id();
         let next_id = (id + 1) % 3;
         let prev_id = (id + 2) % 3;
@@ -1156,14 +1133,12 @@ where
         let hash_prev = Self::clear_and_hash(&mut self.rcv_queue_prev);
 
         self.network
-            .send(next_id, Bytes::from(send_next.to_vec()))
-            .await?;
+            .send(next_id, Bytes::from(send_next.to_vec()))?;
         self.network
-            .send(prev_id, Bytes::from(send_prev.to_vec()))
-            .await?;
+            .send(prev_id, Bytes::from(send_prev.to_vec()))?;
 
-        let rcv_prev = self.network.receive(prev_id).await?;
-        let rcv_next = self.network.receive(next_id).await?;
+        let rcv_prev = self.network.receive(prev_id)?;
+        let rcv_next = self.network.receive(next_id)?;
 
         if rcv_prev.as_ref() != hash_prev.as_slice() || rcv_next.as_ref() != hash_next.as_slice() {
             return Err(Error::JmpVerifyError);
@@ -1172,7 +1147,7 @@ where
         Ok(())
     }
 
-    async fn jshare<T: Sharable>(
+    fn jshare<T: Sharable>(
         &mut self,
         input: Option<T>,
         mut sender1: usize,
@@ -1200,7 +1175,7 @@ where
             let alpha_1 = self.prf.gen_1::<T::Share>();
             let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
             let beta = alpha + input.unwrap().to_sharetype();
-            self.jmp_send::<T>(beta.to_owned(), receiver).await?;
+            self.jmp_send::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_1, alpha_p, beta)
         } else if self_id == sender2 {
             let alpha_1 = self.prf.gen_2::<T::Share>();
@@ -1209,7 +1184,7 @@ where
             self.jmp_queue::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_p, alpha_1, beta)
         } else if self_id == receiver {
-            let beta = self.jmp_receive::<T>(sender1).await?;
+            let beta = self.jmp_receive::<T>(sender1)?;
             Share::new(alpha_p.to_owned(), alpha_p, beta)
         } else {
             unreachable!()
@@ -1218,7 +1193,7 @@ where
         Ok(share)
     }
 
-    async fn jshare_many<T: Sharable>(
+    fn jshare_many<T: Sharable>(
         &mut self,
         input: Option<Vec<T>>,
         mut sender1: usize,
@@ -1261,7 +1236,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_send_many::<T>(betas.to_owned(), receiver).await?;
+            self.jmp_send_many::<T>(betas.to_owned(), receiver)?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_1, alpha_p, beta));
             }
@@ -1289,7 +1264,7 @@ where
                 shares.push(Share::new(alpha_p, alpha_1, beta));
             }
         } else if self_id == receiver {
-            let betas = self.jmp_receive_many::<T>(sender1, len).await?;
+            let betas = self.jmp_receive_many::<T>(sender1, len)?;
             for beta in betas {
                 let alpha_p = self.prf.gen_p::<T::Share>();
                 shares.push(Share::new(alpha_p.to_owned(), alpha_p, beta));
@@ -1301,7 +1276,7 @@ where
         Ok(shares)
     }
 
-    async fn jshare_binary<T: Sharable>(
+    fn jshare_binary<T: Sharable>(
         &mut self,
         input: Option<T>,
         mut sender1: usize,
@@ -1329,7 +1304,7 @@ where
             let alpha_1 = self.prf.gen_1::<T::Share>();
             let alpha = alpha_1.to_owned();
             let beta = alpha ^ input.unwrap().to_sharetype();
-            self.jmp_send::<T>(beta.to_owned(), receiver).await?;
+            self.jmp_send::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_1, alpha_p, beta)
         } else if self_id == sender2 {
             let alpha_1 = self.prf.gen_2::<T::Share>();
@@ -1338,7 +1313,7 @@ where
             self.jmp_queue::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_p, alpha_1, beta)
         } else if self_id == receiver {
-            let beta = self.jmp_receive::<T>(sender1).await?;
+            let beta = self.jmp_receive::<T>(sender1)?;
             Share::new(alpha_p.to_owned(), alpha_p, beta)
         } else {
             unreachable!()
@@ -1347,7 +1322,7 @@ where
         Ok(share)
     }
 
-    async fn jshare_binary_many<T: Sharable>(
+    fn jshare_binary_many<T: Sharable>(
         &mut self,
         input: Option<Vec<T>>,
         mut sender1: usize,
@@ -1390,7 +1365,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_send_many::<T>(betas.to_owned(), receiver).await?;
+            self.jmp_send_many::<T>(betas.to_owned(), receiver)?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_1, alpha_p, beta));
             }
@@ -1418,7 +1393,7 @@ where
                 shares.push(Share::new(alpha_p, alpha_1, beta));
             }
         } else if self_id == receiver {
-            let betas = self.jmp_receive_many::<T>(sender1, len).await?;
+            let betas = self.jmp_receive_many::<T>(sender1, len)?;
             for beta in betas {
                 let alpha_p = self.prf.gen_p::<T::Share>();
                 shares.push(Share::new(alpha_p.to_owned(), alpha_p, beta));
@@ -1430,7 +1405,7 @@ where
         Ok(shares)
     }
 
-    async fn send_seed_opening(
+    fn send_seed_opening(
         &mut self,
         opening1: &CommitOpening<RingElement<u8>>,
         opening2: &CommitOpening<RingElement<u8>>,
@@ -1460,17 +1435,17 @@ where
         let msg1 = msg1.freeze();
         let msg2 = msg2.freeze();
 
-        self.network.send(id1, msg1).await?;
-        self.network.send(id2, msg2).await?;
+        self.network.send(id1, msg1)?;
+        self.network.send(id2, msg2)?;
 
         Ok(())
     }
 
-    async fn setup_prf(&mut self) -> Result<(), Error> {
+    fn setup_prf(&mut self) -> Result<(), Error> {
         let seed1 = Prf::gen_seed();
         let seed2 = Prf::gen_seed();
         let seed3 = Prf::gen_seed();
-        self.setup_prf_from_seed([seed1, seed2, seed3]).await
+        self.setup_prf_from_seed([seed1, seed2, seed3])
     }
 
     fn verify_commitment(data: &[u8], rand: [u8; 32], comm: Vec<u8>) -> bool {
@@ -1481,7 +1456,7 @@ where
         opening.verify(comm)
     }
 
-    async fn setup_prf_from_seed(&mut self, seeds: [PrfSeed; 3]) -> Result<(), Error> {
+    fn setup_prf_from_seed(&mut self, seeds: [PrfSeed; 3]) -> Result<(), Error> {
         let id = self.network.get_id();
         let ids = match id {
             0 => (1, 2),
@@ -1500,11 +1475,10 @@ where
             Commitment::commit(RingElement::convert_slice_rev(&seeds[2]).to_vec(), &mut rng);
 
         // First communication round: Send commitments
-        self.send_seed_commitment(&comm1.comm, &comm2.comm, &comm3.comm, ids.0, ids.1)
-            .await?;
+        self.send_seed_commitment(&comm1.comm, &comm2.comm, &comm3.comm, ids.0, ids.1)?;
 
-        let msg1 = self.network.receive(ids.0).await?;
-        let msg2 = self.network.receive(ids.1).await?;
+        let msg1 = self.network.receive(ids.0)?;
+        let msg2 = self.network.receive(ids.1)?;
 
         let comm_size = Commitment::<RingElement<u8>>::get_comm_size();
 
@@ -1526,11 +1500,10 @@ where
         let open1 = comm1.open();
         let open2 = comm2.open();
         let open3 = comm3.open();
-        self.send_seed_opening(&open1, &open2, &open3, ids.0, ids.1)
-            .await?;
+        self.send_seed_opening(&open1, &open2, &open3, ids.0, ids.1)?;
 
-        let msg1 = self.network.receive(ids.0).await?;
-        let msg2 = self.network.receive(ids.1).await?;
+        let msg1 = self.network.receive(ids.0)?;
+        let msg2 = self.network.receive(ids.1)?;
 
         let seed_size = seeds[0].len();
         let rand_size = Commitment::<RingElement<u8>>::get_rand_size();
@@ -1634,7 +1607,7 @@ where
         [u16, u8, reduce_or_u16, reduce_or_u8]
     );
 
-    async fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
+    fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
         const K: usize = 8;
 
         let mut decomp: Vec<Share<Bit>> = Vec::with_capacity(K);
@@ -1657,14 +1630,13 @@ where
                 self,
                 decomp[..k].to_vec(),
                 decomp[k..].to_vec(),
-            )
-            .await?;
+            )?;
         }
 
         Ok(decomp[0].to_owned())
     }
 
-    async fn coin<R: Rng + SeedableRng>(&mut self, rng: &mut R) -> Result<R::Seed, Error>
+    fn coin<R: Rng + SeedableRng>(&mut self, rng: &mut R) -> Result<R::Seed, Error>
     where
         Standard: Distribution<R::Seed>,
         R::Seed: AsRef<[u8]>,
@@ -1683,7 +1655,7 @@ where
         let (open, rand, comm) = (comm.values, comm.rand, comm.comm);
 
         // Broadcast commitment
-        let res = self.network.broadcast(Bytes::from(comm)).await?;
+        let res = self.network.broadcast(Bytes::from(comm))?;
 
         let comm_size = Commitment::<RingElement<u8>>::get_comm_size();
         if res[ids.0].len() != comm_size || res[ids.1].len() != comm_size {
@@ -1701,7 +1673,7 @@ where
         }
         msg.extend_from_slice(&rand);
         let msg = msg.freeze();
-        let res = self.network.broadcast(msg).await?;
+        let res = self.network.broadcast(msg)?;
 
         let seed_size = seed.as_ref().len();
         let rand_size = Commitment::<RingElement<u8>>::get_rand_size();
@@ -1735,7 +1707,7 @@ where
         Ok(seed)
     }
 
-    async fn send_receive_and_dzkp<R: Rng + SeedableRng>(
+    fn send_receive_and_dzkp<R: Rng + SeedableRng>(
         &mut self,
         proof: &AndProofStruct,
         seed: R::Seed,
@@ -1745,20 +1717,17 @@ where
     where
         R::Seed: AsRef<[u8]>,
     {
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+        ))?;
         self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        self.network
-            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
-            .await?;
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))?;
 
-        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_bytes = self.network.receive_prev_id()?;
         let proof_prev =
             bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
 
-        let seed_next = self.network.receive_next_id().await?.freeze();
+        let seed_next = self.network.receive_next_id()?.freeze();
         if seed_next.len() != seed.as_ref().len() {
             return Err(Error::InvalidMessageSize);
         }
@@ -1773,7 +1742,7 @@ where
     }
 
     #[allow(unused)]
-    async fn send_receive_mul_dzkp<R: Rng + SeedableRng>(
+    fn send_receive_mul_dzkp<R: Rng + SeedableRng>(
         &mut self,
         proof: &MulProofStruct<U::Share>,
         seed: R::Seed,
@@ -1784,20 +1753,17 @@ where
     where
         R::Seed: AsRef<[u8]>,
     {
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+        ))?;
         self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        self.network
-            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
-            .await?;
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))?;
 
-        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_bytes = self.network.receive_prev_id()?;
         let proof_prev =
             bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
 
-        let seed_next = self.network.receive_next_id().await?.freeze();
+        let seed_next = self.network.receive_next_id()?.freeze();
         if seed_next.len() != seed.as_ref().len() {
             return Err(Error::InvalidMessageSize);
         }
@@ -1827,7 +1793,7 @@ where
         rands
     }
 
-    async fn send_receive_dot_dzkp<R: Rng + SeedableRng>(
+    fn send_receive_dot_dzkp<R: Rng + SeedableRng>(
         &mut self,
         proof: &DotProofStruct<U::Share>,
         seed: R::Seed,
@@ -1839,20 +1805,17 @@ where
     where
         R::Seed: AsRef<[u8]>,
     {
+        self.network.send_next_id(Bytes::from(
+            bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
+        ))?;
         self.network
-            .send_next_id(Bytes::from(
-                bincode::serialize(&proof).map_err(|_| Error::SerializationError)?,
-            ))
-            .await?;
-        self.network
-            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))
-            .await?;
+            .send_prev_id(Bytes::from(seed.as_ref().to_vec()))?;
 
-        let proof_bytes = self.network.receive_prev_id().await?;
+        let proof_bytes = self.network.receive_prev_id()?;
         let proof_prev =
             bincode::deserialize(&proof_bytes).map_err(|_| Error::SerializationError)?;
 
-        let seed_next = self.network.receive_next_id().await?.freeze();
+        let seed_next = self.network.receive_next_id()?.freeze();
         if seed_next.len() != seed.as_ref().len() {
             return Err(Error::InvalidMessageSize);
         }
@@ -1924,19 +1887,19 @@ where
         self.network.get_id()
     }
 
-    async fn finish(self) -> Result<(), Error> {
-        self.network.shutdown().await?;
+    fn finish(self) -> Result<(), Error> {
+        self.network.shutdown()?;
         Ok(())
     }
 
-    async fn preprocess(&mut self) -> Result<(), Error> {
-        self.setup_prf().await
+    fn preprocess(&mut self) -> Result<(), Error> {
+        self.setup_prf()
     }
 
     fn set_mac_key(&mut self, _key: Share<T>) {}
     fn set_new_mac_key(&mut self) {}
     #[cfg(test)]
-    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+    fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
         Ok(T::VerificationShare::default())
     }
 
@@ -1944,7 +1907,7 @@ where
         Ok(self.network.print_connection_stats(out)?)
     }
 
-    async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
+    fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
         let self_id = self.get_id();
         if id == self_id && input.is_none() {
             return Err(Error::ValueError("Cannot share None".to_string()));
@@ -1958,19 +1921,19 @@ where
                     let alpha3 = self.prf.gen_2::<T::Share>();
                     let alpha = alpha2 + &alpha1 + &alpha3;
                     let beta = input.unwrap().to_sharetype() + alpha;
-                    utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
-                    self.jmp_send::<T>(beta.to_owned(), 2).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 1)?;
+                    self.jmp_send::<T>(beta.to_owned(), 2)?;
                     Share::new(alpha1, alpha3, beta)
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_2::<T::Share>();
                     let alpha2 = self.prf.gen_p::<T::Share>();
-                    let beta: T::Share = utils::receive_value(&mut self.network, 0).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 0)?;
                     self.jmp_queue::<T>(beta.to_owned(), 2)?;
                     Share::new(alpha2, alpha1, beta)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_p::<T::Share>();
                     let alpha3 = self.prf.gen_1::<T::Share>();
-                    let beta = self.jmp_receive::<T>(0).await?;
+                    let beta = self.jmp_receive::<T>(0)?;
                     Share::new(alpha3, alpha2, beta)
                 } else {
                     unreachable!()
@@ -1983,19 +1946,19 @@ where
                     let alpha3 = self.prf.gen_p::<T::Share>();
                     let alpha = alpha3 + &alpha1 + &alpha2;
                     let beta = input.unwrap().to_sharetype() + alpha;
-                    utils::send_value(&mut self.network, beta.to_owned(), 2).await?;
-                    self.jmp_send::<T>(beta.to_owned(), 0).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 2)?;
+                    self.jmp_send::<T>(beta.to_owned(), 0)?;
                     Share::new(alpha2, alpha1, beta)
                 } else if self_id == 2 {
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let alpha3 = self.prf.gen_p::<T::Share>();
-                    let beta: T::Share = utils::receive_value(&mut self.network, 1).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 1)?;
                     self.jmp_queue::<T>(beta.to_owned(), 0)?;
                     Share::new(alpha3, alpha2, beta)
                 } else if self_id == 0 {
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let alpha3 = self.prf.gen_p::<T::Share>();
-                    let beta = self.jmp_receive::<T>(1).await?;
+                    let beta = self.jmp_receive::<T>(1)?;
                     Share::new(alpha1, alpha3, beta)
                 } else {
                     unreachable!()
@@ -2008,19 +1971,19 @@ where
                     let alpha3 = self.prf.gen_1::<T::Share>();
                     let alpha = alpha1 + &alpha2 + &alpha3;
                     let beta = input.unwrap().to_sharetype() + alpha;
-                    utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
-                    self.jmp_send::<T>(beta.to_owned(), 0).await?;
+                    utils::send_value(&mut self.network, beta.to_owned(), 1)?;
+                    self.jmp_send::<T>(beta.to_owned(), 0)?;
                     Share::new(alpha3, alpha2, beta)
                 } else if self_id == 1 {
                     let alpha1 = self.prf.gen_p::<T::Share>();
                     let alpha2 = self.prf.gen_1::<T::Share>();
-                    let beta: T::Share = utils::receive_value(&mut self.network, 2).await?;
+                    let beta: T::Share = utils::receive_value(&mut self.network, 2)?;
                     self.jmp_queue::<T>(beta.to_owned(), 0)?;
                     Share::new(alpha2, alpha1, beta)
                 } else if self_id == 0 {
                     let alpha1 = self.prf.gen_p::<T::Share>();
                     let alpha3 = self.prf.gen_2::<T::Share>();
-                    let beta = self.jmp_receive::<T>(2).await?;
+                    let beta = self.jmp_receive::<T>(2)?;
                     Share::new(alpha1, alpha3, beta)
                 } else {
                     unreachable!()
@@ -2033,14 +1996,14 @@ where
     }
 
     #[cfg(test)]
-    async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
+    fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
         // Since this is only for testing we perform a bad one
         let mut inputs = [None; 3];
         inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
 
         for (i, inp) in inputs.into_iter().enumerate() {
-            shares.push(self.input(inp.to_owned(), i).await?);
+            shares.push(self.input(inp.to_owned(), i)?);
         }
 
         Ok(shares)
@@ -2060,35 +2023,35 @@ where
         vec![share1, share2, share3]
     }
 
-    async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        self.jmp_verify().await?;
+    fn open(&mut self, share: Share<T>) -> Result<T, Error> {
+        self.jmp_verify()?;
 
         let id = self.network.get_id();
         let (a, b, c) = share.get_abc();
 
         let rcv = if id == 0 {
-            self.jmp_send::<T>(a.to_owned(), 2).await?;
-            self.jmp_send::<T>(b.to_owned(), 1).await?;
-            self.jmp_receive::<T>(1).await?
+            self.jmp_send::<T>(a.to_owned(), 2)?;
+            self.jmp_send::<T>(b.to_owned(), 1)?;
+            self.jmp_receive::<T>(1)?
         } else if id == 1 {
-            self.jmp_send::<T>(a.to_owned(), 0).await?;
+            self.jmp_send::<T>(a.to_owned(), 0)?;
             self.jmp_queue::<T>(b.to_owned(), 2)?;
-            self.jmp_receive::<T>(0).await?
+            self.jmp_receive::<T>(0)?
         } else if id == 2 {
             self.jmp_queue::<T>(b.to_owned(), 0)?;
             self.jmp_queue::<T>(a.to_owned(), 1)?;
-            self.jmp_receive::<T>(0).await?
+            self.jmp_receive::<T>(0)?
         } else {
             unreachable!()
         };
 
-        self.jmp_verify().await?;
+        self.jmp_verify()?;
 
         Ok(T::from_sharetype(c - a - b - rcv))
     }
 
-    async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
-        self.jmp_verify().await?;
+    fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
+        self.jmp_verify()?;
 
         let id = self.network.get_id();
         let len = shares.len();
@@ -2104,22 +2067,22 @@ where
         }
 
         let rcv = if id == 0 {
-            self.jmp_send_many::<T>(a.to_owned(), 2).await?;
-            self.jmp_send_many::<T>(b.to_owned(), 1).await?;
-            self.jmp_receive_many::<T>(1, len).await?
+            self.jmp_send_many::<T>(a.to_owned(), 2)?;
+            self.jmp_send_many::<T>(b.to_owned(), 1)?;
+            self.jmp_receive_many::<T>(1, len)?
         } else if id == 1 {
-            self.jmp_send_many::<T>(a.to_owned(), 0).await?;
+            self.jmp_send_many::<T>(a.to_owned(), 0)?;
             self.jmp_queue_many::<T>(b.to_owned(), 2)?;
-            self.jmp_receive_many::<T>(0, len).await?
+            self.jmp_receive_many::<T>(0, len)?
         } else if id == 2 {
             self.jmp_queue_many::<T>(b.to_owned(), 0)?;
             self.jmp_queue_many::<T>(a.to_owned(), 1)?;
-            self.jmp_receive_many::<T>(0, len).await?
+            self.jmp_receive_many::<T>(0, len)?
         } else {
             unreachable!()
         };
 
-        self.jmp_verify().await?;
+        self.jmp_verify()?;
 
         let mut output = Vec::with_capacity(len);
 
@@ -2130,35 +2093,35 @@ where
         Ok(output)
     }
 
-    async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
-        self.jmp_verify().await?;
+    fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
+        self.jmp_verify()?;
 
         let id = self.network.get_id();
         let (a, b, c) = share.get_abc();
 
         let rcv = if id == 0 {
-            self.jmp_send::<Bit>(a.to_owned(), 2).await?;
-            self.jmp_send::<Bit>(b.to_owned(), 1).await?;
-            self.jmp_receive::<Bit>(1).await?
+            self.jmp_send::<Bit>(a.to_owned(), 2)?;
+            self.jmp_send::<Bit>(b.to_owned(), 1)?;
+            self.jmp_receive::<Bit>(1)?
         } else if id == 1 {
-            self.jmp_send::<Bit>(a.to_owned(), 0).await?;
+            self.jmp_send::<Bit>(a.to_owned(), 0)?;
             self.jmp_queue::<Bit>(b.to_owned(), 2)?;
-            self.jmp_receive::<Bit>(0).await?
+            self.jmp_receive::<Bit>(0)?
         } else if id == 2 {
             self.jmp_queue::<Bit>(b.to_owned(), 0)?;
             self.jmp_queue::<Bit>(a.to_owned(), 1)?;
-            self.jmp_receive::<Bit>(0).await?
+            self.jmp_receive::<Bit>(0)?
         } else {
             unreachable!()
         };
 
-        self.jmp_verify().await?;
+        self.jmp_verify()?;
 
         Ok((c ^ a ^ b ^ rcv).convert().convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
-        self.jmp_verify().await?;
+    fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
+        self.jmp_verify()?;
 
         let id = self.network.get_id();
         let len = shares.len();
@@ -2174,22 +2137,22 @@ where
         }
 
         let rcv = if id == 0 {
-            self.jmp_send_many::<Bit>(a.to_owned(), 2).await?;
-            self.jmp_send_many::<Bit>(b.to_owned(), 1).await?;
-            self.jmp_receive_many::<Bit>(1, len).await?
+            self.jmp_send_many::<Bit>(a.to_owned(), 2)?;
+            self.jmp_send_many::<Bit>(b.to_owned(), 1)?;
+            self.jmp_receive_many::<Bit>(1, len)?
         } else if id == 1 {
-            self.jmp_send_many::<Bit>(a.to_owned(), 0).await?;
+            self.jmp_send_many::<Bit>(a.to_owned(), 0)?;
             self.jmp_queue_many::<Bit>(b.to_owned(), 2)?;
-            self.jmp_receive_many::<Bit>(0, len).await?
+            self.jmp_receive_many::<Bit>(0, len)?
         } else if id == 2 {
             self.jmp_queue_many::<Bit>(b.to_owned(), 0)?;
             self.jmp_queue_many::<Bit>(a.to_owned(), 1)?;
-            self.jmp_receive_many::<Bit>(0, len).await?
+            self.jmp_receive_many::<Bit>(0, len)?
         } else {
             unreachable!()
         };
 
-        self.jmp_verify().await?;
+        self.jmp_verify()?;
 
         let mut output = Vec::with_capacity(len);
 
@@ -2216,17 +2179,17 @@ where
         a.sub_const(&b.to_sharetype())
     }
 
-    async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+    fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
-        let de = self.aby_mul(d, e).await?;
-        self.mul_post(a, b, de).await
+        let de = self.aby_mul(d, e)?;
+        self.mul_post(a, b, de)
     }
 
     fn mul_const(&self, a: Share<T>, b: T) -> Share<T> {
         a * b.to_sharetype()
     }
 
-    async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
+    fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
         let len = a.len();
         if len != b.len() {
             return Err(Error::InvalidSizeError);
@@ -2241,11 +2204,11 @@ where
             e.push(e_);
         }
 
-        let de = self.aby_dot(d, e).await?;
-        self.dot_post(a, b, de).await
+        let de = self.aby_dot(d, e)?;
+        self.dot_post(a, b, de)
     }
 
-    async fn dot_many(
+    fn dot_many(
         &mut self,
         a: &[Vec<Share<T>>],
         b: &[Vec<Share<T>>],
@@ -2272,45 +2235,45 @@ where
             shares_e.push(e);
         }
 
-        let de = self.aby_dot_many(shares_d, shares_e).await?;
-        self.dot_post_many(a, b, de).await
+        let de = self.aby_dot_many(shares_d, shares_e)?;
+        self.dot_post_many(a, b, de)
     }
 
-    async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
-        let bits = self.arithmetic_to_binary(a).await?;
+    fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
+        let bits = self.arithmetic_to_binary(a)?;
         Ok(bits.get_msb())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
-        let bits = self.arithmetic_to_binary_many(a).await?;
+    fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
+        let bits = self.arithmetic_to_binary_many(a)?;
         let res = bits.into_iter().map(|a| a.get_msb()).collect();
         Ok(res)
     }
 
-    async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
-        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
+    fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
+        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b)
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
+    fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
-        self.reduce_or_u128(reduced).await
+        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed)?;
+        self.reduce_or_u128(reduced)
     }
 
-    async fn verify(&mut self) -> Result<(), Error> {
+    fn verify(&mut self) -> Result<(), Error> {
         {
             // We do this here seperately since it is only active during testing
             if self.mul_proof.get_muls() != 0 {
-                self.mul_verify().await?;
+                self.mul_verify()?;
             }
         }
 
         if self.and_proof.get_muls() != 0 {
-            self.and_verify().await?;
+            self.and_verify()?;
         }
 
         if self.dot_proof.get_muls() != 0 {
-            self.dot_verify().await?;
+            self.dot_verify()?;
         }
 
         Ok(())
@@ -2322,17 +2285,13 @@ where
     Standard: Distribution<T::Share>,
     Standard: Distribution<U::Share>,
 {
-    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+    fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (d, e) = self.mul_pre(a.to_owned(), b.to_owned());
-        let de = self.aby_and::<T>(d, e).await?;
-        self.and_post(a, b, de).await
+        let de = self.aby_and::<T>(d, e)?;
+        self.and_post(a, b, de)
     }
 
-    async fn and_many(
-        &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    fn and_many(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {
             return Err(Error::InvalidSizeError);
@@ -2347,19 +2306,16 @@ where
             e.push(e_);
         }
 
-        let de = self.aby_and_many::<T>(d, e).await?;
-        self.and_post_many(a, b, de).await
+        let de = self.aby_and_many::<T>(d, e)?;
+        self.and_post_many(a, b, de)
     }
 
-    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
+    fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
         let (x1, x2, x3) = self.a2b_pre(x);
-        self.binary_add_3(x1, x2, x3).await
+        self.binary_add_3(x1, x2, x3)
     }
 
-    async fn arithmetic_to_binary_many(
-        &mut self,
-        x: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    fn arithmetic_to_binary_many(&mut self, x: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
         let len = x.len();
         let mut x1 = Vec::with_capacity(len);
         let mut x2 = Vec::with_capacity(len);
@@ -2371,6 +2327,6 @@ where
             x2.push(x2_);
             x3.push(x3_);
         }
-        self.binary_add_3_many(x1, x2, x3).await
+        self.binary_add_3_many(x1, x2, x3)
     }
 }

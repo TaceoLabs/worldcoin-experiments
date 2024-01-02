@@ -26,7 +26,7 @@ impl<N: NetworkTrait> SemiHonest for Aby3<N> {}
 macro_rules! reduce_or {
     ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
         $(
-            async fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
+             fn $name_a(&mut self, a: Share<$typ_a>) -> Result<Share<Bit>, Error> {
                 let (a, b) = a.get_ab();
                 let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
                 let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
@@ -34,8 +34,8 @@ macro_rules! reduce_or {
                 let share_a = Share::new(a1, b1);
                 let share_b = Share::new(a2, b2);
 
-                let out = self.or(share_a, share_b).await?;
-                self.$name_b(out).await
+                let out = self.or(share_a, share_b)?;
+                self.$name_b(out)
             }
         )*
     };
@@ -48,14 +48,14 @@ impl<N: NetworkTrait> Aby3<N> {
         Self { network, prf }
     }
 
-    async fn setup_prf(&mut self) -> Result<(), Error> {
+    fn setup_prf(&mut self) -> Result<(), Error> {
         let seed = Prf::gen_seed();
-        self.setup_prf_from_seed(seed).await
+        self.setup_prf_from_seed(seed)
     }
 
-    async fn setup_prf_from_seed(&mut self, seed: PrfSeed) -> Result<(), Error> {
+    fn setup_prf_from_seed(&mut self, seed: PrfSeed) -> Result<(), Error> {
         let data = Bytes::from_iter(seed.into_iter());
-        let response = utils::send_and_receive(&mut self.network, data).await?;
+        let response = utils::send_and_receive(&mut self.network, data)?;
         let their_seed = utils::bytes_to_seed(response)?;
         self.prf = Prf::new(seed, their_seed);
         Ok(())
@@ -112,7 +112,7 @@ impl<N: NetworkTrait> Aby3<N> {
         [u16, u8, reduce_or_u16, reduce_or_u8]
     );
 
-    async fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
+    fn reduce_or_u8(&mut self, a: Share<u8>) -> Result<Share<Bit>, Error> {
         const K: usize = 8;
 
         let mut decomp: Vec<Share<Bit>> = Vec::with_capacity(K);
@@ -133,14 +133,13 @@ impl<N: NetworkTrait> Aby3<N> {
                 self,
                 decomp[..k].to_vec(),
                 decomp[k..].to_vec(),
-            )
-            .await?;
+            )?;
         }
 
         Ok(decomp[0].to_owned())
     }
 
-    pub(crate) async fn mul_many<T: Sharable>(
+    pub(crate) fn mul_many<T: Sharable>(
         &mut self,
         a: Vec<Share<T>>,
         b: Vec<Share<T>>,
@@ -160,7 +159,7 @@ impl<N: NetworkTrait> Aby3<N> {
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let res: Vec<Share<T>> = shares_a
             .into_iter()
@@ -182,19 +181,19 @@ where
         self.network.get_id()
     }
 
-    async fn finish(self) -> Result<(), Error> {
-        self.network.shutdown().await?;
+    fn finish(self) -> Result<(), Error> {
+        self.network.shutdown()?;
         Ok(())
     }
 
-    async fn preprocess(&mut self) -> Result<(), Error> {
-        self.setup_prf().await
+    fn preprocess(&mut self) -> Result<(), Error> {
+        self.setup_prf()
     }
 
     fn set_mac_key(&mut self, _key: Share<T>) {}
     fn set_new_mac_key(&mut self) {}
     #[cfg(test)]
-    async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+    fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
         Ok(T::VerificationShare::default())
     }
 
@@ -202,7 +201,7 @@ where
         Ok(self.network.print_connection_stats(out)?)
     }
 
-    async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
+    fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
         if id >= self.network.get_num_parties() {
             return Err(Error::IdError(id));
         }
@@ -217,13 +216,13 @@ where
         }
 
         // Network: reshare
-        let share_b = utils::send_and_receive_value(&mut self.network, share_a.to_owned()).await?;
+        let share_b = utils::send_and_receive_value(&mut self.network, share_a.to_owned())?;
 
         Ok(Share::new(share_a, share_b))
     }
 
     #[cfg(test)]
-    async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
+    fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
         let mut shares_a = Vec::with_capacity(3);
         for i in 0..3 {
             let mut share = self.prf.gen_zero_share::<T>();
@@ -236,7 +235,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let mut shares = Vec::with_capacity(3);
         for (share_a, share_b) in shares_a.into_iter().zip(shares_b.into_iter()) {
@@ -258,14 +257,14 @@ where
         vec![share1, share2, share3]
     }
 
-    async fn open(&mut self, share: Share<T>) -> Result<T, Error> {
-        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
+    fn open(&mut self, share: Share<T>) -> Result<T, Error> {
+        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned())?;
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
-    async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
+    fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b)?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -274,14 +273,14 @@ where
         Ok(res)
     }
 
-    async fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
-        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned()).await?;
+    fn open_bit(&mut self, share: Share<Bit>) -> Result<bool, Error> {
+        let c = utils::send_and_receive_value(&mut self.network, share.b.to_owned())?;
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
+    fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
         let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b)?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -318,13 +317,13 @@ where
         )
     }
 
-    async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+    fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = a * b;
         c.a += rand;
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         Ok(c)
     }
@@ -333,7 +332,7 @@ where
         a * b.to_sharetype()
     }
 
-    async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
+    fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
@@ -345,12 +344,12 @@ where
         }
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         Ok(c)
     }
 
-    async fn dot_many(
+    fn dot_many(
         &mut self,
         a: &[Vec<Share<T>>],
         b: &[Vec<Share<T>>],
@@ -373,7 +372,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let res = shares_a
             .into_iter()
@@ -384,28 +383,28 @@ where
         Ok(res)
     }
 
-    async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
-        let bits = self.arithmetic_to_binary(a).await?;
+    fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {
+        let bits = self.arithmetic_to_binary(a)?;
         Ok(bits.get_msb())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
-        let bits = self.arithmetic_to_binary_many(a).await?;
+    fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
+        let bits = self.arithmetic_to_binary_many(a)?;
         let res = bits.into_iter().map(|a| a.get_msb()).collect();
         Ok(res)
     }
 
-    async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
-        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
+    fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
+        <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b)
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
+    fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
-        self.reduce_or_u128(reduced).await
+        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed)?;
+        self.reduce_or_u128(reduced)
     }
 
-    async fn verify(&mut self) -> Result<(), Error> {
+    fn verify(&mut self) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -414,22 +413,18 @@ impl<N: NetworkTrait, T: Sharable> BinaryMpcTrait<T, Share<T>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
 {
-    async fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
+    fn and(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let rand = self.prf.gen_binary_zero_share::<T>();
         let mut c = a & b;
         c.a ^= rand;
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned())?;
 
         Ok(c)
     }
 
-    async fn and_many(
-        &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    fn and_many(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
@@ -442,7 +437,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned())?;
 
         let res = shares_a
             .into_iter()
@@ -453,15 +448,12 @@ where
         Ok(res)
     }
 
-    async fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
+    fn arithmetic_to_binary(&mut self, x: Share<T>) -> Result<Share<T>, Error> {
         let (x1, x2, x3) = self.a2b_pre(x);
-        self.binary_add_3(x1, x2, x3).await
+        self.binary_add_3(x1, x2, x3)
     }
 
-    async fn arithmetic_to_binary_many(
-        &mut self,
-        x: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    fn arithmetic_to_binary_many(&mut self, x: Vec<Share<T>>) -> Result<Vec<Share<T>>, Error> {
         let len = x.len();
         let mut x1 = Vec::with_capacity(len);
         let mut x2 = Vec::with_capacity(len);
@@ -473,6 +465,6 @@ where
             x2.push(x2_);
             x3.push(x3_);
         }
-        self.binary_add_3_many(x1, x2, x3).await
+        self.binary_add_3_many(x1, x2, x3)
     }
 }

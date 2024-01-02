@@ -64,8 +64,8 @@ where
         self.mpc.print_connection_stats(out)
     }
 
-    pub async fn preprocessing(&mut self) -> Result<(), Error> {
-        self.mpc.preprocess().await
+    pub fn preprocessing(&mut self) -> Result<(), Error> {
+        self.mpc.preprocess()
     }
 
     pub fn set_mac_key(&mut self, key: Ashare) {
@@ -77,17 +77,17 @@ where
     }
 
     #[cfg(test)]
-    pub async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
-        self.mpc.open_mac_key().await
+    pub fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error> {
+        self.mpc.open_mac_key()
     }
 
-    pub async fn finish(self) -> Result<(), Error> {
-        self.mpc.finish().await
+    pub fn finish(self) -> Result<(), Error> {
+        self.mpc.finish()
     }
 
     #[cfg(test)]
-    pub async fn verify(&mut self) -> Result<(), Error> {
-        self.mpc.verify().await
+    pub fn verify(&mut self) -> Result<(), Error> {
+        self.mpc.verify()
     }
 
     pub(crate) fn combine_masks(
@@ -168,21 +168,21 @@ where
     }
 
     #[allow(unused)]
-    pub(crate) async fn hamming_distance(
+    pub(crate) fn hamming_distance(
         &mut self,
         a: Vec<Ashare>,
         b: Vec<Ashare>,
     ) -> Result<Ashare, Error> {
-        let dot = self.mpc.dot(a.to_owned(), b.to_owned()).await?;
+        let dot = self.mpc.dot(a.to_owned(), b.to_owned())?;
         self.hamming_distance_post(a, b, dot)
     }
 
-    pub(crate) async fn hamming_distance_many(
+    pub(crate) fn hamming_distance_many(
         &mut self,
         a: Vec<Vec<Ashare>>,
         b: Vec<Vec<Ashare>>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.dot_many(&a, &b).await?;
+        let dots = self.mpc.dot_many(&a, &b)?;
 
         let mut res = Vec::with_capacity(dots.len());
         for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
@@ -203,7 +203,7 @@ where
         )
     }
 
-    pub(crate) async fn compare_threshold(
+    pub(crate) fn compare_threshold(
         &mut self,
         hwd: Ashare,
         mask_ones: usize,
@@ -212,10 +212,10 @@ where
         // Given no overflow, which is enforced in constructor
         let diff = self.get_cmp_diff(hwd, mask_ones);
         // This is written this way to help out rust-analyzer...
-        Mpc::get_msb(&mut self.mpc, diff).await
+        Mpc::get_msb(&mut self.mpc, diff)
     }
 
-    pub(crate) async fn compare_threshold_many(
+    pub(crate) fn compare_threshold_many(
         &mut self,
         hwds: Vec<Ashare>,
         mask_lens: Vec<usize>,
@@ -231,11 +231,11 @@ where
             .map(|(hwd, mask_len)| self.get_cmp_diff(hwd, mask_len))
             .collect();
 
-        self.mpc.get_msb_many(diffs).await
+        self.mpc.get_msb_many(diffs)
     }
 
     #[allow(unused)]
-    pub(crate) async fn compare_iris(
+    pub(crate) fn compare_iris(
         &mut self,
         a: Vec<Ashare>,
         b: Vec<Ashare>,
@@ -245,12 +245,12 @@ where
         let mask = self.combine_masks(mask_a, mask_b)?;
         let (a, b) = self.apply_mask_twice(a, b, &mask)?;
 
-        let hwd = self.hamming_distance(a, b).await?;
+        let hwd = self.hamming_distance(a, b)?;
 
-        self.compare_threshold(hwd, mask.count_ones()).await
+        self.compare_threshold(hwd, mask.count_ones())
     }
 
-    pub(crate) async fn compare_iris_many(
+    pub(crate) fn compare_iris_many(
         &mut self,
         a: Vec<Ashare>,
         b: &[Vec<Ashare>],
@@ -274,11 +274,11 @@ where
             mask_lens.push(mask.count_ones());
         }
 
-        let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
-        self.compare_threshold_many(hwds, mask_lens).await
+        let hwds = self.hamming_distance_many(a_vec, b_vec)?;
+        self.compare_threshold_many(hwds, mask_lens)
     }
 
-    pub async fn iris_in_db(
+    pub fn iris_in_db(
         &mut self,
         iris: Vec<Ashare>,
         db: &[Vec<Ashare>],
@@ -293,15 +293,13 @@ where
         let mut bool_shares = Vec::with_capacity(amount);
 
         for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
-            let res = self
-                .compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)
-                .await?;
+            let res = self.compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)?;
             bool_shares.extend(res);
         }
 
-        let res = self.mpc.reduce_binary_or(bool_shares).await?;
+        let res = self.mpc.reduce_binary_or(bool_shares)?;
 
-        self.mpc.verify().await.unwrap();
-        self.mpc.open_bit(res).await
+        self.mpc.verify().unwrap();
+        self.mpc.open_bit(res)
     }
 }

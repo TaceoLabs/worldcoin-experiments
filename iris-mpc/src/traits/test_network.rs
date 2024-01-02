@@ -5,21 +5,21 @@ use bytes::BytesMut;
 use std::io;
 use std::io::Error as IOError;
 use std::io::ErrorKind as IOErrorKind;
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use std::sync::mpsc;
 
 pub struct TestNetwork3p {
-    p1_p2_sender: UnboundedSender<Bytes>,
-    p1_p3_sender: UnboundedSender<Bytes>,
-    p2_p3_sender: UnboundedSender<Bytes>,
-    p2_p1_sender: UnboundedSender<Bytes>,
-    p3_p1_sender: UnboundedSender<Bytes>,
-    p3_p2_sender: UnboundedSender<Bytes>,
-    p1_p2_receiver: UnboundedReceiver<Bytes>,
-    p1_p3_receiver: UnboundedReceiver<Bytes>,
-    p2_p3_receiver: UnboundedReceiver<Bytes>,
-    p2_p1_receiver: UnboundedReceiver<Bytes>,
-    p3_p1_receiver: UnboundedReceiver<Bytes>,
-    p3_p2_receiver: UnboundedReceiver<Bytes>,
+    p1_p2_sender: mpsc::Sender<Bytes>,
+    p1_p3_sender: mpsc::Sender<Bytes>,
+    p2_p3_sender: mpsc::Sender<Bytes>,
+    p2_p1_sender: mpsc::Sender<Bytes>,
+    p3_p1_sender: mpsc::Sender<Bytes>,
+    p3_p2_sender: mpsc::Sender<Bytes>,
+    p1_p2_receiver: mpsc::Receiver<Bytes>,
+    p1_p3_receiver: mpsc::Receiver<Bytes>,
+    p2_p3_receiver: mpsc::Receiver<Bytes>,
+    p2_p1_receiver: mpsc::Receiver<Bytes>,
+    p3_p1_receiver: mpsc::Receiver<Bytes>,
+    p3_p2_receiver: mpsc::Receiver<Bytes>,
 }
 
 impl Default for TestNetwork3p {
@@ -31,12 +31,12 @@ impl Default for TestNetwork3p {
 impl TestNetwork3p {
     pub fn new() -> Self {
         // AT Most 1 message is buffered before they are read so this should be fine
-        let p1_p2 = mpsc::unbounded_channel();
-        let p1_p3 = mpsc::unbounded_channel();
-        let p2_p3 = mpsc::unbounded_channel();
-        let p2_p1 = mpsc::unbounded_channel();
-        let p3_p1 = mpsc::unbounded_channel();
-        let p3_p2 = mpsc::unbounded_channel();
+        let p1_p2 = mpsc::channel();
+        let p1_p3 = mpsc::channel();
+        let p2_p3 = mpsc::channel();
+        let p2_p1 = mpsc::channel();
+        let p3_p1 = mpsc::channel();
+        let p3_p2 = mpsc::channel();
 
         Self {
             p1_p2_sender: p1_p2.0,
@@ -88,10 +88,10 @@ impl TestNetwork3p {
 
 pub struct PartyTestNetwork {
     id: PartyID,
-    send_prev: UnboundedSender<Bytes>,
-    send_next: UnboundedSender<Bytes>,
-    recv_prev: UnboundedReceiver<Bytes>,
-    recv_next: UnboundedReceiver<Bytes>,
+    send_prev: mpsc::Sender<Bytes>,
+    send_next: mpsc::Sender<Bytes>,
+    recv_prev: mpsc::Receiver<Bytes>,
+    recv_next: mpsc::Receiver<Bytes>,
     stats: [usize; 4], // [sent_prev, sent_next, recv_prev, recv_next]
 }
 
@@ -100,7 +100,7 @@ impl PartyTestNetwork {
 }
 
 impl NetworkTrait for PartyTestNetwork {
-    async fn shutdown(self) -> Result<(), IOError> {
+    fn shutdown(self) -> Result<(), IOError> {
         Ok(())
     }
 
@@ -118,7 +118,7 @@ impl NetworkTrait for PartyTestNetwork {
         Ok(())
     }
 
-    async fn send(&mut self, id: usize, data: Bytes) -> std::io::Result<()> {
+    fn send(&mut self, id: usize, data: Bytes) -> std::io::Result<()> {
         tracing::trace!("send_id {}->{}: {:?}", self.id, id, data);
         let res = if id == usize::from(self.id.next_id()) {
             self.stats[1] += data.len();
@@ -138,22 +138,20 @@ impl NetworkTrait for PartyTestNetwork {
         res
     }
 
-    async fn receive(&mut self, id: usize) -> std::io::Result<BytesMut> {
+    fn receive(&mut self, id: usize) -> std::io::Result<BytesMut> {
         tracing::trace!("recv_id {}<-{}: ", self.id, id);
         let buf = if id == usize::from(self.id.prev_id()) {
             let data = self
                 .recv_prev
                 .recv()
-                .await
-                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+                .map_err(|_| IOError::new(IOErrorKind::Other, "Receive failed"))?;
             self.stats[2] += data.len();
             data
         } else if id == usize::from(self.id.next_id()) {
             let data = self
                 .recv_next
                 .recv()
-                .await
-                .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+                .map_err(|_| IOError::new(IOErrorKind::Other, "Receive failed"))?;
             self.stats[3] += data.len();
             data
         } else {
@@ -164,18 +162,18 @@ impl NetworkTrait for PartyTestNetwork {
         Ok(BytesMut::from(buf.as_ref()))
     }
 
-    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
+    fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, io::Error> {
         let mut result = Vec::with_capacity(3);
         for id in 0..3 {
             if id != usize::from(self.id) {
-                self.send(id, data.clone()).await?;
+                self.send(id, data.clone())?;
             }
         }
         for id in 0..3 {
             if id == usize::from(self.id) {
                 result.push(BytesMut::from(data.as_ref()));
             } else {
-                result.push(self.receive(id).await?);
+                result.push(self.receive(id)?);
             }
         }
         Ok(result)
@@ -189,7 +187,7 @@ impl NetworkTrait for PartyTestNetwork {
         Self::NUM_PARTIES
     }
 
-    async fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
+    fn send_next_id(&mut self, data: Bytes) -> Result<(), IOError> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.next_id(), data);
         self.stats[1] += data.len();
         let res = self
@@ -200,7 +198,7 @@ impl NetworkTrait for PartyTestNetwork {
         res
     }
 
-    async fn send_prev_id(&mut self, data: Bytes) -> Result<(), IOError> {
+    fn send_prev_id(&mut self, data: Bytes) -> Result<(), IOError> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.prev_id(), data);
         self.stats[0] += data.len();
         let res = self
@@ -211,26 +209,24 @@ impl NetworkTrait for PartyTestNetwork {
         res
     }
 
-    async fn receive_prev_id(&mut self) -> Result<bytes::BytesMut, IOError> {
+    fn receive_prev_id(&mut self) -> Result<bytes::BytesMut, IOError> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.prev_id());
         let buf = self
             .recv_prev
             .recv()
-            .await
-            .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+            .map_err(|_| IOError::new(IOErrorKind::Other, "Receive failed"))?;
         self.stats[2] += buf.len();
 
         tracing::trace!("recv {}<-{}: done", self.id, self.id.prev_id());
         Ok(BytesMut::from(buf.as_ref()))
     }
 
-    async fn receive_next_id(&mut self) -> Result<bytes::BytesMut, IOError> {
+    fn receive_next_id(&mut self) -> Result<bytes::BytesMut, IOError> {
         tracing::trace!("recv {}<-{}: ", self.id, self.id.next_id());
         let buf = self
             .recv_next
             .recv()
-            .await
-            .ok_or_else(|| IOError::new(IOErrorKind::Other, "Receive failed"))?;
+            .map_err(|_| IOError::new(IOErrorKind::Other, "Receive failed"))?;
         self.stats[3] += buf.len();
 
         tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());

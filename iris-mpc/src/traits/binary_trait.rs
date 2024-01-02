@@ -44,21 +44,21 @@ where
         Ok(())
     }
 
-    async fn and(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
+    fn and(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 
-    async fn and_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
+    fn and_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
 
-    async fn or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error> {
+    fn or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error> {
         let x = Self::xor(a.to_owned(), b.to_owned());
-        let y = self.and(a, b).await?;
+        let y = self.and(a, b)?;
         Ok(Self::xor(x, y))
     }
 
-    async fn or_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
+    fn or_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
-        let y = self.and_many(a.to_owned(), b.to_owned()).await?;
+        let y = self.and_many(a.to_owned(), b.to_owned())?;
         let res = a
             .into_iter()
             .zip(b.into_iter())
@@ -68,26 +68,26 @@ where
         Ok(res)
     }
 
-    async fn binary_add_3(&mut self, x1: Bshare, x2: Bshare, x3: Bshare) -> Result<Bshare, Error> {
+    fn binary_add_3(&mut self, x1: Bshare, x2: Bshare, x3: Bshare) -> Result<Bshare, Error> {
         let logk = ceil_log2(T::Share::K);
 
         // Full Adder
         let x2x3 = Self::xor(x2, x3.to_owned());
         let s = Self::xor(x1.to_owned(), x2x3.to_owned());
         let x1x3 = Self::xor(x1, x3.to_owned());
-        let mut c = self.and(x1x3, x2x3).await?;
+        let mut c = self.and(x1x3, x2x3)?;
         Self::xor_assign(&mut c, x3);
 
         // Add 2c + s via a packed Kogge-Stone adder
         c <<= 1;
         let mut p = Self::xor(s.to_owned(), c.to_owned());
-        let mut g = self.and(s, c).await?;
+        let mut g = self.and(s, c)?;
         let s_ = p.to_owned();
         for i in 0..logk {
             let p_ = p.to_owned() << (1 << i);
             let g_ = g.to_owned() << (1 << i);
             // TODO Maybe work with Bits in the inner loop to have less communication?
-            let res = self.and_many(vec![p.to_owned(), p], vec![g_, p_]).await?;
+            let res = self.and_many(vec![p.to_owned(), p], vec![g_, p_])?;
             p = res[1].to_owned(); // p = p & p_
             Self::xor_assign(&mut g, res[0].to_owned()); // g = g ^ (p & g_)
         }
@@ -95,7 +95,7 @@ where
         Ok(Self::xor(s_, g))
     }
 
-    async fn binary_add_3_many(
+    fn binary_add_3_many(
         &mut self,
         x1: Vec<Bshare>,
         x2: Vec<Bshare>,
@@ -112,7 +112,7 @@ where
         let x2x3 = Self::xor_many(x2, x3.to_owned()).expect("Same length");
         let s = Self::xor_many(x1.to_owned(), x2x3.to_owned()).expect("Same length");
         let x1x3 = Self::xor_many(x1, x3.to_owned()).expect("Same length");
-        let mut c = self.and_many(x1x3, x2x3).await?;
+        let mut c = self.and_many(x1x3, x2x3)?;
         c.iter_mut().zip(x3.into_iter()).for_each(|(c_, x3_)| {
             Self::xor_assign(c_, x3_);
             *c_ <<= 1 // c = 2*c
@@ -121,7 +121,7 @@ where
         // Add 2c + s via a packed Kogge-Stone adder
 
         let mut p = Self::xor_many(s.to_owned(), c.to_owned()).expect("Same length");
-        let mut g = self.and_many(s, c).await?;
+        let mut g = self.and_many(s, c)?;
         let s_ = p.to_owned();
         for i in 0..logk {
             let p_: Vec<Bshare> = p.iter().cloned().map(|p_| p_ << (1 << i)).collect();
@@ -135,7 +135,7 @@ where
             let mut b = g_.to_owned();
             b.extend(p_);
 
-            let res = self.and_many(a, b).await?;
+            let res = self.and_many(a, b)?;
             p = res[len..].to_vec(); // p = p & p_
             g.iter_mut()
                 .zip(res[0..len].to_vec())
@@ -152,6 +152,6 @@ where
         Ok(res)
     }
 
-    async fn arithmetic_to_binary(&mut self, x: Bshare) -> Result<Bshare, Error>;
-    async fn arithmetic_to_binary_many(&mut self, x: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
+    fn arithmetic_to_binary(&mut self, x: Bshare) -> Result<Bshare, Error>;
+    fn arithmetic_to_binary_many(&mut self, x: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
 }
