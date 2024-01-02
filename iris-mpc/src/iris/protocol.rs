@@ -211,7 +211,8 @@ where
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
         let diff = self.get_cmp_diff(hwd, mask_ones);
-        self.mpc.get_msb(diff).await
+        // This is written this way to help out rust-analyzer...
+        Mpc::get_msb(&mut self.mpc, diff).await
     }
 
     pub(crate) async fn compare_threshold_many(
