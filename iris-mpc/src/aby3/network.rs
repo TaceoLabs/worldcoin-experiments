@@ -3,16 +3,20 @@ use std::io;
 use super::id::PartyID;
 use crate::error::Error;
 use crate::traits::network_trait::NetworkTrait;
+use crate::types::ring_element::RingImpl;
 use bytes::{Bytes, BytesMut};
 use mpc_net::channel::ChannelHandle;
+use mpc_net::codecs::VecU16Codec;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
 
 pub struct Aby3Network {
     handler: MpcNetworkHandler,
-    id: PartyID,
+    pub(crate) id: PartyID,
     channel_send: ChannelHandle<Bytes, BytesMut>,
     channel_recv: ChannelHandle<Bytes, BytesMut>,
+    pub(crate) channel_send_vec_u16: ChannelHandle<Vec<u16>, Vec<u16>>,
+    pub(crate) channel_recv_vec_u16: ChannelHandle<Vec<u16>, Vec<u16>>,
 }
 
 impl Aby3Network {
@@ -33,12 +37,24 @@ impl Aby3Network {
 
         let channel_send = ChannelHandle::manage(channel_send);
         let channel_recv = ChannelHandle::manage(channel_recv);
+        // specialized channels for Vec<u16> payloads
+        let mut channels = handler
+            .get_custom_channels::<Vec<u16>, Vec<u16>, _>(VecU16Codec::default())
+            .await?;
+
+        let channel_send_vec_u16 = channels.remove(&next_id).ok_or(Error::ConfigError)?;
+        let channel_recv_vec_u16 = channels.remove(&prev_id).ok_or(Error::ConfigError)?;
+
+        let channel_send_vec_u16 = ChannelHandle::manage(channel_send_vec_u16);
+        let channel_recv_vec_u16 = ChannelHandle::manage(channel_recv_vec_u16);
 
         Ok(Self {
             handler,
             id,
             channel_send,
             channel_recv,
+            channel_send_vec_u16,
+            channel_recv_vec_u16,
         })
     }
 }
@@ -153,5 +169,38 @@ impl NetworkTrait for Aby3Network {
 
     async fn shutdown(self) -> io::Result<()> {
         Ok(())
+    }
+
+    #[inline]
+    async fn send_vec<R: RingImpl>(&mut self, id: usize, data: Vec<R>) -> Result<(), io::Error> {
+        R::send_vec(id, data, self).await;
+        Ok(())
+    }
+
+    #[inline]
+    async fn send_vec_next_id<R: RingImpl>(&mut self, data: Vec<R>) -> Result<(), io::Error> {
+        R::send_vec_next_id(data, self).await;
+        Ok(())
+    }
+
+    #[inline]
+    async fn send_vec_prev_id<R: RingImpl>(&mut self, data: Vec<R>) -> Result<(), io::Error> {
+        R::send_vec_prev_id(data, self).await;
+        Ok(())
+    }
+
+    #[inline]
+    async fn receive_vec<R: RingImpl>(&mut self, id: usize) -> Result<Vec<R>, io::Error> {
+        Ok(R::recv_vec(id, self).await)
+    }
+
+    #[inline]
+    async fn receive_vec_prev_id<R: RingImpl>(&mut self) -> Result<Vec<R>, io::Error> {
+        Ok(R::recv_vec_prev_id(self).await)
+    }
+
+    #[inline]
+    async fn receive_vec_next_id<R: RingImpl>(&mut self) -> Result<Vec<R>, io::Error> {
+        Ok(R::recv_vec_next_id(self).await)
     }
 }

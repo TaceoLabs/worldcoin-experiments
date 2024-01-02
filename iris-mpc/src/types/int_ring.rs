@@ -1,5 +1,10 @@
 use super::{bit::Bit, ring_element::RingElement, sharable::Sharable};
-use crate::{error::Error, types::extended_euclid_rev};
+use crate::{
+    aby3::utils,
+    error::Error,
+    prelude::{Aby3Network, NetworkTrait},
+    types::extended_euclid_rev,
+};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
@@ -11,6 +16,7 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
 };
 
+#[allow(async_fn_in_trait)]
 pub trait IntRing2k:
     Sized
     + Send
@@ -52,6 +58,31 @@ pub trait IntRing2k:
     fn add_to_bytes(self, other: &mut BytesMut);
     fn from_bytes_mut(other: BytesMut) -> Result<Self, Error>;
     fn from_bytes(other: Bytes) -> Result<Self, Error>;
+
+    async fn send_vec(id: usize, data: Vec<Self>, net: &mut Aby3Network) {
+        let bytes = utils::int_ring_vec_to_bytes(data);
+        net.send(id, bytes).await.unwrap();
+    }
+    async fn send_vec_next_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let bytes = utils::int_ring_vec_to_bytes(data);
+        net.send_next_id(bytes).await.unwrap();
+    }
+    async fn send_vec_prev_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let bytes = utils::int_ring_vec_to_bytes(data);
+        net.send_prev_id(bytes).await.unwrap();
+    }
+    async fn recv_vec(id: usize, net: &mut Aby3Network) -> Vec<Self> {
+        let bytes = net.receive(id).await.unwrap();
+        utils::int_ring_vec_from_bytes(bytes).expect("Invalid bytes")
+    }
+    async fn recv_vec_next_id(net: &mut Aby3Network) -> Vec<Self> {
+        let bytes = net.receive_next_id().await.unwrap();
+        utils::int_ring_vec_from_bytes(bytes).expect("Invalid bytes")
+    }
+    async fn recv_vec_prev_id(net: &mut Aby3Network) -> Vec<Self> {
+        let bytes = net.receive_prev_id().await.unwrap();
+        utils::int_ring_vec_from_bytes(bytes).expect("Invalid bytes")
+    }
 
     fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
 
@@ -201,6 +232,22 @@ impl IntRing2k for u8 {
 impl IntRing2k for u16 {
     const K: usize = Self::BITS as usize;
     type Signed = i16;
+
+    async fn send_vec(id: usize, data: Vec<Self>, net: &mut Aby3Network) {
+        if id == usize::from(net.id.next_id()) {
+            let _ = net.channel_send_vec_u16.send(data).await.unwrap();
+        } else if id == usize::from(net.id.prev_id()) {
+            let _ = net.channel_recv_vec_u16.send(data).await.unwrap();
+        } else {
+            panic!("Invalid ID")
+        }
+    }
+    async fn send_vec_next_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let _ = net.channel_send_vec_u16.send(data).await.unwrap();
+    }
+    async fn send_vec_prev_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let _ = net.channel_recv_vec_u16.send(data).await.unwrap();
+    }
 
     fn to_signed(self) -> Self::Signed {
         self as Self::Signed

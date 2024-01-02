@@ -1,6 +1,7 @@
 use super::bit::Bit;
 use super::int_ring::IntRing2k;
 use crate::error::Error;
+use crate::prelude::Aby3Network;
 use bytes::{Bytes, BytesMut};
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
@@ -13,6 +14,7 @@ use std::ops::{
     Neg, Not, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
 };
 
+#[allow(async_fn_in_trait)]
 pub trait RingImpl:
     Clone
     + Zero
@@ -73,6 +75,14 @@ pub trait RingImpl:
     fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
     fn to_bytes(self) -> Bytes;
 
+    async fn send_vec(id: usize, data: Vec<Self>, net: &mut Aby3Network);
+    async fn send_vec_next_id(data: Vec<Self>, net: &mut Aby3Network);
+    async fn send_vec_prev_id(data: Vec<Self>, net: &mut Aby3Network);
+
+    async fn recv_vec(id: usize, net: &mut Aby3Network) -> Vec<Self>;
+    async fn recv_vec_next_id(net: &mut Aby3Network) -> Vec<Self>;
+    async fn recv_vec_prev_id(net: &mut Aby3Network) -> Vec<Self>;
+
     fn floor_div(self, other: &Self) -> Self;
     fn inverse(&self) -> Result<Self, Error>;
 }
@@ -80,6 +90,31 @@ pub trait RingImpl:
 impl<T: IntRing2k> RingImpl for RingElement<T> {
     const K: usize = T::K;
 
+    async fn send_vec(id: usize, data: Vec<Self>, net: &mut Aby3Network) {
+        let data = RingElement::convert_vec(data);
+        T::send_vec(id, data, net).await
+    }
+    async fn send_vec_next_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let data = RingElement::convert_vec(data);
+        T::send_vec_next_id(data, net).await
+    }
+    async fn send_vec_prev_id(data: Vec<Self>, net: &mut Aby3Network) {
+        let data = RingElement::convert_vec(data);
+        T::send_vec_prev_id(data, net).await
+    }
+
+    async fn recv_vec(id: usize, net: &mut Aby3Network) -> Vec<Self> {
+        let data = T::recv_vec(id, net).await;
+        RingElement::convert_vec_rev(data)
+    }
+    async fn recv_vec_next_id(net: &mut Aby3Network) -> Vec<Self> {
+        let data = T::recv_vec_next_id(net).await;
+        RingElement::convert_vec_rev(data)
+    }
+    async fn recv_vec_prev_id(net: &mut Aby3Network) -> Vec<Self> {
+        let data = T::recv_vec_prev_id(net).await;
+        RingElement::convert_vec_rev(data)
+    }
     fn get_msb(&self) -> RingElement<Bit> {
         RingElement(Bit(self.0 >> (Self::K - 1) == T::one()))
     }

@@ -8,10 +8,11 @@ use crate::{
         ring_element::{RingElement, RingImpl},
     },
 };
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use num_traits::{AsPrimitive, Zero};
 use std::{
     io::Error as IOError,
+    mem::size_of,
     ops::{BitXor, BitXorAssign},
 };
 
@@ -75,8 +76,10 @@ pub(crate) fn ring_vec_from_bytes<T>(mut bytes: BytesMut) -> Result<Vec<T>, Erro
 where
     T: RingImpl,
 {
-    let bytes_t = (T::K + 7) / 8;
-    let n = bytes.len() / bytes_t;
+    if bytes.len() < size_of::<u32>() {
+        return Err(Error::ConversionError);
+    }
+    let n = usize::try_from(bytes.get_u32()).expect("we need u32 to fit into usize...");
     let mut res = Vec::with_capacity(n);
     for _ in 0..n {
         res.push(T::take_from_bytes_mut(&mut bytes)?);
@@ -91,12 +94,44 @@ pub(crate) fn ring_vec_to_bytes<T>(vec: Vec<T>) -> Bytes
 where
     T: RingImpl,
 {
-    let size = T::K / 8 + ((T::K % 8) != 0) as usize;
-    let mut out = BytesMut::with_capacity(size * vec.len());
+    let size = (T::K + 7) / 8;
+    let mut out = BytesMut::with_capacity(size_of::<u32>() + size * vec.len());
+    out.put_u32(vec.len().try_into().expect("Vector too large"));
     for v in vec {
         v.add_to_bytes(&mut out);
     }
     out.freeze()
+}
+
+pub(crate) fn int_ring_vec_to_bytes<T>(vec: Vec<T>) -> Bytes
+where
+    T: IntRing2k,
+{
+    let size = (T::K + 7) / 8;
+    let mut out = BytesMut::with_capacity(size_of::<u32>() + size * vec.len());
+    out.put_u32(vec.len().try_into().expect("Vector too large"));
+    for v in vec {
+        v.add_to_bytes(&mut out);
+    }
+    out.freeze()
+}
+
+pub(crate) fn int_ring_vec_from_bytes<T>(mut bytes: BytesMut) -> Result<Vec<T>, Error>
+where
+    T: IntRing2k,
+{
+    if bytes.len() < size_of::<u32>() {
+        return Err(Error::ConversionError);
+    }
+    let n = usize::try_from(bytes.get_u32()).expect("we need u32 to fit into usize...");
+    let mut res = Vec::with_capacity(n);
+    for _ in 0..n {
+        res.push(T::take_from_bytes_mut(&mut bytes)?);
+    }
+    if bytes.remaining() != 0 {
+        return Err(Error::ConversionError);
+    }
+    Ok(res)
 }
 
 pub(crate) async fn or_tree<T, Mpc, Share, const PACK_SIZE: usize>(
