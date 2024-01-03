@@ -256,13 +256,13 @@ impl<N: NetworkTrait> MalAby3<N> {
         let mut rng = R::from_seed(seed);
 
         let r = rng.gen::<UShare<T>>();
-        let v_ = a.to_owned() * &r - a_;
+        let v_ = a.to_owned() * r - a_;
         let v = self.reconstruct(v_).await?.to_sharetype();
         self.jmp_verify().await?;
 
-        let w = b.to_owned() * v - cs[0].to_owned() * r + &cs[1];
+        let w = b.to_owned() * v - cs[0].to_owned() * r + cs[1];
         let (wa, wb) = w.get_ab();
-        let w_neg = -wa.to_owned() - &wb;
+        let w_neg = -wa - wb;
 
         // hash based verification
         let mut hasher = Sha512::new();
@@ -376,10 +376,10 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa - wb;
 
                     hasher.update(wa.to_bytes());
                     hasher.update(w_neg.to_bytes());
@@ -393,10 +393,10 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa - wb;
 
                     hasher.update(wb.to_bytes());
                     hasher.update(wa.to_bytes());
@@ -410,10 +410,10 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(w_neg.to_bytes());
                     hasher.update(wb.to_bytes());
@@ -500,13 +500,13 @@ impl<N: NetworkTrait> MalAby3<N> {
         let v = self.reconstruct_many(v_).await?;
         self.jmp_verify().await?;
 
-        let mut w = -cs[0].to_owned() * r + &cs[1];
+        let mut w = -cs[0].to_owned() * r + cs[1];
         for (v, b) in v.into_iter().zip(b.into_iter()) {
             w += b.to_owned() * v.to_sharetype();
         }
 
         let (wa, wb) = w.get_ab();
-        let w_neg = -wa.to_owned() - &wb;
+        let w_neg = -wa.to_owned() - wb;
 
         // hash based verification
         let mut hasher = Sha512::new();
@@ -632,14 +632,14 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .take(len)
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    let mut w_ = -c_0.to_owned() * r + c_1;
                     for b__ in b_.into_iter() {
                         let tmp = v_iter.next().expect("Sizes are checked");
                         w_ += b__.to_owned() * tmp.to_sharetype();
                     }
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(wa.to_bytes());
                     hasher.update(w_neg.to_bytes());
@@ -653,14 +653,14 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .take(len)
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    let mut w_ = -c_0.to_owned() * r + c_1;
                     for b__ in b_.into_iter() {
                         let tmp = v_iter.next().expect("Sizes are checked");
                         w_ += b__.to_owned() * tmp.to_sharetype();
                     }
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(wb.to_bytes());
                     hasher.update(wa.to_bytes());
@@ -674,14 +674,14 @@ impl<N: NetworkTrait> MalAby3<N> {
                     .take(len)
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let mut w_ = -c_0.to_owned() * &r + c_1;
+                    let mut w_ = -c_0.to_owned() * r + c_1;
                     for b__ in b_.into_iter() {
                         let tmp = v_iter.next().expect("Sizes are checked");
                         w_ += b__.to_owned() * tmp.to_sharetype();
                     }
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa - wb;
 
                     hasher.update(w_neg.to_bytes());
                     hasher.update(wb.to_bytes());
@@ -907,7 +907,7 @@ impl<N: NetworkTrait> MalAby3<N> {
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
+            .map(|(s, c)| T::from_sharetype(c + s.a + s.b))
             .collect();
         Ok(res)
     }
@@ -932,7 +932,7 @@ impl<N: NetworkTrait> MalAby3<N> {
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c ^ &s.a ^ &s.b))
+            .map(|(s, c)| T::from_sharetype(c ^ s.a ^ s.b))
             .collect();
         Ok(res)
     }
@@ -1063,10 +1063,10 @@ where
     fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
-        let c = input.to_sharetype() - &a - &b;
+        let c = input.to_sharetype() - a - b;
 
-        let share1 = Share::new(a.to_owned(), c.to_owned());
-        let share2 = Share::new(b.to_owned(), a);
+        let share1 = Share::new(a, c);
+        let share2 = Share::new(b, a);
         let share3 = Share::new(c, b);
 
         vec![share1, share2, share3]
@@ -1101,7 +1101,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
+            .map(|(s, c)| T::from_sharetype(c + s.a + s.b))
             .collect();
         Ok(res)
     }
@@ -1137,7 +1137,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
+            .map(|(s, c)| (c ^ s.a ^ s.b).convert().convert())
             .collect();
         Ok(res)
     }
@@ -1173,13 +1173,13 @@ where
     async fn mul(&mut self, a: Share<T>, b: Share<T>) -> Result<Share<T>, Error> {
         let (x, y, z) = self.get_mul_triple::<T, ChaCha12Rng>().await?;
 
-        let u = a.to_owned() - &x;
-        let v = b.to_owned() - &y;
+        let u = a.to_owned() - x;
+        let v = b.to_owned() - y;
 
         let uv = self.reconstruct_many(vec![u, v]).await?;
         let u = uv[0].to_sharetype();
         let v = uv[1].to_sharetype();
-        let uv = u.to_owned() * &v;
+        let uv = u.to_owned() * v;
 
         let mut c = z + b * u + a * v;
         c.sub_assign_const(
@@ -1255,13 +1255,13 @@ where
         let y = self.pack_exact::<T>(y);
         let z = self.pack_exact::<T>(z);
 
-        let u = a.to_owned() ^ &x;
-        let v = b.to_owned() ^ &y;
+        let u = a.to_owned() ^ x;
+        let v = b.to_owned() ^ y;
 
         let uv = self.reconstruct_binary_many(vec![u, v]).await?;
         let u = uv[0].to_sharetype();
         let v = uv[1].to_sharetype();
-        let uv = u.to_owned() & &v;
+        let uv = u.to_owned() & v;
 
         let mut c = z ^ (b & u) ^ (a & v);
         c.xor_assign_const(
@@ -1309,7 +1309,7 @@ where
         ) {
             let u = u.to_sharetype();
             let v = v.to_sharetype();
-            let uv = u.to_owned() & &v;
+            let uv = u.to_owned() & v;
 
             let mut c = z ^ (b & u) ^ (a & v);
             c.xor_assign_const(

@@ -63,7 +63,7 @@ where
 
     async fn hash_based_zero_verifiy(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
         let (wa, wb) = w.get_ab();
-        let w_neg = -wa.to_owned() - &wb;
+        let w_neg = -wa.to_owned() - wb;
 
         let mut hasher = Sha512::new();
         match self.get_id() {
@@ -136,7 +136,7 @@ where
             r,
         )
         .await?;
-        let zero = mul - &res[1];
+        let zero = mul - res[1];
         self.hash_based_zero_verifiy(zero).await
     }
 
@@ -270,7 +270,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
+            .map(|(s, c)| T::from_sharetype(c + s.a + s.b))
             .collect();
         Ok(res)
     }
@@ -349,10 +349,10 @@ where
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(wa.to_bytes());
                     hasher.update(w_neg.to_bytes());
@@ -365,10 +365,10 @@ where
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(wb.to_bytes());
                     hasher.update(wa.to_bytes());
@@ -381,10 +381,10 @@ where
                     .zip(v.into_iter())
                     .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * r + c_1.to_owned();
 
                     let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let w_neg = -wa.to_owned() - wb;
 
                     hasher.update(w_neg.to_bytes());
                     hasher.update(wb.to_bytes());
@@ -541,7 +541,7 @@ where
         rng: &mut R,
     ) -> Vec<TShare<T>> {
         let input = T::to_verificationtype(input.to_sharetype());
-        let rz = mac_key.to_sharetype() * &input;
+        let rz = mac_key.to_sharetype() * input;
 
         let values = <Aby3<N> as MpcTrait<
             T::VerificationShare,
@@ -636,7 +636,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
+            .map(|(s, c)| (c ^ s.a ^ s.b).convert().convert())
             .collect();
         Ok(res)
     }

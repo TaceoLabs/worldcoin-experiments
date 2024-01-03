@@ -96,9 +96,9 @@ impl<T: Sharable> Add<&Share<T>> for Share<T> {
 
     fn add(self, rhs: &Self) -> Self::Output {
         Share {
-            a: self.a + &rhs.a,
-            b: self.b + &rhs.b,
-            c: self.c + &rhs.c,
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
+            c: self.c + rhs.c,
             sharetype: PhantomData,
         }
     }
@@ -138,9 +138,9 @@ impl<T: Sharable> Sub<&Share<T>> for Share<T> {
 
     fn sub(self, rhs: &Self) -> Self::Output {
         Share {
-            a: self.a - &rhs.a,
-            b: self.b - &rhs.b,
-            c: self.c - &rhs.c,
+            a: self.a - rhs.a,
+            b: self.b - rhs.b,
+            c: self.c - rhs.c,
             sharetype: PhantomData,
         }
     }
@@ -291,9 +291,9 @@ impl<T: Sharable> BitXor<&Self> for Share<T> {
 
     fn bitxor(self, rhs: &Self) -> Self::Output {
         Share {
-            a: self.a ^ &rhs.a,
-            b: self.b ^ &rhs.b,
-            c: self.c ^ &rhs.c,
+            a: self.a ^ rhs.a,
+            b: self.b ^ rhs.b,
+            c: self.c ^ rhs.c,
             sharetype: PhantomData,
         }
     }
