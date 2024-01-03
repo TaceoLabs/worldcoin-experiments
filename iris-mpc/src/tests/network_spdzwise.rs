@@ -44,7 +44,8 @@ mod spdzwise_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input, r, &mut rng);
+        let shares =
+            SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(input.clone(), r, &mut rng);
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
@@ -105,7 +106,7 @@ mod spdzwise_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
@@ -161,7 +162,7 @@ mod spdzwise_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let result = shares
             .into_iter()
@@ -223,7 +224,7 @@ mod spdzwise_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let result = shares.into_iter().fold(Share::zero(), |acc, x| {
             <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::sub(&protocol, acc, x)
@@ -295,7 +296,7 @@ mod spdzwise_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.add_const(share, mul);
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
@@ -370,7 +371,7 @@ mod spdzwise_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.sub_const(share, mul);
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
@@ -434,7 +435,7 @@ mod spdzwise_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let mut result = shares[0].to_owned();
         for share in shares.into_iter().skip(1) {
@@ -510,7 +511,7 @@ mod spdzwise_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.mul_const(share, mul);
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
@@ -580,14 +581,14 @@ mod spdzwise_test {
         for _ in 0..DOT_SIZE {
             let input1 = if id == 0 {
                 let inp = rng.gen::<T>();
-                input.push(inp);
+                input.push(inp.clone());
                 Some(inp)
             } else {
                 None
             };
             let input2 = if id == 1 {
                 let inp = rng.gen::<T>();
-                input.push(inp);
+                input.push(inp.clone());
                 Some(inp)
             } else {
                 None

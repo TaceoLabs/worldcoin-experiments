@@ -44,8 +44,11 @@ mod aby3_test {
         let mut rng = R::from_seed(seed);
         let input = rng.gen::<T>();
 
-        let shares =
-            MalAby3::<PartyTestNetwork>::share(input, T::VerificationShare::default(), &mut rng);
+        let shares = MalAby3::<PartyTestNetwork>::share(
+            input.clone(),
+            T::VerificationShare::default(),
+            &mut rng,
+        );
         protocol.verify().await.unwrap();
         let open = protocol.open(shares[id].to_owned()).await.unwrap();
 
@@ -111,7 +114,7 @@ mod aby3_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
         protocol.verify().await.unwrap();
         let open = protocol.open_many(shares).await.unwrap();
 
@@ -172,7 +175,7 @@ mod aby3_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let result = shares
             .into_iter()
@@ -239,7 +242,7 @@ mod aby3_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let result = shares
             .into_iter()
@@ -316,7 +319,7 @@ mod aby3_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.add_const(share, mul);
         protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
@@ -396,7 +399,7 @@ mod aby3_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.sub_const(share, mul);
         protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
@@ -465,7 +468,7 @@ mod aby3_test {
         let mut rng = SmallRng::from_entropy();
         let input = rng.gen::<T>();
 
-        let shares = protocol.input_all(input).await.unwrap();
+        let shares = protocol.input_all(input.clone()).await.unwrap();
 
         let mut result = shares[0].to_owned();
         for share in shares.into_iter().skip(1) {
@@ -543,7 +546,7 @@ mod aby3_test {
         } else {
             None
         };
-        let share = protocol.input(input, 0).await.unwrap();
+        let share = protocol.input(input.clone(), 0).await.unwrap();
         let result = protocol.mul_const(share, mul);
         protocol.verify().await.unwrap();
         let open = protocol.open(result).await.unwrap();
@@ -618,14 +621,14 @@ mod aby3_test {
         for _ in 0..DOT_SIZE {
             let input1 = if id == 0 {
                 let inp = rng.gen::<T>();
-                input.push(inp);
+                input.push(inp.clone());
                 Some(inp)
             } else {
                 None
             };
             let input2 = if id == 1 {
                 let inp = rng.gen::<T>();
-                input.push(inp);
+                input.push(inp.clone());
                 Some(inp)
             } else {
                 None

@@ -229,7 +229,7 @@ where
             let mut share = self.prf.gen_zero_share::<T>();
 
             if i == self.network.get_id() {
-                share += input.to_sharetype();
+                share += input.clone().to_sharetype();
             }
 
             shares_a.push(share);

@@ -17,7 +17,7 @@ pub trait Sharable:
     Sized
     + Send
     + Sync
-    + Copy
+    + Clone
     + PartialEq
     + PartialOrd
     + Ord

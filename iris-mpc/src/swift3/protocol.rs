@@ -2035,7 +2035,7 @@ where
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
         // Since this is only for testing we perform a bad one
-        let mut inputs = [None; 3];
+        let mut inputs = [None, None, None];
         inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
 

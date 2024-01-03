@@ -1049,7 +1049,7 @@ where
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<Share<T>>, Error> {
         // Since this is only for testing we perform a bad one
-        let mut inputs = [None; 3];
+        let mut inputs = [None, None, None];
         inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
 
@@ -1177,8 +1177,8 @@ where
         let v = b.to_owned() - &y;
 
         let uv = self.reconstruct_many(vec![u, v]).await?;
-        let u = uv[0].to_sharetype();
-        let v = uv[1].to_sharetype();
+        let u = uv[0].clone().to_sharetype();
+        let v = uv[1].clone().to_sharetype();
         let uv = u.to_owned() * &v;
 
         let mut c = z + b * u + a * v;
@@ -1259,8 +1259,8 @@ where
         let v = b.to_owned() ^ &y;
 
         let uv = self.reconstruct_binary_many(vec![u, v]).await?;
-        let u = uv[0].to_sharetype();
-        let v = uv[1].to_sharetype();
+        let u = uv[0].clone().to_sharetype();
+        let v = uv[1].clone().to_sharetype();
         let uv = u.to_owned() & &v;
 
         let mut c = z ^ (b & u) ^ (a & v);
@@ -1307,8 +1307,8 @@ where
                 .zip(b.into_iter())
                 .zip(uv.iter().take(len).zip(uv.iter().skip(len))),
         ) {
-            let u = u.to_sharetype();
-            let v = v.to_sharetype();
+            let u = u.clone().to_sharetype();
+            let v = v.clone().to_sharetype();
             let uv = u.to_owned() & &v;
 
             let mut c = z ^ (b & u) ^ (a & v);

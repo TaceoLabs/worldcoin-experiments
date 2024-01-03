@@ -524,7 +524,7 @@ where
     #[cfg(test)]
     async fn input_all(&mut self, input: T) -> Result<Vec<TShare<T>>, Error> {
         // Since this is only for testing we perform a bad one
-        let mut inputs = [None; 3];
+        let mut inputs = [None, None, None];
         inputs[self.get_id()] = Some(input);
         let mut shares = Vec::with_capacity(3);
 
@@ -668,7 +668,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::add_const(&self.aby3, a_v, b);
+        >>::add_const(&self.aby3, a_v, b.clone());
 
         let mac_b = <_ as MpcTrait<
             T::VerificationShare,
@@ -712,7 +712,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::sub_const(&self.aby3, a_v, b);
+        >>::sub_const(&self.aby3, a_v, b.clone());
 
         let mac_b = <_ as MpcTrait<
             T::VerificationShare,
@@ -752,7 +752,7 @@ where
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::mul_const(&self.aby3, a_v, b);
+        >>::mul_const(&self.aby3, a_v, b.clone());
 
         let mac = <_ as MpcTrait<
             T::VerificationShare,

@@ -77,7 +77,7 @@ mod iris_mpc_test {
         for _ in 0..TESTRUNS {
             let code = IrisCode::random_rng(&mut iris_rng);
 
-            let shared_code = share_iris_code::<T, _>(&code, r, id, &mut rng);
+            let shared_code = share_iris_code::<T, _>(&code, r.clone(), id, &mut rng);
 
             let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
             iris.verify().await.unwrap();
@@ -170,8 +170,8 @@ mod iris_mpc_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
 
-            let shared_code1 = share_iris_code::<T, _>(&code1, r, id, &mut rng);
-            let shared_code2 = share_iris_code::<T, _>(&code2, r, id, &mut rng);
+            let shared_code1 = share_iris_code::<T, _>(&code1, r.clone(), id, &mut rng);
+            let shared_code2 = share_iris_code::<T, _>(&code2, r.clone(), id, &mut rng);
 
             let hwd = iris
                 .hamming_distance(shared_code1, shared_code2)
@@ -396,8 +396,11 @@ mod iris_mpc_test {
             let code1 = IrisCode::random_rng(&mut iris_rng);
             let code2 = IrisCode::random_rng(&mut iris_rng);
             let code3 = code1.get_similar_iris(&mut iris_rng);
-            lt_tester_spdzwise::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2, r).await;
-            assert!(lt_tester_spdzwise::<T, _, _>(&mut iris, &mut rng, code1, code3, r).await);
+            lt_tester_spdzwise::<T, _, _>(&mut iris, &mut rng, code1.to_owned(), code2, r.clone())
+                .await;
+            assert!(
+                lt_tester_spdzwise::<T, _, _>(&mut iris, &mut rng, code1, code3, r.clone()).await
+            );
         }
 
         iris.finish().await.unwrap();
@@ -543,14 +546,14 @@ mod iris_mpc_test {
     {
         let id = protocol.get_id();
 
-        let shared_code1 = share_iris_code::<T, _>(&code1, mac_key, id, rng);
+        let shared_code1 = share_iris_code::<T, _>(&code1, mac_key.clone(), id, rng);
         let mut shared_codes2 = Vec::with_capacity(code2.len());
         let mut mask2 = Vec::with_capacity(code2.len());
         let mut cmp_ = Vec::with_capacity(code2.len());
 
         for code in code2 {
             let c = code1.is_close(&code);
-            let shared_code2 = share_iris_code::<T, _>(&code, mac_key, id, rng);
+            let shared_code2 = share_iris_code::<T, _>(&code, mac_key.clone(), id, rng);
             cmp_.push(c);
             shared_codes2.push(shared_code2);
             mask2.push(code.mask);
@@ -592,7 +595,7 @@ mod iris_mpc_test {
     {
         let id = protocol.get_id();
 
-        let shared_code1 = share_iris_code::<T, _>(&code1, mac_key, id, rng);
+        let shared_code1 = share_iris_code::<T, _>(&code1, mac_key.clone(), id, rng);
         let shared_code2 = share_iris_code::<T, _>(&code2, mac_key, id, rng);
 
         let share_cmp = protocol
@@ -638,7 +641,7 @@ mod iris_mpc_test {
                 &mut rng,
                 code1.to_owned(),
                 code2.to_owned(),
-                r,
+                r.clone(),
             )
             .await;
             let c2 = cmp_iris_tester_spdzwise::<T, _, _>(
@@ -646,7 +649,7 @@ mod iris_mpc_test {
                 &mut rng,
                 code1.to_owned(),
                 code3.to_owned(),
-                r,
+                r.clone(),
             )
             .await;
             let c3 = cmp_many_iris_tester_spdzwise::<T, _, _>(
@@ -654,7 +657,7 @@ mod iris_mpc_test {
                 &mut rng,
                 code1,
                 vec![code2, code3],
-                r,
+                r.clone(),
             )
             .await;
             assert_eq!(c1, c3[0]);
@@ -793,14 +796,14 @@ mod iris_mpc_test {
             is_in1 |= iris1.is_close(&iris);
             is_in2 |= iris2.is_close(&iris);
 
-            let iris_t = share_iris_code::<T, _>(&iris, r, id, &mut rng);
+            let iris_t = share_iris_code::<T, _>(&iris, r.clone(), id, &mut rng);
 
             db_t.push(iris_t);
             masks.push(iris.mask);
         }
 
         // share iris1 and iris2
-        let iris1_ = share_iris_code::<T, _>(&iris1, r, id, &mut rng);
+        let iris1_ = share_iris_code::<T, _>(&iris1, r.clone(), id, &mut rng);
         let iris2_ = share_iris_code::<T, _>(&iris2, r, id, &mut rng);
         // calculate
         let res1 = iris
