@@ -2,6 +2,8 @@ use crate::{
     error::Error,
     types::{ring_element::RingImpl, sharable::Sharable},
 };
+use num_traits::Zero;
+use plain_reference::IrisCodeArray;
 use rand::Rng;
 
 #[allow(async_fn_in_trait)]
@@ -42,6 +44,39 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
         a: &[Vec<Ashare>],
         b: &[Vec<Ashare>],
     ) -> Result<Vec<Ashare>, Error>;
+    async fn masked_dot_many(
+        &mut self,
+        a: &[Ashare],
+        b: &[Vec<Ashare>],
+        masks: &[IrisCodeArray],
+    ) -> Result<Vec<Ashare>, Error>
+    where
+        Ashare: Zero + Clone,
+    {
+        let mut a_vec = Vec::with_capacity(b.len());
+        let mut b_vec = Vec::with_capacity(b.len());
+
+        for (b_, mask) in b.iter().zip(masks.iter()) {
+            let mut code1 = a.to_vec();
+            let mut code2 = b_.clone();
+            if code1.len() != IrisCodeArray::IRIS_CODE_SIZE
+                || code2.len() != IrisCodeArray::IRIS_CODE_SIZE
+            {
+                return Err(Error::InvalidCodeSizeError);
+            }
+
+            for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
+                if !mask.get_bit(i) {
+                    code1[i] = Ashare::zero();
+                    code2[i] = Ashare::zero();
+                }
+            }
+
+            a_vec.push(code1);
+            b_vec.push(code2);
+        }
+        self.dot_many(&a_vec, &b_vec).await
+    }
 
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
     async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Vec<Bshare>, Error>;

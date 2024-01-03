@@ -167,6 +167,33 @@ where
         Ok(res)
     }
 
+    fn masked_hamming_distance_post(
+        &self,
+        a: &[Ashare],
+        b: &[Ashare],
+        mask: &IrisCodeArray,
+        dot: Ashare,
+    ) -> Result<Ashare, Error> {
+        if a.is_empty() || a.len() != b.len() {
+            return Err(Error::InvalidCodeSizeError);
+        }
+
+        let (sum_a, sum_b) = a
+            .into_iter()
+            .zip(b.into_iter())
+            .enumerate()
+            .filter(|(i, _)| mask.get_bit(*i))
+            .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
+            .reduce(|(aa, ab), (ba, bb)| (self.mpc.add(aa, ba), self.mpc.add(ab, bb)))
+            .expect("Size is not zero");
+
+        let dot = self.mpc.mul_const(dot, T::try_from(2).unwrap());
+
+        let sum = self.mpc.add(sum_a, sum_b);
+        let res = self.mpc.sub(sum, dot);
+        Ok(res)
+    }
+
     #[allow(unused)]
     pub(crate) async fn hamming_distance(
         &mut self,
@@ -177,6 +204,7 @@ where
         self.hamming_distance_post(a, b, dot)
     }
 
+    #[allow(unused)]
     pub(crate) async fn hamming_distance_many(
         &mut self,
         a: Vec<Vec<Ashare>>,
@@ -187,6 +215,23 @@ where
         let mut res = Vec::with_capacity(dots.len());
         for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
             let r = self.hamming_distance_post(a_, b_, dot)?;
+            res.push(r);
+        }
+
+        Ok(res)
+    }
+
+    pub(crate) async fn masked_hamming_distance_many(
+        &mut self,
+        a: Vec<Ashare>,
+        b: &[Vec<Ashare>],
+        masks: Vec<IrisCodeArray>,
+    ) -> Result<Vec<Ashare>, Error> {
+        let dots = self.mpc.masked_dot_many(&a, &b, &masks).await?;
+
+        let mut res = Vec::with_capacity(dots.len());
+        for ((b_, dot), mask) in b.into_iter().zip(dots.into_iter()).zip(masks.into_iter()) {
+            let r = self.masked_hamming_distance_post(&a, &b_, &mask, dot)?;
             res.push(r);
         }
 
@@ -261,20 +306,14 @@ where
         if (amount != mask_b.len()) || (amount == 0) {
             return Err(Error::InvalidSizeError);
         }
-        let mut a_vec = Vec::with_capacity(amount);
-        let mut b_vec = Vec::with_capacity(amount);
-        let mut mask_lens = Vec::with_capacity(amount);
 
-        for (b_, mask_b_) in b.iter().zip(mask_b.iter()) {
-            let mask = self.combine_masks(mask_a, mask_b_)?;
-            let (iris_a, iris_b) = self.apply_mask_twice(a.clone(), b_.clone(), &mask)?;
+        let masks = mask_b
+            .iter()
+            .map(|b| self.combine_masks(mask_a, b))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mask_lens: Vec<_> = masks.iter().map(|m| m.count_ones()).collect();
 
-            a_vec.push(iris_a);
-            b_vec.push(iris_b);
-            mask_lens.push(mask.count_ones());
-        }
-
-        let hwds = self.hamming_distance_many(a_vec, b_vec).await?;
+        let hwds = self.masked_hamming_distance_many(a, b, masks).await?;
         self.compare_threshold_many(hwds, mask_lens).await
     }
 
