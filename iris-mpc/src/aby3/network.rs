@@ -59,10 +59,12 @@ impl NetworkTrait for Aby3Network {
     async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
         tracing::trace!("send_id {}->{}: {:?}", self.id, id, data);
         let res = if id == usize::from(self.id.next_id()) {
-            let _ = self.channel_send.send(data).await;
+            let send_status = self.channel_send.send(data).await;
+            std::mem::drop(send_status);
             Ok(())
         } else if id == usize::from(self.id.prev_id()) {
-            let _ = self.channel_recv.send(data).await;
+            let send_status = self.channel_recv.send(data).await;
+            std::mem::drop(send_status);
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "Invalid ID"))
@@ -73,14 +75,16 @@ impl NetworkTrait for Aby3Network {
 
     async fn send_next_id(&mut self, data: Bytes) -> io::Result<()> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.next_id(), data);
-        let _ = self.channel_send.send(data).await;
+        let send_status = self.channel_send.send(data).await;
+        std::mem::drop(send_status);
         tracing::trace!("send {}->{}: done", self.id, self.id.next_id());
         Ok(())
     }
 
     async fn send_prev_id(&mut self, data: Bytes) -> io::Result<()> {
         tracing::trace!("send {}->{}: {:?}", self.id, self.id.prev_id(), data);
-        let _ = self.channel_recv.send(data).await;
+        let send_status = self.channel_recv.send(data).await;
+        std::mem::drop(send_status);
         tracing::trace!("send {}->{}: done", self.id, self.id.prev_id());
         Ok(())
     }
