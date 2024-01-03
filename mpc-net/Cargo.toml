@@ -20,9 +20,10 @@ color-eyre = { workspace = true }
 futures = { workspace = true }
 quinn = { workspace = true }
 rcgen = { workspace = true }
+# need this rustls version for quinn
 rustls = { version = "0.21.9", features = ["quic", "dangerous_configuration"] }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
-tracing = "0.1.40"
+tracing = { workspace = true }

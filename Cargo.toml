@@ -38,7 +38,7 @@ tokio = { version = "1.34.0", features = [
     "macros",
 ] }
 tokio-util = { version = "0.7.10", features = ["codec"] }
-tracing = "0.1.40"
+tracing = { version = "0.1.40", features = ["release_max_level_warn"] }
 
 [profile.release]
 lto = "thin"
