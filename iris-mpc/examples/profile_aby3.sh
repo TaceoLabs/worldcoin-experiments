@@ -28,5 +28,5 @@ $BIN -p 0 -k data/key0.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
 $BIN -p 1 -k data/key1.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args &
 #$BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
 #samply record --save-only -- $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
-#flamegraph -- $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
-valgrind --tool=callgrind --dump-instr=yes $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
+flamegraph -- $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
+#valgrind --tool=callgrind --dump-instr=yes $BIN -p 2 -k data/key2.der -c examples/config.yaml -d data/db0.sqlite -i 0 $args
