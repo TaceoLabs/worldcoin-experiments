@@ -249,7 +249,7 @@ where
     fn share<R: Rng>(input: T, _mac_key: T::VerificationShare, rng: &mut R) -> Vec<Share<T>> {
         let a = rng.gen::<T::Share>();
         let b = rng.gen::<T::Share>();
-        let c = input.to_sharetype() - a - b;
+        let c = input.to_sharetype() - &a - &b;
 
         let share1 = Share::new(a.to_owned(), c.to_owned());
         let share2 = Share::new(b.to_owned(), a);
@@ -269,7 +269,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + s.a + s.b))
+            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
             .collect();
         Ok(res)
     }
@@ -285,7 +285,7 @@ where
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
-            .map(|(s, c)| (c ^ s.a ^ s.b).convert().convert())
+            .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
             .collect();
         Ok(res)
     }
@@ -367,7 +367,7 @@ where
                 return Err(Error::InvalidSizeError);
             }
             for (a__, b__) in a_.iter().zip(b_.iter()) {
-                rand += (*a__ * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+                rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
             }
             shares_a.push(rand);
         }

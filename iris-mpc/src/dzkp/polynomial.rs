@@ -102,9 +102,9 @@ impl<T: RingImpl> Poly<T> {
 
         while dividend.len() >= other.coeffs.len() {
             let monomial = dividend.len() - other.coeffs.len();
-            let coeff = dividend.pop().expect("size is not 0") * inv;
+            let coeff = dividend.pop().expect("size is not 0") * &inv;
             for (i, c) in other.coeffs.iter().enumerate().take(other.coeffs.len() - 1) {
-                dividend[monomial + i] -= c.to_owned() * coeff;
+                dividend[monomial + i] -= c.to_owned() * &coeff;
             }
             quotient[monomial] = coeff.to_owned();
         }

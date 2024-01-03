@@ -90,14 +90,14 @@ impl AndProof {
         self.verify_next.reserve(T::K);
 
         for _ in 0..T::K {
-            let a0_i = T::one() & a0 == T::one();
-            let a1_i = T::one() & a1 == T::one();
-            let b0_i = T::one() & b0 == T::one();
-            let b1_i = T::one() & b1 == T::one();
-            let r0_i = T::one() & r0 == T::one();
-            let r1_i = T::one() & r1 == T::one();
-            let s0_i = T::one() & s0 == T::one();
-            let s1_i = T::one() & s1 == T::one();
+            let a0_i = T::one() & &a0 == T::one();
+            let a1_i = T::one() & &a1 == T::one();
+            let b0_i = T::one() & &b0 == T::one();
+            let b1_i = T::one() & &b1 == T::one();
+            let r0_i = T::one() & &r0 == T::one();
+            let r1_i = T::one() & &r1 == T::one();
+            let s0_i = T::one() & &s0 == T::one();
+            let s1_i = T::one() & &s1 == T::one();
 
             a0 >>= 1;
             a1 >>= 1;

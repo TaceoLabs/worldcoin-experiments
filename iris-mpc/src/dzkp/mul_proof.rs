@@ -90,7 +90,7 @@ where
             a1: a1.to_owned(),
             b0: b0.to_owned(),
             b1: b1.to_owned(),
-            r: r0.to_owned() - r1,
+            r: r0.to_owned() - &r1,
             s: s0,
         };
         self.proof.push(proof);

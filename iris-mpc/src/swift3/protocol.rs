@@ -216,8 +216,8 @@ where
         let r1 = self.prf.gen_1::<U::Share>();
         let r2 = self.prf.gen_2::<U::Share>();
 
-        let y_a = -x_a * y_c - y_a * x_c + de_a - r1;
-        let y_b = -x_b * y_c - y_b * x_c + de_b - r2;
+        let y_a = -x_a * &y_c - y_a * &x_c + de_a - &r1;
+        let y_b = -x_b * &y_c - y_b * &x_c + de_b - &r2;
         let z_c = x_c * y_c;
 
         let share = match id {
@@ -270,8 +270,8 @@ where
         let r1 = self.prf.gen_1::<T::Share>();
         let r2 = self.prf.gen_2::<T::Share>();
 
-        let y_a = x_a & y_c ^ y_a & x_c ^ de_a ^ r1;
-        let y_b = x_b & y_c ^ y_b & x_c ^ de_b ^ r2;
+        let y_a = x_a & &y_c ^ y_a & &x_c ^ de_a ^ &r1;
+        let y_b = x_b & &y_c ^ y_b & &x_c ^ de_b ^ &r2;
         let z_c = x_c & y_c;
 
         let share = match id {
@@ -338,8 +338,8 @@ where
                     let r1 = self.prf.gen_1::<T::Share>();
                     let r2 = self.prf.gen_2::<T::Share>();
 
-                    let y1 = x_a & y_c ^ y_a & x_c ^ de_a ^ r1;
-                    let y3 = x_b & y_c ^ y_b & x_c ^ de_b ^ r2;
+                    let y1 = x_a & &y_c ^ y_a & &x_c ^ de_a ^ &r1;
+                    let y3 = x_b & &y_c ^ y_b & &x_c ^ de_b ^ &r2;
                     let r = Share::new(r1, r2, T::Share::zero());
                     y1s.push(y1);
                     y3s.push(y3);
@@ -366,11 +366,11 @@ where
                     let r1 = self.prf.gen_1::<T::Share>();
                     let r2 = self.prf.gen_2::<T::Share>();
 
-                    let y2 = x_a & y_c ^ y_a & x_c ^ de_a ^ r1;
-                    let y1 = x_b & y_c ^ y_b & x_c ^ de_b ^ r2;
+                    let y2 = x_a & &y_c ^ y_a & &x_c ^ de_a ^ &r1;
+                    let y1 = x_b & &y_c ^ y_b & &x_c ^ de_b ^ &r2;
                     let z_c = x_c & y_c;
                     let r = Share::new(r1, r2, T::Share::zero());
-                    zr.push(T::from_sharetype(y2 ^ z_c ^ y1));
+                    zr.push(T::from_sharetype(y2 ^ z_c ^ &y1));
                     y1s.push(y1);
                     rs.push(r);
                 }
@@ -399,11 +399,11 @@ where
                     let r1 = self.prf.gen_1::<T::Share>();
                     let r2 = self.prf.gen_2::<T::Share>();
 
-                    let y3 = x_a & y_c ^ y_a & x_c ^ de_a ^ r1;
-                    let y2 = x_b & y_c ^ y_b & x_c ^ de_b ^ r2;
+                    let y3 = x_a & &y_c ^ y_a & &x_c ^ &de_a ^ &r1;
+                    let y2 = x_b & &y_c ^ y_b & &x_c ^ de_b ^ &r2;
                     let z_c = x_c & y_c;
                     let r = Share::new(r1, r2, T::Share::zero());
-                    zr.push(T::from_sharetype(y2 ^ z_c ^ y3));
+                    zr.push(T::from_sharetype(y2 ^ z_c ^ &y3));
                     y3s.push(y3);
                     rs.push(r);
                 }
@@ -442,16 +442,16 @@ where
 
         let (de_a, de_b) = de.get_ab();
 
-        let mut y_a_ = de_a - r1;
-        let mut y_b_ = de_b - r2;
+        let mut y_a_ = de_a - &r1;
+        let mut y_b_ = de_b - &r2;
         let mut z_c = U::Share::zero();
 
         for (a, b) in a.into_iter().zip(b) {
             let (x_a, x_b, x_c) = a.get_abc();
             let (y_a, y_b, y_c) = b.get_abc();
 
-            y_a_ -= x_a * y_c + y_a * x_c;
-            y_b_ -= x_b * y_c + y_b * x_c;
+            y_a_ -= x_a * &y_c + y_a * &x_c;
+            y_b_ -= x_b * &y_c + y_b * &x_c;
             z_c += x_c * y_c;
         }
 
@@ -516,15 +516,15 @@ where
                     let r1 = self.prf.gen_1::<U::Share>();
                     let r2 = self.prf.gen_2::<U::Share>();
 
-                    let mut y1 = de_a - r1;
-                    let mut y3 = de_b - r2;
+                    let mut y1 = de_a - &r1;
+                    let mut y3 = de_b - &r2;
 
                     for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
-                        y1 -= x_a * y_c + y_a * x_c;
-                        y3 -= x_b * y_c + y_b * x_c;
+                        y1 -= x_a * &y_c + y_a * &x_c;
+                        y3 -= x_b * &y_c + y_b * &x_c;
                     }
                     let r = Share::new(r1, r2, U::Share::zero());
                     y1s.push(y1);
@@ -553,20 +553,20 @@ where
                     let r1 = self.prf.gen_1::<U::Share>();
                     let r2 = self.prf.gen_2::<U::Share>();
 
-                    let mut y2 = de_a - r1;
-                    let mut y1 = de_b - r2;
+                    let mut y2 = de_a - &r1;
+                    let mut y1 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
                     for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
-                        y2 -= x_a * y_c + y_a * x_c;
-                        y1 -= x_b * y_c + y_b * x_c;
+                        y2 -= x_a * &y_c + y_a * &x_c;
+                        y1 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
                     let r = Share::new(r1, r2, U::Share::zero());
-                    zr.push(U::from_sharetype(y2 + z_c + y1));
+                    zr.push(U::from_sharetype(y2 + z_c + &y1));
                     y1s.push(y1);
                     rs.push(r);
                 }
@@ -596,20 +596,20 @@ where
                     let r1 = self.prf.gen_1::<U::Share>();
                     let r2 = self.prf.gen_2::<U::Share>();
 
-                    let mut y3 = de_a - r1;
-                    let mut y2 = de_b - r2;
+                    let mut y3 = de_a - &r1;
+                    let mut y2 = de_b - &r2;
                     let mut z_c = U::Share::zero();
 
                     for (a, b) in a.iter().zip(b) {
                         let (x_a, x_b, x_c) = a.clone().get_abc();
                         let (y_a, y_b, y_c) = b.clone().get_abc();
 
-                        y3 -= x_a * y_c + y_a * x_c;
-                        y2 -= x_b * y_c + y_b * x_c;
+                        y3 -= x_a * &y_c + y_a * &x_c;
+                        y2 -= x_b * &y_c + y_b * &x_c;
                         z_c += x_c * y_c;
                     }
                     let r = Share::new(r1, r2, U::Share::zero());
-                    zr.push(U::from_sharetype(y2 + z_c + y3));
+                    zr.push(U::from_sharetype(y2 + z_c + &y3));
                     y3s.push(y3);
                     rs.push(r);
                 }
@@ -884,17 +884,17 @@ where
         Standard: Distribution<U::Share>,
     {
         let (r0, r1) = self.prf.gen_for_zero_share::<U>();
-        let rand = r0 - r1;
-        let mut c = a * b;
+        let rand = r0.to_owned() - &r1;
+        let mut c = a.to_owned() * &b;
         c.a += rand;
 
         // Network: reshare
-        c.b = utils::send_and_receive_value(&mut self.network, c.a).await?;
+        c.b = utils::send_and_receive_value(&mut self.network, c.a.to_owned()).await?;
 
         // Register for proof
         let (a0, a1) = a.get_ab();
         let (b0, b1) = b.get_ab();
-        let (s0, s1) = c.get_ab();
+        let (s0, s1) = c.to_owned().get_ab();
         self.mul_proof.register_mul(a0, a1, b0, b1, r0, r1, s0, s1);
 
         Ok(c)
@@ -909,8 +909,8 @@ where
         Standard: Distribution<T::Share>,
     {
         let (r0, r1) = self.prf.gen_for_zero_share::<T>();
-        let rand = r0 ^ r1;
-        let mut c = a & b;
+        let rand = r0.to_owned() ^ &r1;
+        let mut c = a.to_owned() & &b;
         c.a ^= rand;
 
         // Network: reshare
@@ -941,7 +941,7 @@ where
 
         for (a_, b_) in a.iter().cloned().zip(b.iter().cloned()) {
             let (r0, r1) = self.prf.gen_for_zero_share::<T>();
-            let rand = r0 ^ r1;
+            let rand = r0.to_owned() ^ &r1;
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
@@ -987,7 +987,7 @@ where
         debug_assert_eq!(len, b.len());
 
         let (r0, r1) = self.prf.gen_for_zero_share::<U>();
-        let rand = r0 - r1;
+        let rand = r0.to_owned() - &r1;
 
         let mut a0 = Vec::with_capacity(len);
         let mut a1 = Vec::with_capacity(len);
@@ -996,7 +996,7 @@ where
 
         let mut c = Aby3Share::new(rand, U::zero().to_sharetype());
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
-            c += a_ * b_;
+            c += a_.to_owned() * &b_;
 
             // Register for proof
             let (a0_, a1_) = a_.get_ab();
@@ -1039,7 +1039,7 @@ where
 
         for (a_, b_) in a.into_iter().zip(b.into_iter()) {
             let (r0_, r1_) = self.prf.gen_for_zero_share::<U>();
-            let mut rand = r0_ - r1_;
+            let mut rand = r0_.to_owned() - &r1_;
             let len_ = a_.len();
             debug_assert_eq!(len_, b_.len());
 
@@ -1052,7 +1052,7 @@ where
             let mut b1_ = Vec::with_capacity(len_);
 
             for (a__, b__) in a_.into_iter().zip(b_.into_iter()) {
-                rand += (a__ * b__).a;
+                rand += (a__.to_owned() * &b__).a;
 
                 // Register for proof
                 let (a0__, a1__) = a__.get_ab();
@@ -1198,13 +1198,13 @@ where
 
         let share = if self_id == sender1 {
             let alpha_1 = self.prf.gen_1::<T::Share>();
-            let alpha = alpha_1.to_owned() + alpha_p + alpha_p;
+            let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
             let beta = alpha + input.unwrap().to_sharetype();
             self.jmp_send::<T>(beta.to_owned(), receiver).await?;
             Share::new(alpha_1, alpha_p, beta)
         } else if self_id == sender2 {
             let alpha_1 = self.prf.gen_2::<T::Share>();
-            let alpha = alpha_1.to_owned() + alpha_p + alpha_p;
+            let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
             let beta = alpha + input.unwrap().to_sharetype();
             self.jmp_queue::<T>(beta.to_owned(), receiver)?;
             Share::new(alpha_p, alpha_1, beta)
@@ -1254,7 +1254,7 @@ where
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
                 let alpha_1 = self.prf.gen_1::<T::Share>();
-                let alpha = alpha_1.to_owned() + alpha_p + alpha_p;
+                let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
                 let beta = alpha + inp.to_sharetype();
                 betas.push(beta);
                 alphas_1.push(alpha_1);
@@ -1277,7 +1277,7 @@ where
             for inp in input.into_iter() {
                 let alpha_p = self.prf.gen_p::<T::Share>();
                 let alpha_1 = self.prf.gen_2::<T::Share>();
-                let alpha = alpha_1.to_owned() + alpha_p + alpha_p;
+                let alpha = alpha_1.to_owned() + &alpha_p + &alpha_p;
                 let beta = alpha + inp.to_sharetype();
                 betas.push(beta);
                 alphas_1.push(alpha_1);
@@ -1956,7 +1956,7 @@ where
                     let alpha1 = self.prf.gen_1::<T::Share>();
                     let alpha2 = self.prf.gen_p::<T::Share>();
                     let alpha3 = self.prf.gen_2::<T::Share>();
-                    let alpha = alpha2 + alpha1 + alpha3;
+                    let alpha = alpha2 + &alpha1 + &alpha3;
                     let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
                     self.jmp_send::<T>(beta.to_owned(), 2).await?;
@@ -1981,7 +1981,7 @@ where
                     let alpha1 = self.prf.gen_2::<T::Share>();
                     let alpha2 = self.prf.gen_1::<T::Share>();
                     let alpha3 = self.prf.gen_p::<T::Share>();
-                    let alpha = alpha3 + alpha1 + alpha2;
+                    let alpha = alpha3 + &alpha1 + &alpha2;
                     let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 2).await?;
                     self.jmp_send::<T>(beta.to_owned(), 0).await?;
@@ -2006,7 +2006,7 @@ where
                     let alpha1 = self.prf.gen_p::<T::Share>();
                     let alpha2 = self.prf.gen_2::<T::Share>();
                     let alpha3 = self.prf.gen_1::<T::Share>();
-                    let alpha = alpha1 + alpha2 + alpha3;
+                    let alpha = alpha1 + &alpha2 + &alpha3;
                     let beta = input.unwrap().to_sharetype() + alpha;
                     utils::send_value(&mut self.network, beta.to_owned(), 1).await?;
                     self.jmp_send::<T>(beta.to_owned(), 0).await?;
@@ -2051,7 +2051,7 @@ where
         let alpha2 = rng.gen::<T::Share>();
         let alpha3 = rng.gen::<T::Share>();
 
-        let beta = input.to_sharetype() + alpha1 + alpha2 + alpha3;
+        let beta = input.to_sharetype() + &alpha1 + &alpha2 + &alpha3;
 
         let share1 = Share::new(alpha1.to_owned(), alpha3.to_owned(), beta.to_owned());
         let share2 = Share::new(alpha2.to_owned(), alpha1, beta.to_owned());
