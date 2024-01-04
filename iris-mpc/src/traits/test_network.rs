@@ -236,4 +236,8 @@ impl NetworkTrait for PartyTestNetwork {
         tracing::trace!("recv {}<-{}: done", self.id, self.id.next_id());
         Ok(BytesMut::from(buf.as_ref()))
     }
+
+    async fn fork(&mut self) -> Result<Self, IOError> {
+        todo!()
+    }
 }

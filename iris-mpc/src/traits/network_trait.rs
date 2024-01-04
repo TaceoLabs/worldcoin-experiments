@@ -9,6 +9,9 @@ pub trait NetworkTrait {
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
 
     async fn shutdown(self) -> Result<(), Error>;
+    async fn fork(&mut self) -> Result<Self, Error>
+    where
+        Self: Sized;
 
     async fn send(&mut self, id: usize, data: Bytes) -> Result<(), Error>;
     async fn send_next_id(&mut self, data: Bytes) -> Result<(), Error>;

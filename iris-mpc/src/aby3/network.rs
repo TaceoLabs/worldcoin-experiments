@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::{Arc, Mutex};
 
 use super::id::PartyID;
 use crate::error::Error;
@@ -9,7 +10,7 @@ use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
 
 pub struct Aby3Network {
-    handler: MpcNetworkHandler,
+    handler: Arc<Mutex<MpcNetworkHandler>>,
     id: PartyID,
     channel_send: ChannelHandle<Bytes, BytesMut>,
     channel_recv: ChannelHandle<Bytes, BytesMut>,
@@ -35,7 +36,7 @@ impl Aby3Network {
         let channel_recv = ChannelHandle::manage(channel_recv);
 
         Ok(Self {
-            handler,
+            handler: Arc::new(Mutex::new(handler)),
             id,
             channel_send,
             channel_recv,
@@ -53,7 +54,7 @@ impl NetworkTrait for Aby3Network {
     }
 
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.handler.print_connection_stats(out)
+        self.handler.lock().unwrap().print_connection_stats(out)
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
@@ -157,5 +158,30 @@ impl NetworkTrait for Aby3Network {
 
     async fn shutdown(self) -> io::Result<()> {
         Ok(())
+    }
+
+    async fn fork(&mut self) -> Result<Self, io::Error> {
+        let handler = Arc::clone(&self.handler);
+        let mut channels = handler.lock().unwrap().get_byte_channels().await?;
+
+        let next_id: usize = self.id.next_id().into();
+        let prev_id: usize = self.id.prev_id().into();
+
+        let channel_send = channels
+            .remove(&next_id)
+            .ok_or(io::Error::new(io::ErrorKind::Other, "invalid id"))?;
+        let channel_recv = channels
+            .remove(&prev_id)
+            .ok_or(io::Error::new(io::ErrorKind::Other, "invalid id"))?;
+
+        let channel_send = ChannelHandle::manage(channel_send);
+        let channel_recv = ChannelHandle::manage(channel_recv);
+
+        Ok(Self {
+            handler,
+            id: self.id,
+            channel_send,
+            channel_recv,
+        })
     }
 }
