@@ -13,7 +13,7 @@ mod iris_mpc_test {
         rngs::SmallRng,
         Rng, SeedableRng,
     };
-    use std::ops::Mul;
+    use std::{ops::Mul, sync::Arc};
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DB_SIZE: usize = 128;
@@ -718,13 +718,15 @@ mod iris_mpc_test {
         let protocol = Plain::default();
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
 
+        let db_t = Arc::new(db_t);
+        let masks = Arc::new(masks);
         let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .iris_in_db(iris1_, db_t.clone(), &iris1.mask, masks.clone())
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .iris_in_db(iris2_, db_t, &iris2.mask, masks)
             .await
             .unwrap();
 
@@ -783,13 +785,16 @@ mod iris_mpc_test {
         let iris1_ = share_iris_code(&iris1, id, &mut rng);
         let iris2_ = share_iris_code(&iris2, id, &mut rng);
         // calculate
+
+        let db_t = Arc::new(db_t);
+        let masks = Arc::new(masks);
         let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .iris_in_db(iris1_, Arc::clone(&db_t), &iris1.mask, Arc::clone(&masks))
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .iris_in_db(iris2_, db_t, &iris2.mask, masks)
             .await
             .unwrap();
 

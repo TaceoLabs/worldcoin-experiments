@@ -14,7 +14,7 @@ use rand::{
     SeedableRng,
 };
 use rusqlite::Connection;
-use std::{fs::File, ops::Mul, path::PathBuf};
+use std::{fs::File, ops::Mul, path::PathBuf, sync::Arc};
 use tokio::time::Instant;
 
 #[allow(type_alias_bounds)]
@@ -96,8 +96,8 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
 
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
-    shares: Vec<Vec<SpdzWiseShare<T::VerificationShare>>>,
-    masks: Vec<IrisCodeArray>,
+    shares: Arc<Vec<Vec<SpdzWiseShare<T::VerificationShare>>>>,
+    masks: Arc<Vec<IrisCodeArray>>,
     mac_key: T::VerificationShare,
     mac_key_share: SpdzWiseShare<T::VerificationShare>,
 }
@@ -152,6 +152,12 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         i => Err(Error::IdError(i))?,
     };
 
+    let count = conn.query_row("SELECT COUNT(*) from iris_codes;", {}, |row| {
+        row.get::<usize, usize>(0)
+    })?;
+    let mut shares = Vec::with_capacity(count);
+    let mut masks = Vec::with_capacity(count);
+
     let mut rows = stmt.query([])?;
 
     while let Some(row) = rows.next()? {
@@ -182,9 +188,11 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
             share.push(SpdzWiseShare::new(s, m));
         }
 
-        res.shares.push(share);
-        res.masks.push(mask);
+        shares.push(share);
+        masks.push(mask);
     }
+    res.shares = Arc::new(shares);
+    res.masks = Arc::new(masks);
 
     Ok(res)
 }
@@ -280,7 +288,7 @@ async fn main() -> Result<()> {
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
     let res = iris
-        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
+        .iris_in_db(shares.shares, db.shares, &shares.mask, db.masks)
         .await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());

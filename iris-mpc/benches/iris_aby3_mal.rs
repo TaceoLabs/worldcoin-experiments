@@ -8,7 +8,10 @@ use rand::{
     rngs::SmallRng,
     Rng, SeedableRng,
 };
-use std::ops::{BitAnd, Mul, MulAssign};
+use std::{
+    ops::{BitAnd, Mul, MulAssign},
+    sync::Arc,
+};
 use tokio::runtime;
 
 async fn iris_aby3_mal_task<T: Sharable>(
@@ -41,7 +44,7 @@ where
     iris.preprocessing().await.unwrap();
 
     let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
+        .iris_in_db(code, Arc::new(shared_db), &mask, Arc::new(masks))
         .await
         .unwrap();
 

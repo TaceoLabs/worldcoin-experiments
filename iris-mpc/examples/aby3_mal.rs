@@ -13,6 +13,7 @@ use std::{
     fs::File,
     ops::{BitAnd, Mul, MulAssign},
     path::PathBuf,
+    sync::Arc,
 };
 use tokio::time::Instant;
 
@@ -99,8 +100,8 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
 
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
-    shares: Vec<Vec<Aby3Share<T>>>,
-    masks: Vec<IrisCodeArray>,
+    shares: Arc<Vec<Vec<Aby3Share<T>>>>,
+    masks: Arc<Vec<IrisCodeArray>>,
 }
 
 #[derive(Default)]
@@ -126,7 +127,12 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         i => Err(Error::IdError(i))?,
     };
 
-    let mut res = SharedDB::<T>::default();
+    let count = conn.query_row("SELECT COUNT(*) from iris_codes;", {}, |row| {
+        row.get::<usize, usize>(0)
+    })?;
+
+    let mut shares = Vec::with_capacity(count);
+    let mut masks = Vec::with_capacity(count);
     let mut rows = stmt.query([])?;
 
     while let Some(row) = rows.next()? {
@@ -144,11 +150,14 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
             share.push(Aby3Share::new(a, b));
         }
 
-        res.shares.push(share);
-        res.masks.push(mask);
+        shares.push(share);
+        masks.push(mask);
     }
 
-    Ok(res)
+    Ok(SharedDB {
+        shares: Arc::new(shares),
+        masks: Arc::new(masks),
+    })
 }
 
 fn get_iris_share<T: Sharable>(args: Args) -> Result<SharedIris<T>>
@@ -253,7 +262,7 @@ async fn main() -> Result<()> {
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
     let res = iris
-        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
+        .iris_in_db(shares.shares, db.shares, &shares.mask, db.masks)
         .await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());

@@ -9,7 +9,7 @@ use rand::{
     rngs::SmallRng,
     Rng, SeedableRng,
 };
-use std::ops::Mul;
+use std::{ops::Mul, sync::Arc};
 use tokio::runtime;
 
 #[allow(type_alias_bounds)]
@@ -36,7 +36,7 @@ where
     iris.set_mac_key(mac_key);
 
     let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
+        .iris_in_db(code, Arc::new(shared_db), &mask, Arc::new(masks))
         .await
         .unwrap();
 

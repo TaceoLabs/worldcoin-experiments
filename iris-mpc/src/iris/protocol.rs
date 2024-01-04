@@ -4,6 +4,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
+use std::sync::Arc;
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
@@ -320,9 +321,9 @@ where
     pub async fn iris_in_db(
         &mut self,
         iris: Vec<Ashare>,
-        db: &[Vec<Ashare>],
+        db: Arc<Vec<Vec<Ashare>>>,
         mask_iris: &IrisCodeArray,
-        mask_db: &[IrisCodeArray],
+        mask_db: Arc<Vec<IrisCodeArray>>,
     ) -> Result<bool, Error> {
         let amount = db.len();
         if (amount != mask_db.len()) || (amount == 0) {
