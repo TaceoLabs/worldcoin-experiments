@@ -4,6 +4,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
@@ -28,7 +29,9 @@ pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bs
 impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
-    Ashare: Zero,
+    Ashare: Zero + Sync + Send,
+    Bshare: Sync + Send,
+    Mpc: Sync,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
@@ -179,13 +182,15 @@ where
         }
 
         let (sum_a, sum_b) = a
-            .into_iter()
-            .zip(b.into_iter())
+            .par_iter()
+            .zip(b.par_iter())
             .enumerate()
             .filter(|(i, _)| mask.get_bit(*i))
             .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
-            .reduce(|(aa, ab), (ba, bb)| (self.mpc.add(aa, ba), self.mpc.add(ab, bb)))
-            .expect("Size is not zero");
+            .reduce(
+                || (Ashare::zero(), Ashare::zero()),
+                |(aa, ab), (ba, bb)| (self.mpc.add(aa, ba), self.mpc.add(ab, bb)),
+            );
 
         let dot = self.mpc.mul_const(dot, T::try_from(2).unwrap());
 
