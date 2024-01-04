@@ -8,7 +8,7 @@ use plain_reference::IrisCodeArray;
 use rand::Rng;
 
 #[allow(async_fn_in_trait)]
-pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
+pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait>: Sync {
     fn get_id(&self) -> usize;
     async fn preprocess(&mut self) -> Result<(), Error>;
     async fn precompute_and_triples(&mut self, _amount: usize) -> Result<(), Error> {

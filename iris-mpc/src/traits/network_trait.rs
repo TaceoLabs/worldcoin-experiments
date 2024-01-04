@@ -2,7 +2,7 @@ use bytes::{Bytes, BytesMut};
 use std::io::Error;
 
 #[allow(async_fn_in_trait)]
-pub trait NetworkTrait {
+pub trait NetworkTrait: Sync {
     fn get_id(&self) -> usize;
     fn get_num_parties(&self) -> usize;
 

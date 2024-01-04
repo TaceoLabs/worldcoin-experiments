@@ -15,6 +15,9 @@ use num_traits::Zero;
 use plain_reference::IrisCodeArray;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use std::ops::Mul;
 
 pub struct Aby3<N: NetworkTrait> {
@@ -475,21 +478,28 @@ where
             return Err(Error::InvalidSizeError);
         }
 
+        let rands = (0..b.len())
+            .map(|_| self.prf.gen_zero_share::<T>())
+            .collect::<Vec<_>>();
         let mut shares_a = Vec::with_capacity(a.len());
 
-        for (b_, mask_) in b.iter().zip(masks.iter()) {
-            let mut rand = self.prf.gen_zero_share::<T>();
-            if a.len() != b_.len() {
-                return Err(Error::InvalidSizeError);
-            }
-            for ((a__, b__), bit) in a.iter().zip(b_.iter()).zip(mask_.bits()) {
-                // only aggregate if mask is set
-                if bit {
-                    rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+        rands
+            .into_par_iter()
+            .zip(b.par_iter())
+            .zip(masks.par_iter())
+            .map(|((mut rand, b_), mask_)| {
+                if a.len() != b_.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
+                    panic!("Invalid size");
                 }
-            }
-            shares_a.push(rand);
-        }
+                for ((a__, b__), bit) in a.iter().zip(b_.iter()).zip(mask_.bits()) {
+                    // only aggregate if mask is set
+                    if bit {
+                        rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+                    }
+                }
+                rand
+            })
+            .collect_into_vec(&mut shares_a);
 
         // Network: reshare
         let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;

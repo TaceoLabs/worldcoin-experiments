@@ -3,11 +3,11 @@ use plain_reference::IrisCodeArray;
 
 use crate::prelude::Error;
 
-pub trait ShareTrait: Clone + Sized + Zero {
+pub trait ShareTrait: Clone + Sized + Zero + Sync {
     type VecShare: VecShareTrait<Share = Self>;
 }
 
-pub trait VecShareTrait: Clone {
+pub trait VecShareTrait: Clone + Sized + Sync {
     type Share: ShareTrait;
 
     fn len(&self) -> usize;

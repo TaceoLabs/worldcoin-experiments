@@ -5,7 +5,9 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
@@ -157,10 +159,14 @@ where
         let dots = self.mpc.masked_dot_many(a, b, &masks).await?;
 
         let mut res = Vec::with_capacity(dots.len());
-        for ((b_, dot), mask) in b.iter().zip(dots.into_iter()).zip(masks.into_iter()) {
-            let r = self.masked_hamming_distance_post(a, b_, &mask, dot)?;
-            res.push(r);
-        }
+        b.par_iter()
+            .zip(dots.into_par_iter())
+            .zip(masks.into_par_iter())
+            .map(|((b_, dot), mask)| {
+                self.masked_hamming_distance_post(&a, b_, &mask, dot)
+                    .unwrap()
+            })
+            .collect_into_vec(&mut res);
 
         Ok(res)
     }
