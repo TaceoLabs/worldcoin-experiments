@@ -5,6 +5,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{marker::PhantomData, usize};
 
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
@@ -32,7 +33,8 @@ pub struct IrisProtocol<
 impl<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
-    Ashare: Zero,
+    Ashare: Zero + Sync + Send,
+    Bshare: Sync + Send,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
