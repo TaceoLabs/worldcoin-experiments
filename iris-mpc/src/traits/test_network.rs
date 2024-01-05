@@ -104,7 +104,7 @@ impl NetworkTrait for PartyTestNetwork {
         Ok(())
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
         writeln!(
             out,
             "Connection \"prev\" stats:\n\tSENT: {} bytes\n\tRECV: {} bytes",

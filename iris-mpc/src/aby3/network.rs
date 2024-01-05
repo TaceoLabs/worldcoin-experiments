@@ -1,5 +1,5 @@
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use super::id::PartyID;
 use crate::error::Error;
@@ -8,6 +8,7 @@ use bytes::{Bytes, BytesMut};
 use mpc_net::channel::ChannelHandle;
 use mpc_net::config::NetworkConfig;
 use mpc_net::MpcNetworkHandler;
+use tokio::sync::Mutex;
 
 pub struct Aby3Network {
     handler: Arc<Mutex<MpcNetworkHandler>>,
@@ -53,8 +54,8 @@ impl NetworkTrait for Aby3Network {
         3
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
-        self.handler.lock().unwrap().print_connection_stats(out)
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        self.handler.lock().await.print_connection_stats(out)
     }
 
     async fn send(&mut self, id: usize, data: Bytes) -> io::Result<()> {
@@ -162,7 +163,7 @@ impl NetworkTrait for Aby3Network {
 
     async fn fork(&mut self) -> Result<Self, io::Error> {
         let handler = Arc::clone(&self.handler);
-        let mut channels = handler.lock().unwrap().get_byte_channels().await?;
+        let mut channels = handler.lock().await.get_byte_channels().await?;
 
         let next_id: usize = self.id.next_id().into();
         let prev_id: usize = self.id.prev_id().into();

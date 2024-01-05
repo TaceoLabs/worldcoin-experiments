@@ -962,7 +962,7 @@ impl<N: NetworkTrait> MalAby3<N> {
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for MalAby3<N>
+impl<N: NetworkTrait + Send, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for MalAby3<N>
 where
     Standard: Distribution<T::Share>,
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
@@ -1003,8 +1003,8 @@ where
         Ok(T::VerificationShare::default())
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
-        Ok(self.network.print_connection_stats(out)?)
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        Ok(self.network.print_connection_stats(out).await?)
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {

@@ -29,7 +29,7 @@ pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     rcv_queue_next: BytesMut,   // For binary
 }
 
-impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U>
+impl<N: NetworkTrait + Send, U: Sharable> SpdzWise<N, U>
 where
     Standard: Distribution<U::Share>,
     Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,
@@ -441,7 +441,7 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, TShare<T>, Aby3Share<Bit>>
+impl<N: NetworkTrait + Send, T: Sharable> MpcTrait<T, TShare<T>, Aby3Share<Bit>>
     for SpdzWise<N, T::VerificationShare>
 where
     Standard: Distribution<UShare<T>>,
@@ -493,12 +493,12 @@ where
         .await
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::print_connection_stats(&self.aby3, out)
+        >>::print_connection_stats(&self.aby3, out).await
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<TShare<T>, Error> {
@@ -901,7 +901,8 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable, U: Sharable> BinaryMpcTrait<T, Aby3Share<T>> for SpdzWise<N, U>
+impl<N: NetworkTrait + Send, T: Sharable, U: Sharable> BinaryMpcTrait<T, Aby3Share<T>>
+    for SpdzWise<N, U>
 where
     Standard: Distribution<U::Share>,
     Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,

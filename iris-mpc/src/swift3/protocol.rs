@@ -1915,7 +1915,7 @@ where
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N, T>
+impl<N: NetworkTrait + Send, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Swift3<N, T>
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<T::Share, Output = Share<T>>,
@@ -1944,8 +1944,8 @@ where
         Ok(T::VerificationShare::default())
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
-        Ok(self.network.print_connection_stats(out)?)
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        Ok(self.network.print_connection_stats(out).await?)
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {

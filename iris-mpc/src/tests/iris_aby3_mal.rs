@@ -405,6 +405,7 @@ mod iris_mpc_test {
         Share<T::VerificationShare>:
             Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -641,6 +642,7 @@ mod iris_mpc_test {
         Share<T::VerificationShare>:
             Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -703,6 +705,7 @@ mod iris_mpc_test {
         Share<T::VerificationShare>:
             Mul<<T::VerificationShare as Sharable>::Share, Output = Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 

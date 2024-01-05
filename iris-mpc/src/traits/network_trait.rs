@@ -1,25 +1,31 @@
 use bytes::{Bytes, BytesMut};
+use futures::Future;
 use std::io::Error;
 
-#[allow(async_fn_in_trait)]
 pub trait NetworkTrait {
     fn get_id(&self) -> usize;
     fn get_num_parties(&self) -> usize;
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
+    fn print_connection_stats(
+        &self,
+        out: &mut impl std::io::Write,
+    ) -> impl Future<Output = Result<(), Error>>;
 
-    async fn shutdown(self) -> Result<(), Error>;
-    async fn fork(&mut self) -> Result<Self, Error>
+    fn shutdown(self) -> impl Future<Output = Result<(), Error>> + Send;
+    fn fork(&mut self) -> impl Future<Output = Result<Self, Error>> + Send
     where
         Self: Sized;
 
-    async fn send(&mut self, id: usize, data: Bytes) -> Result<(), Error>;
-    async fn send_next_id(&mut self, data: Bytes) -> Result<(), Error>;
-    async fn send_prev_id(&mut self, data: Bytes) -> Result<(), Error>;
+    fn send(&mut self, id: usize, data: Bytes) -> impl Future<Output = Result<(), Error>> + Send;
+    fn send_next_id(&mut self, data: Bytes) -> impl Future<Output = Result<(), Error>> + Send;
+    fn send_prev_id(&mut self, data: Bytes) -> impl Future<Output = Result<(), Error>> + Send;
 
-    async fn receive(&mut self, id: usize) -> Result<BytesMut, Error>;
-    async fn receive_prev_id(&mut self) -> Result<BytesMut, Error>;
-    async fn receive_next_id(&mut self) -> Result<BytesMut, Error>;
+    fn receive(&mut self, id: usize) -> impl Future<Output = Result<BytesMut, Error>> + Send;
+    fn receive_prev_id(&mut self) -> impl Future<Output = Result<BytesMut, Error>> + Send;
+    fn receive_next_id(&mut self) -> impl Future<Output = Result<BytesMut, Error>> + Send;
 
-    async fn broadcast(&mut self, data: Bytes) -> Result<Vec<BytesMut>, Error>;
+    fn broadcast(
+        &mut self,
+        data: Bytes,
+    ) -> impl Future<Output = Result<Vec<BytesMut>, Error>> + Send;
 }

@@ -58,7 +58,7 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisAby3<T, MalAby3<Aby3Network>>) -> Result<()>
+async fn print_stats<T: Sharable>(iris: &IrisAby3<T, MalAby3<Aby3Network>>) -> Result<()>
 where
     Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
     Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
@@ -77,7 +77,7 @@ where
     let id = iris.get_id();
     if id == 0 {
         println!("Stats: party {}", id);
-        iris.print_connection_stats(&mut std::io::stdout())?;
+        iris.print_connection_stats(&mut std::io::stdout()).await?;
     }
     Ok(())
 }
@@ -250,14 +250,14 @@ async fn main() -> Result<()> {
     let mut iris = IrisAby3::<u16, _>::new(protocol)?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     println0!(id, "\nPreprocessing:");
     let start = Instant::now();
     iris.preprocessing().await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
@@ -267,7 +267,7 @@ async fn main() -> Result<()> {
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());
     println0!(id, "Result is {res}\n");
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     if args.should_match && !res {
         println0!(id, "ERROR: should match but doesn't");

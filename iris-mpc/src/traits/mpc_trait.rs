@@ -2,6 +2,7 @@ use crate::{
     error::Error,
     types::{ring_element::RingImpl, sharable::Sharable},
 };
+use futures::Future;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
 use rand::Rng;
@@ -21,7 +22,7 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 
     async fn finish(self) -> Result<(), Error>;
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Ashare, Error>;
 
@@ -43,47 +44,53 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     fn mul_const(&self, a: Ashare, b: T) -> Ashare;
 
     async fn dot(&mut self, a: Vec<Ashare>, b: Vec<Ashare>) -> Result<Ashare, Error>;
-    async fn dot_many(
+    fn dot_many(
         &mut self,
         a: &[Vec<Ashare>],
         b: &[Vec<Ashare>],
-    ) -> Result<Vec<Ashare>, Error>;
-    async fn masked_dot_many(
+    ) -> impl Future<Output = Result<Vec<Ashare>, Error>> + Send;
+    fn masked_dot_many(
         &mut self,
         a: &[Ashare],
         b: &[Vec<Ashare>],
         masks: &[IrisCodeArray],
-    ) -> Result<Vec<Ashare>, Error>
+    ) -> impl Future<Output = Result<Vec<Ashare>, Error>> + Send
     where
-        Ashare: Zero + Clone,
+        Ashare: Zero + Clone + Sync + Send,
+        Self: Send,
     {
-        let mut a_vec = Vec::with_capacity(b.len());
-        let mut b_vec = Vec::with_capacity(b.len());
+        async {
+            let mut a_vec = Vec::with_capacity(b.len());
+            let mut b_vec = Vec::with_capacity(b.len());
 
-        for (b_, mask) in b.iter().zip(masks.iter()) {
-            let mut code1 = a.to_vec();
-            let mut code2 = b_.clone();
-            if code1.len() != IrisCodeArray::IRIS_CODE_SIZE
-                || code2.len() != IrisCodeArray::IRIS_CODE_SIZE
-            {
-                return Err(Error::InvalidCodeSizeError);
-            }
-
-            for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
-                if !mask.get_bit(i) {
-                    code1[i] = Ashare::zero();
-                    code2[i] = Ashare::zero();
+            for (b_, mask) in b.iter().zip(masks.iter()) {
+                let mut code1 = a.to_vec();
+                let mut code2 = b_.clone();
+                if code1.len() != IrisCodeArray::IRIS_CODE_SIZE
+                    || code2.len() != IrisCodeArray::IRIS_CODE_SIZE
+                {
+                    return Err(Error::InvalidCodeSizeError);
                 }
-            }
 
-            a_vec.push(code1);
-            b_vec.push(code2);
+                for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
+                    if !mask.get_bit(i) {
+                        code1[i] = Ashare::zero();
+                        code2[i] = Ashare::zero();
+                    }
+                }
+
+                a_vec.push(code1);
+                b_vec.push(code2);
+            }
+            self.dot_many(&a_vec, &b_vec).await
         }
-        self.dot_many(&a_vec, &b_vec).await
     }
 
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
-    async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Vec<Bshare>, Error>;
+    fn get_msb_many(
+        &mut self,
+        a: Vec<Ashare>,
+    ) -> impl Future<Output = Result<Vec<Bshare>, Error>> + Send;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
     async fn reduce_binary_or(&mut self, a: Vec<Bshare>) -> Result<Bshare, Error>;
 
@@ -117,7 +124,7 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         Ok(T::VerificationShare::default())
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
         writeln!(out, "Connection 0 stats:\n\tSENT: 0 bytes\n\tRECV: 0 bytes")?;
         Ok(())
     }

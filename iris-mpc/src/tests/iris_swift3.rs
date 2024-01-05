@@ -331,6 +331,7 @@ mod iris_swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -533,6 +534,7 @@ mod iris_swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -584,6 +586,7 @@ mod iris_swift3_test {
         Standard: Distribution<T::Share>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 

@@ -11,6 +11,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
+use futures::Future;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
 use rand::distributions::{Distribution, Standard};
@@ -173,7 +174,7 @@ impl<N: NetworkTrait> Aby3<N> {
     }
 }
 
-impl<N: NetworkTrait, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
+impl<N: NetworkTrait + Send, T: Sharable> MpcTrait<T, Share<T>, Share<Bit>> for Aby3<N>
 where
     Standard: Distribution<T::Share>,
     Share<T>: Mul<Output = Share<T>>,
@@ -208,8 +209,8 @@ where
         Ok(T::VerificationShare::default())
     }
 
-    fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
-        Ok(self.network.print_connection_stats(out)?)
+    async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        Ok(self.network.print_connection_stats(out).await?)
     }
 
     async fn input(&mut self, input: Option<T>, id: usize) -> Result<Share<T>, Error> {
@@ -394,38 +395,41 @@ where
         Ok(res)
     }
 
-    async fn masked_dot_many(
+    fn masked_dot_many(
         &mut self,
         a: &[Share<T>],
         b: &[Vec<Share<T>>],
         masks: &[IrisCodeArray],
-    ) -> Result<Vec<Share<T>>, Error> {
-        let mut shares_a = Vec::with_capacity(a.len());
+    ) -> impl Future<Output = Result<Vec<Share<T>>, Error>> + Send {
+        async {
+            let mut shares_a = Vec::with_capacity(a.len());
 
-        for (b_, mask_) in b.iter().zip(masks.iter()) {
-            let mut rand = self.prf.gen_zero_share::<T>();
-            if a.len() != b_.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
-                return Err(Error::InvalidSizeError);
-            }
-            for (i, (a__, b__)) in a.iter().zip(b_.iter()).enumerate() {
-                // only aggregate if mask is set
-                if mask_.get_bit(i) {
-                    rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+            for (b_, mask_) in b.iter().zip(masks.iter()) {
+                let mut rand = self.prf.gen_zero_share::<T>();
+                if a.len() != b_.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
+                    return Err(Error::InvalidSizeError);
                 }
+                for (i, (a__, b__)) in a.iter().zip(b_.iter()).enumerate() {
+                    // only aggregate if mask is set
+                    if mask_.get_bit(i) {
+                        rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+                    }
+                }
+                shares_a.push(rand);
             }
-            shares_a.push(rand);
+
+            // Network: reshare
+            let shares_b =
+                utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+
+            let res = shares_a
+                .into_iter()
+                .zip(shares_b.into_iter())
+                .map(|(a_, b_)| Share::new(a_, b_))
+                .collect();
+
+            Ok(res)
         }
-
-        // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
-
-        let res = shares_a
-            .into_iter()
-            .zip(shares_b.into_iter())
-            .map(|(a_, b_)| Share::new(a_, b_))
-            .collect();
-
-        Ok(res)
     }
 
     async fn get_msb(&mut self, a: Share<T>) -> Result<Share<Bit>, Error> {

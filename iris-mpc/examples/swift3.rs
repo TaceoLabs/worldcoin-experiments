@@ -55,7 +55,7 @@ struct Args {
     should_match: bool,
 }
 
-fn print_stats<T: Sharable>(iris: &IrisSwift3<T, Swift3<Swift3Network, T>>) -> Result<()>
+async fn print_stats<T: Sharable>(iris: &IrisSwift3<T, Swift3<Swift3Network, T>>) -> Result<()>
 where
     Swift3Share<T>: Mul<T::Share, Output = Swift3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
@@ -64,7 +64,7 @@ where
     let id = iris.get_id();
     if id == 0 {
         println!("Stats: party {}", id);
-        iris.print_connection_stats(&mut std::io::stdout())?;
+        iris.print_connection_stats(&mut std::io::stdout()).await?;
     }
     Ok(())
 }
@@ -232,14 +232,14 @@ async fn main() -> Result<()> {
     let mut iris = IrisSwift3::<u16, _>::new(protocol)?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     println0!(id, "\nPreprocessing:");
     let start = Instant::now();
     iris.preprocessing().await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
@@ -249,7 +249,7 @@ async fn main() -> Result<()> {
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());
     println0!(id, "Result is {res}\n");
-    print_stats(&iris)?;
+    print_stats(&iris).await?;
 
     if args.should_match && !res {
         println0!(id, "ERROR: should match but doesn't");

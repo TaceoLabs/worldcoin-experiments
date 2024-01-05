@@ -341,6 +341,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -547,6 +548,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -603,6 +605,7 @@ mod iris_mpc_test {
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 

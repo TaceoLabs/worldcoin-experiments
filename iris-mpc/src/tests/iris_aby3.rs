@@ -336,6 +336,7 @@ mod iris_mpc_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -539,6 +540,7 @@ mod iris_mpc_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 
@@ -590,6 +592,7 @@ mod iris_mpc_test {
         Share<T>: Mul<Output = Share<T>>,
         Share<T>: Mul<T::Share, Output = Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+        Mpc: Send + 'static,
     {
         let id = protocol.get_id();
 

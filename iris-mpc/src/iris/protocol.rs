@@ -11,8 +11,8 @@ use std::{marker::PhantomData, usize};
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
-const PACK_SIZE: usize = 256; // TODO adjust
-pub(crate) const OR_TREE_PACK_SIZE: usize = 256; // TODO adjust
+const PACK_SIZE: usize = 1024; // TODO adjust
+pub(crate) const OR_TREE_PACK_SIZE: usize = 1024; // TODO adjust
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
@@ -30,7 +30,9 @@ pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bs
 impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
-    Ashare: Zero,
+    Ashare: Zero + Send + Sync + 'static,
+    Bshare: Send + Sync + 'static,
+    Mpc: Send + 'static,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     pub fn new(mpc: Mpc) -> Result<Self, Error> {
@@ -42,6 +44,16 @@ where
             return Err(Error::ConfigError);
         }
 
+        Ok(IrisProtocol {
+            mpc,
+            phantom_t: PhantomData,
+            phantom_a: PhantomData,
+            phantom_b: PhantomData,
+        })
+    }
+
+    async fn fork(&mut self) -> Result<Self, Error> {
+        let mpc = self.mpc.fork().await?;
         Ok(IrisProtocol {
             mpc,
             phantom_t: PhantomData,
@@ -62,8 +74,8 @@ where
         &mut self.mpc
     }
 
-    pub fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
-        self.mpc.print_connection_stats(out)
+    pub async fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error> {
+        self.mpc.print_connection_stats(out).await
     }
 
     pub async fn preprocessing(&mut self) -> Result<(), Error> {
@@ -343,19 +355,24 @@ where
         }
 
         let mut bool_shares = Vec::with_capacity(amount);
+        let mut tasks = Vec::with_capacity(amount / PACK_SIZE + 1);
 
         for chunk_start in (0..amount).step_by(PACK_SIZE) {
             let chunk_end = std::cmp::min(chunk_start + PACK_SIZE, amount);
-            let res = self
-                .compare_iris_many(
-                    Arc::clone(&iris),
-                    Arc::clone(&db),
-                    Arc::clone(&mask_iris),
-                    Arc::clone(&mask_db),
-                    chunk_start..chunk_end,
-                )
-                .await?;
-            bool_shares.extend(res);
+
+            let mut prot = self.fork().await?;
+            let iris_c = Arc::clone(&iris);
+            let db_c = Arc::clone(&db);
+            let mask_iris_c = Arc::clone(&mask_iris);
+            let mask_db_c = Arc::clone(&mask_db);
+
+            tasks.push(tokio::spawn(async move {
+                prot.compare_iris_many(iris_c, db_c, mask_iris_c, mask_db_c, chunk_start..chunk_end)
+                    .await
+            }));
+        }
+        for task in tasks {
+            bool_shares.extend(task.await.unwrap()?);
         }
 
         let res = self.mpc.reduce_binary_or(bool_shares).await?;
