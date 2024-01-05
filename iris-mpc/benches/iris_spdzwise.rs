@@ -36,7 +36,7 @@ where
     iris.set_mac_key(mac_key);
 
     let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
+        .iris_in_db(&code, &shared_db, &mask, &masks)
         .await
         .unwrap();
 

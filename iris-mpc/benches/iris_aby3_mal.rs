@@ -41,7 +41,7 @@ where
     iris.preprocessing().await.unwrap();
 
     let res = iris
-        .iris_in_db(code, &shared_db, &mask, &masks)
+        .iris_in_db(&code, &shared_db, &mask, &masks)
         .await
         .unwrap();
 

@@ -452,7 +452,7 @@ mod iris_swift3_test {
         }
 
         let cmp = iris
-            .compare_iris_many(inp1, &inp2s, &code1.mask, &mask2)
+            .compare_iris_many(&inp1, &inp2s, &code1.mask, &mask2)
             .await
             .unwrap();
 
@@ -543,7 +543,7 @@ mod iris_swift3_test {
         }
 
         let share_cmp = protocol
-            .compare_iris_many(shared_code1, &shared_codes2, &code1.mask, &mask2)
+            .compare_iris_many(&shared_code1, &shared_codes2, &code1.mask, &mask2)
             .await
             .unwrap();
 
@@ -711,12 +711,12 @@ mod iris_swift3_test {
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .iris_in_db(&iris1_, &db_t, &iris1.mask, &masks)
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .iris_in_db(&iris2_, &db_t, &iris2.mask, &masks)
             .await
             .unwrap();
 
@@ -775,12 +775,12 @@ mod iris_swift3_test {
         let iris2_ = share_iris_code(&iris2, id, &mut rng);
         // calculate
         let res1 = iris
-            .iris_in_db(iris1_, &db_t, &iris1.mask, &masks)
+            .iris_in_db(&iris1_, &db_t, &iris1.mask, &masks)
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, &db_t, &iris2.mask, &masks)
+            .iris_in_db(&iris2_, &db_t, &iris2.mask, &masks)
             .await
             .unwrap();
 

@@ -236,7 +236,7 @@ async fn main() -> Result<()> {
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
     let res = iris
-        .iris_in_db(shares.shares, &db.shares, &shares.mask, &db.masks)
+        .iris_in_db(&shares.shares, &db.shares, &shares.mask, &db.masks)
         .await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());

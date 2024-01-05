@@ -223,11 +223,11 @@ where
 
     pub(crate) async fn masked_hamming_distance_many(
         &mut self,
-        a: Vec<Ashare>,
+        a: &[Ashare],
         b: &[Vec<Ashare>],
         masks: Vec<IrisCodeArray>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.masked_dot_many(&a, &b, &masks).await?;
+        let dots = self.mpc.masked_dot_many(a, &b, &masks).await?;
 
         let mut res = Vec::with_capacity(dots.len());
         for ((b_, dot), mask) in b.into_iter().zip(dots.into_iter()).zip(masks.into_iter()) {
@@ -297,7 +297,7 @@ where
 
     pub(crate) async fn compare_iris_many(
         &mut self,
-        a: Vec<Ashare>,
+        a: &[Ashare],
         b: &[Vec<Ashare>],
         mask_a: &IrisCodeArray,
         mask_b: &[IrisCodeArray],
@@ -319,7 +319,7 @@ where
 
     pub async fn iris_in_db(
         &mut self,
-        iris: Vec<Ashare>,
+        iris: &[Ashare],
         db: &[Vec<Ashare>],
         mask_iris: &IrisCodeArray,
         mask_db: &[IrisCodeArray],
@@ -332,9 +332,7 @@ where
         let mut bool_shares = Vec::with_capacity(amount);
 
         for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
-            let res = self
-                .compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)
-                .await?;
+            let res = self.compare_iris_many(iris, db_, mask_iris, mask_).await?;
             bool_shares.extend(res);
         }
 
