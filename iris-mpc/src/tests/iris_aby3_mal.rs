@@ -546,9 +546,16 @@ mod iris_mpc_test {
             inp2s.push(inp2);
             mask2.push(code.mask);
         }
+        let len = mask2.len();
 
         let cmp = iris
-            .compare_iris_many(inp1, &inp2s, &code1.mask, &mask2)
+            .compare_iris_many(
+                Arc::new(inp1),
+                Arc::new(inp2s),
+                Arc::new(code1.mask),
+                Arc::new(mask2),
+                0..len,
+            )
             .await
             .unwrap();
 
@@ -649,9 +656,16 @@ mod iris_mpc_test {
             shared_codes2.push(shared_code2);
             mask2.push(code.mask);
         }
+        let len = mask2.len();
 
         let share_cmp = protocol
-            .compare_iris_many(shared_code1, &shared_codes2, &code1.mask, &mask2)
+            .compare_iris_many(
+                Arc::new(shared_code1),
+                Arc::new(shared_codes2),
+                Arc::new(code1.mask),
+                Arc::new(mask2),
+                0..len,
+            )
             .await
             .unwrap();
 
@@ -856,12 +870,17 @@ mod iris_mpc_test {
         let db_t = Arc::new(db_t);
         let masks = Arc::new(masks);
         let res1 = iris
-            .iris_in_db(iris1_, Arc::clone(&db_t), &iris1.mask, Arc::clone(&masks))
+            .iris_in_db(
+                Arc::new(iris1_),
+                Arc::clone(&db_t),
+                Arc::new(iris1.mask),
+                Arc::clone(&masks),
+            )
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, db_t, &iris2.mask, masks)
+            .iris_in_db(Arc::new(iris2_), db_t, Arc::new(iris2.mask), masks)
             .await
             .unwrap();
 
@@ -935,12 +954,17 @@ mod iris_mpc_test {
         let masks = Arc::new(masks);
         // calculate
         let res1 = iris
-            .iris_in_db(iris1_, Arc::clone(&db_t), &iris1.mask, Arc::clone(&masks))
+            .iris_in_db(
+                Arc::new(iris1_),
+                Arc::clone(&db_t),
+                Arc::new(iris1.mask),
+                Arc::clone(&masks),
+            )
             .await
             .unwrap();
 
         let res2 = iris
-            .iris_in_db(iris2_, db_t, &iris2.mask, masks)
+            .iris_in_db(Arc::new(iris2_), db_t, Arc::new(iris2.mask), masks)
             .await
             .unwrap();
 

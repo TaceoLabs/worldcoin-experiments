@@ -49,15 +49,6 @@ impl<N: NetworkTrait> Aby3<N> {
         Self { network, prf }
     }
 
-    pub async fn fork(&mut self) -> Result<Self, Error> {
-        let network = self.network.fork().await?;
-        let (my_seed, next_seed) = self.prf.gen_rands();
-        Ok(Self {
-            network,
-            prf: Prf::new(my_seed, next_seed),
-        })
-    }
-
     async fn setup_prf(&mut self) -> Result<(), Error> {
         let seed = Prf::gen_seed();
         self.setup_prf_from_seed(seed).await
@@ -195,6 +186,15 @@ where
     async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())
+    }
+
+    async fn fork(&mut self) -> Result<Self, Error> {
+        let network = self.network.fork().await?;
+        let (my_seed, next_seed) = self.prf.gen_rands::<PrfSeed>();
+        Ok(Self {
+            network,
+            prf: Prf::new(my_seed, next_seed),
+        })
     }
 
     async fn preprocess(&mut self) -> Result<(), Error> {

@@ -15,6 +15,10 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
     #[cfg(test)]
     async fn open_mac_key(&mut self) -> Result<T::VerificationShare, Error>;
 
+    async fn fork(&mut self) -> Result<Self, Error>
+    where
+        Self: Sized;
+
     async fn finish(self) -> Result<(), Error>;
 
     fn print_connection_stats(&self, out: &mut impl std::io::Write) -> Result<(), Error>;
@@ -96,6 +100,10 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
 
     async fn finish(self) -> Result<(), Error> {
         Ok(())
+    }
+
+    async fn fork(&mut self) -> Result<Self, Error> {
+        Ok(Self::default())
     }
 
     async fn preprocess(&mut self) -> Result<(), Error> {

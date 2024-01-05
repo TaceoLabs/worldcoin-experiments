@@ -1924,6 +1924,10 @@ where
         self.network.get_id()
     }
 
+    async fn fork(&mut self) -> Result<Self, Error> {
+        todo!()
+    }
+
     async fn finish(self) -> Result<(), Error> {
         self.network.shutdown().await?;
         Ok(())

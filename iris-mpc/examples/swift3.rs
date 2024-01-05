@@ -93,8 +93,8 @@ struct SharedDB<T: Sharable> {
 
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
-    shares: Vec<Swift3Share<T>>,
-    mask: IrisCodeArray,
+    shares: Arc<Vec<Swift3Share<T>>>,
+    mask: Arc<IrisCodeArray>,
 }
 
 fn open_database(database_file: &PathBuf) -> Result<Connection> {
@@ -181,10 +181,7 @@ where
         IrisCode::random_rng(&mut rng)
     };
 
-    let mut res = SharedIris::<T>::default();
-    res.mask
-        .as_raw_mut_slice()
-        .copy_from_slice(iris.mask.as_raw_slice());
+    let mut iris_shares = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
 
     for i in 0..IrisCode::IRIS_CODE_SIZE {
         // We simulate the parties already knowing the shares of the code.
@@ -196,10 +193,13 @@ where
         if args.party > 2 {
             Err(Error::IdError(args.party))?;
         }
-        res.shares.push(shares[args.party].to_owned());
+        iris_shares.push(shares[args.party].to_owned());
     }
 
-    Ok(res)
+    Ok(SharedIris {
+        shares: Arc::new(iris_shares),
+        mask: Arc::new(iris.mask),
+    })
 }
 
 #[tokio::main]
@@ -244,7 +244,7 @@ async fn main() -> Result<()> {
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
     let res = iris
-        .iris_in_db(shares.shares, db.shares, &shares.mask, db.masks)
+        .iris_in_db(shares.shares, db.shares, shares.mask, db.masks)
         .await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());

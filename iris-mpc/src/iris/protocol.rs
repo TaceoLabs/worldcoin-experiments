@@ -4,6 +4,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
+use std::ops::Range;
 use std::sync::Arc;
 use std::{marker::PhantomData, usize};
 
@@ -224,14 +225,22 @@ where
 
     pub(crate) async fn masked_hamming_distance_many(
         &mut self,
-        a: Vec<Ashare>,
-        b: &[Vec<Ashare>],
+        a: Arc<Vec<Ashare>>,
+        b: Arc<Vec<Vec<Ashare>>>,
         masks: Vec<IrisCodeArray>,
+        range: Range<usize>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.masked_dot_many(&a, &b, &masks).await?;
+        let dots = self
+            .mpc
+            .masked_dot_many(&a, &b[range.clone()], &masks)
+            .await?;
 
         let mut res = Vec::with_capacity(dots.len());
-        for ((b_, dot), mask) in b.into_iter().zip(dots.into_iter()).zip(masks.into_iter()) {
+        for ((b_, dot), mask) in b[range]
+            .into_iter()
+            .zip(dots.into_iter())
+            .zip(masks.into_iter())
+        {
             let r = self.masked_hamming_distance_post(&a, &b_, &mask, dot)?;
             res.push(r);
         }
@@ -298,31 +307,34 @@ where
 
     pub(crate) async fn compare_iris_many(
         &mut self,
-        a: Vec<Ashare>,
-        b: &[Vec<Ashare>],
-        mask_a: &IrisCodeArray,
-        mask_b: &[IrisCodeArray],
+        a: Arc<Vec<Ashare>>,
+        b: Arc<Vec<Vec<Ashare>>>,
+        mask_a: Arc<IrisCodeArray>,
+        mask_b: Arc<Vec<IrisCodeArray>>,
+        range: Range<usize>,
     ) -> Result<Vec<Bshare>, Error> {
-        let amount = b.len();
-        if (amount != mask_b.len()) || (amount == 0) {
+        let amount = range.len();
+        if range.start >= b.len() || range.end > b.len() || (amount == 0) {
             return Err(Error::InvalidSizeError);
         }
 
-        let masks = mask_b
+        let masks = mask_b[range.clone()]
             .iter()
-            .map(|b| self.combine_masks(mask_a, b))
+            .map(|b| self.combine_masks(&mask_a, b))
             .collect::<Result<Vec<_>, _>>()?;
         let mask_lens: Vec<_> = masks.iter().map(|m| m.count_ones()).collect();
 
-        let hwds = self.masked_hamming_distance_many(a, b, masks).await?;
+        let hwds = self
+            .masked_hamming_distance_many(a, b, masks, range)
+            .await?;
         self.compare_threshold_many(hwds, mask_lens).await
     }
 
     pub async fn iris_in_db(
         &mut self,
-        iris: Vec<Ashare>,
+        iris: Arc<Vec<Ashare>>,
         db: Arc<Vec<Vec<Ashare>>>,
-        mask_iris: &IrisCodeArray,
+        mask_iris: Arc<IrisCodeArray>,
         mask_db: Arc<Vec<IrisCodeArray>>,
     ) -> Result<bool, Error> {
         let amount = db.len();
@@ -332,9 +344,16 @@ where
 
         let mut bool_shares = Vec::with_capacity(amount);
 
-        for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
+        for chunk_start in (0..amount).step_by(PACK_SIZE) {
+            let chunk_end = std::cmp::min(chunk_start + PACK_SIZE, amount);
             let res = self
-                .compare_iris_many(iris.to_owned(), db_, mask_iris, mask_)
+                .compare_iris_many(
+                    Arc::clone(&iris),
+                    Arc::clone(&db),
+                    Arc::clone(&mask_iris),
+                    Arc::clone(&mask_db),
+                    chunk_start..chunk_end,
+                )
                 .await?;
             bool_shares.extend(res);
         }

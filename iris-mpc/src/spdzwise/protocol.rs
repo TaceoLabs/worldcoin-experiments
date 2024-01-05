@@ -453,6 +453,11 @@ where
         self.get_id()
     }
 
+    async fn fork(&mut self) -> Result<Self, Error> {
+        let _aby3 = self.aby3.fork().await?;
+        todo!()
+    }
+
     async fn preprocess(&mut self) -> Result<(), Error> {
         <_ as MpcTrait<
             T::VerificationShare,

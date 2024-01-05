@@ -36,7 +36,12 @@ where
     iris.set_mac_key(mac_key);
 
     let res = iris
-        .iris_in_db(code, Arc::new(shared_db), &mask, Arc::new(masks))
+        .iris_in_db(
+            Arc::new(code),
+            Arc::new(shared_db),
+            Arc::new(mask),
+            Arc::new(masks),
+        )
         .await
         .unwrap();
 

@@ -988,6 +988,10 @@ where
         Ok(())
     }
 
+    async fn fork(&mut self) -> Result<Self, Error> {
+        todo!()
+    }
+
     async fn preprocess(&mut self) -> Result<(), Error> {
         self.setup_prf().await
     }
