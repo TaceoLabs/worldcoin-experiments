@@ -11,6 +11,7 @@ use rand::{
 };
 use std::ops::Mul;
 use tokio::runtime;
+const CHUNK_SIZE: usize = 128;
 
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
@@ -36,7 +37,7 @@ where
     iris.set_mac_key(mac_key);
 
     let res = iris
-        .iris_in_db(&code, &shared_db, &mask, &masks)
+        .iris_in_db(&code, &shared_db, &mask, &masks, CHUNK_SIZE)
         .await
         .unwrap();
 

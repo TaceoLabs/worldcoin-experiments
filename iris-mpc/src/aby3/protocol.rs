@@ -2,7 +2,6 @@ use super::random::prf::{Prf, PrfSeed};
 use super::utils;
 use crate::aby3::share::Share;
 use crate::error::Error;
-use crate::iris::protocol::OR_TREE_PACK_SIZE;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
@@ -434,9 +433,13 @@ where
         <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
+    async fn reduce_binary_or(
+        &mut self,
+        a: Vec<Share<Bit>>,
+        chunk_size: usize,
+    ) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
-        let reduced = utils::or_tree::<u128, _, _, OR_TREE_PACK_SIZE>(self, packed).await?;
+        let reduced = utils::or_tree::<u128, _, _>(self, packed, chunk_size).await?;
         self.reduce_or_u128(reduced).await
     }
 

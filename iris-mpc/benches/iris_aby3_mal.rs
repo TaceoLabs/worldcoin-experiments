@@ -11,6 +11,8 @@ use rand::{
 use std::ops::{BitAnd, Mul, MulAssign};
 use tokio::runtime;
 
+const CHUNK_SIZE: usize = 128;
+
 async fn iris_aby3_mal_task<T: Sharable>(
     net: PartyTestNetwork,
     code: Vec<Aby3Share<T>>,
@@ -41,7 +43,7 @@ where
     iris.preprocessing().await.unwrap();
 
     let res = iris
-        .iris_in_db(&code, &shared_db, &mask, &masks)
+        .iris_in_db(&code, &shared_db, &mask, &masks, CHUNK_SIZE)
         .await
         .unwrap();
 

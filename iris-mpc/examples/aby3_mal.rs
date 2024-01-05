@@ -55,6 +55,10 @@ struct Args {
     /// Set to true if a image should be generated that matches an element in the database
     #[arg(short, long, default_value = "false")]
     should_match: bool,
+
+    /// Size of the chunks that are handled at once to batch networking
+    #[arg(short, long, default_value = "1024")]
+    chunk_size: usize,
 }
 
 fn print_stats<T: Sharable>(iris: &IrisAby3<T, MalAby3<Aby3Network>>) -> Result<()>
@@ -253,7 +257,13 @@ async fn main() -> Result<()> {
     println0!(id, "\nMPC matching:");
     let start = Instant::now();
     let res = iris
-        .iris_in_db(&shares.shares, &db.shares, &shares.mask, &db.masks)
+        .iris_in_db(
+            &shares.shares,
+            &db.shares,
+            &shares.mask,
+            &db.masks,
+            args.chunk_size,
+        )
         .await?;
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms", duration.as_millis());

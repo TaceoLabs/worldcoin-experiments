@@ -4,7 +4,6 @@ use crate::aby3::share::Share;
 use crate::aby3::utils;
 use crate::commitment::{CommitOpening, Commitment};
 use crate::error::Error;
-use crate::iris::protocol::OR_TREE_PACK_SIZE;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
@@ -1231,9 +1230,13 @@ where
         <Self as BinaryMpcTrait<Bit, Share<Bit>>>::or(self, a, b).await
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Share<Bit>>) -> Result<Share<Bit>, Error> {
-        const PACK_SIZE: usize = OR_TREE_PACK_SIZE * 128;
-        utils::or_tree::<Bit, _, _, PACK_SIZE>(self, a).await
+    async fn reduce_binary_or(
+        &mut self,
+        a: Vec<Share<Bit>>,
+        chunk_size: usize,
+    ) -> Result<Share<Bit>, Error> {
+        let chunk_size = chunk_size * 128;
+        utils::or_tree::<Bit, _, _>(self, a, chunk_size).await
     }
 
     async fn verify(&mut self) -> Result<(), Error> {

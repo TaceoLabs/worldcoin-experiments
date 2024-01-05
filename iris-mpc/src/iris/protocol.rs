@@ -9,8 +9,6 @@ use std::{marker::PhantomData, usize};
 const IRIS_CODE_SIZE: usize = plain_reference::IrisCode::IRIS_CODE_SIZE;
 const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
-const PACK_SIZE: usize = 256; // TODO adjust
-pub(crate) const OR_TREE_PACK_SIZE: usize = 256; // TODO adjust
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
 pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
@@ -323,6 +321,7 @@ where
         db: &[Vec<Ashare>],
         mask_iris: &IrisCodeArray,
         mask_db: &[IrisCodeArray],
+        chunk_size: usize,
     ) -> Result<bool, Error> {
         let amount = db.len();
         if (amount != mask_db.len()) || (amount == 0) {
@@ -331,12 +330,12 @@ where
 
         let mut bool_shares = Vec::with_capacity(amount);
 
-        for (db_, mask_) in db.chunks(PACK_SIZE).zip(mask_db.chunks(PACK_SIZE)) {
+        for (db_, mask_) in db.chunks(chunk_size).zip(mask_db.chunks(chunk_size)) {
             let res = self.compare_iris_many(iris, db_, mask_iris, mask_).await?;
             bool_shares.extend(res);
         }
 
-        let res = self.mpc.reduce_binary_or(bool_shares).await?;
+        let res = self.mpc.reduce_binary_or(bool_shares, chunk_size).await?;
 
         self.mpc.verify().await.unwrap();
         self.mpc.open_bit(res).await

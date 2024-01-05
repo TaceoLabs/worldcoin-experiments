@@ -1,7 +1,6 @@
 use super::share::Share;
 use crate::{
     aby3::utils,
-    iris::protocol::OR_TREE_PACK_SIZE,
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
     traits::binary_trait::BinaryMpcTrait,
     types::ring_element::{RingElement, RingImpl},
@@ -886,9 +885,13 @@ where
         <Self as BinaryMpcTrait<Bit, Aby3Share<Bit>>>::or(self, a, b).await
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<Aby3Share<Bit>>) -> Result<Aby3Share<Bit>, Error> {
-        const PACK_SIZE: usize = OR_TREE_PACK_SIZE * 128;
-        utils::or_tree::<Bit, _, _, PACK_SIZE>(self, a).await
+    async fn reduce_binary_or(
+        &mut self,
+        a: Vec<Aby3Share<Bit>>,
+        chunk_size: usize,
+    ) -> Result<Aby3Share<Bit>, Error> {
+        let chunk_size = chunk_size * 128;
+        utils::or_tree::<Bit, _, _>(self, a, chunk_size).await
     }
 
     async fn verify(&mut self) -> Result<(), Error> {

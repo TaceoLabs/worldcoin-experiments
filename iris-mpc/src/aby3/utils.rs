@@ -191,9 +191,10 @@ where
     out.freeze()
 }
 
-pub(crate) async fn or_tree<T, Mpc, Share, const PACK_SIZE: usize>(
+pub(crate) async fn or_tree<T, Mpc, Share>(
     engine: &mut Mpc,
     mut inputs: Vec<Share>,
+    chunk_size: usize,
 ) -> Result<Share, Error>
 where
     T: Sharable,
@@ -217,7 +218,7 @@ where
         let b_vec = &inputs[num..2 * num];
 
         let mut res = Vec::with_capacity(num + mod_);
-        for (tmp_a, tmp_b) in a_vec.chunks(PACK_SIZE).zip(b_vec.chunks(PACK_SIZE)) {
+        for (tmp_a, tmp_b) in a_vec.chunks(chunk_size).zip(b_vec.chunks(chunk_size)) {
             let r = engine.or_many(tmp_a.to_vec(), tmp_b.to_vec()).await?;
             res.extend(r);
         }
