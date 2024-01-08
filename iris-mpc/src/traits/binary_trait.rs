@@ -89,8 +89,8 @@ where
             and_inp2.push(g_);
             and_inp2.push(p_);
             let res = self.and_many(and_inp1, and_inp2).await?;
-            p = res.get_at(1).to_owned(); // p = p & p_
-            Self::xor_assign(&mut g, res.get_at(0).to_owned()); // g = g ^ (p & g_)
+            p = res.get_at(1); // p = p & p_
+            Self::xor_assign(&mut g, res.get_at(0)); // g = g ^ (p & g_)
         }
         g <<= 1;
         Ok(Self::xor(s_, g))

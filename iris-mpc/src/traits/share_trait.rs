@@ -7,7 +7,6 @@ pub trait ShareTrait: Clone + Sized + Zero {
     type VecShare: VecShareTrait<Share = Self>;
 }
 
-// TODO replace with Index at some point
 pub trait VecShareTrait: Clone {
     type Share: ShareTrait;
 
@@ -32,6 +31,6 @@ pub trait VecShareTrait: Clone {
     fn extend(&mut self, other: Self);
     fn split_at(&self, index: usize) -> (Self, Self);
     fn chunks(self, chunk_size: usize) -> Vec<Self>;
-    fn get_at(&self, index: usize) -> &Self::Share;
+    fn get_at(&self, index: usize) -> Self::Share;
     fn set_at(&mut self, index: usize, value: Self::Share);
 }
