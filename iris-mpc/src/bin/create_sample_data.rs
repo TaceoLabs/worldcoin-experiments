@@ -4,7 +4,8 @@ use clap::Parser;
 use color_eyre::eyre::{Report, Result};
 use iris_mpc::prelude::{Aby3, Aby3Network, MpcTrait, SpdzWise, Swift3, Swift3Network};
 use plain_reference::IrisCode;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha12Rng;
 use rusqlite::Connection;
 
 #[derive(Parser)]
@@ -21,6 +22,10 @@ struct Opts {
     /// number of items to generate
     #[arg(short, long, value_name = "NUM", required = true)]
     items: u32,
+
+    /// a seed for the random number generation, for reproducible test data
+    #[arg(short, long, value_name = "SEED")]
+    seed: Option<u64>,
 }
 
 fn open_database(database_file: &PathBuf) -> Result<Connection> {
@@ -48,7 +53,10 @@ fn create_aby3_db(opts: Opts) -> Result<()> {
         rusqlite::params![],
     )?;
 
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = match opts.seed {
+        Some(seed) => ChaCha12Rng::seed_from_u64(seed),
+        None => ChaCha12Rng::from_entropy(),
+    };
 
     let mut codes = Vec::with_capacity(num_items as usize);
     for _ in 0..num_items {
@@ -110,7 +118,10 @@ fn create_swift3_db(opts: Opts) -> Result<()> {
         rusqlite::params![],
     )?;
 
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = match opts.seed {
+        Some(seed) => ChaCha12Rng::seed_from_u64(seed),
+        None => ChaCha12Rng::from_entropy(),
+    };
 
     let mut codes = Vec::with_capacity(num_items as usize);
     for _ in 0..num_items {
@@ -192,7 +203,10 @@ fn create_spdzwise_db(opts: Opts) -> Result<()> {
         rusqlite::params![],
     )?;
 
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = match opts.seed {
+        Some(seed) => ChaCha12Rng::seed_from_u64(seed),
+        None => ChaCha12Rng::from_entropy(),
+    };
     let mac_key = rng.gen::<u64>();
 
     let mut codes = Vec::with_capacity(num_items as usize);
