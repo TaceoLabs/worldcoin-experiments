@@ -211,7 +211,7 @@ where
         let tmp = self
             .compare_iris_many(&a, &[b], mask_a, &[mask_b.to_owned()])
             .await?;
-        Ok(tmp[0].to_owned())
+        Ok(tmp.get_at(0).to_owned())
     }
 
     pub(crate) async fn compare_iris_many(
