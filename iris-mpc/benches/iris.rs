@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use plain_reference::IrisCode;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha12Rng;
 
 fn iris_plain<R: Rng>(c: &mut Criterion, db: &[IrisCode], rng: &mut R) {
     let iris = IrisCode::random_rng(rng);
@@ -29,7 +30,7 @@ fn create_db<R: Rng>(num_items: usize, rng: &mut R) -> Vec<IrisCode> {
 }
 
 fn iris_benches(c: &mut Criterion, db_size: usize) {
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = ChaCha12Rng::from_entropy();
     let db = create_db(db_size, &mut rng);
 
     iris_plain(c, &db, &mut rng);

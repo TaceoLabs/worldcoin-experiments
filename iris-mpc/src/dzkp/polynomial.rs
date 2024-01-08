@@ -605,7 +605,8 @@ impl<T: PolyTrait> One for Poly<T> {
 mod test {
     use super::*;
     use crate::{aby3::utils, types::ring_element::RingElement};
-    use rand::{rngs::SmallRng, Rng, SeedableRng};
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha12Rng;
 
     const TESTRUNS: usize = 100;
 
@@ -719,7 +720,7 @@ mod test {
         modulus.coeffs[47] = RingElement::one();
         assert_eq!(modulus.degree(), 47);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         for _ in 0..TESTRUNS {
             let vec_a = random_bits(47, &mut rng);
@@ -757,7 +758,7 @@ mod test {
             .collect();
         let lagrange_polys = Poly::<Poly<RingElement<u16>>>::lagrange_polys(&points, &modulus);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         let ys = (0..NUM_POINTS)
             .map(|_| Poly::random(46, &mut rng))
@@ -782,7 +783,7 @@ mod test {
             .collect();
         let lagrange_polys = Poly::<Poly<RingElement<u16>>>::native_lagrange_polys(&points);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         let ys = (0..NUM_POINTS)
             .map(|_| Poly::random(63, &mut rng))
@@ -803,7 +804,7 @@ mod test {
         let points: Vec<GF2p64> = (0..NUM_POINTS).map(|x| GF2p64::new(x as u64)).collect();
         let lagrange_polys = Poly::<GF2p64>::lagrange_polys(&points);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         let ys = (0..NUM_POINTS)
             .map(|_| GF2p64::random(&mut rng))

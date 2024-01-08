@@ -5,9 +5,9 @@ use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
     distributions::{Distribution, Standard},
-    rngs::SmallRng,
     SeedableRng,
 };
+use rand_chacha::ChaCha12Rng;
 use rusqlite::Connection;
 use std::{
     fs::File,
@@ -170,7 +170,7 @@ where
     Aby3Share<T::VerificationShare>:
         for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
 {
-    let mut rng = SmallRng::seed_from_u64(args.iris_seed);
+    let mut rng = ChaCha12Rng::seed_from_u64(args.iris_seed);
     let iris = if args.should_match {
         let conn = open_database(&args.database)?;
         // read the codes from the database using rusqlite and iterate over them

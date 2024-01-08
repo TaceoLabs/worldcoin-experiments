@@ -5,9 +5,9 @@ use iris_mpc::prelude::{
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
     distributions::{Distribution, Standard},
-    rngs::SmallRng,
     Rng, SeedableRng,
 };
+use rand_chacha::ChaCha12Rng;
 use std::ops::{BitAnd, Mul, MulAssign};
 use tokio::runtime;
 
@@ -186,7 +186,7 @@ where
 }
 
 fn iris_benches(c: &mut Criterion, db_size: usize) {
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = ChaCha12Rng::from_entropy();
     let db = create_db(db_size, &mut rng);
     let (shared_db, masks) = aby_share_db::<u16, _>(db.to_owned(), &mut rng);
 

@@ -10,9 +10,9 @@ mod iris_mpc_test {
     use plain_reference::{IrisCode, IrisCodeArray};
     use rand::{
         distributions::{Distribution, Standard},
-        rngs::SmallRng,
         Rng, SeedableRng,
     };
+    use rand_chacha::ChaCha12Rng;
     use std::ops::{BitAnd, Mul, MulAssign};
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
@@ -137,17 +137,17 @@ mod iris_mpc_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed: [u8; 32] = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut iris_rng = SmallRng::from_seed(iris_seed);
+        let mut rng = ChaCha12Rng::from_entropy();
+        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let seed: [u8; 32] = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut iris_rng = ChaCha12Rng::from_seed(iris_seed);
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
             let t = tokio::spawn(async move {
-                mask_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                mask_test_aby3_mal_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -248,17 +248,17 @@ mod iris_mpc_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut iris_rng = SmallRng::from_seed(iris_seed);
+        let mut rng = ChaCha12Rng::from_entropy();
+        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut iris_rng = ChaCha12Rng::from_seed(iris_seed);
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
             let t = tokio::spawn(async move {
-                hwd_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                hwd_test_aby3_mal_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -298,7 +298,7 @@ mod iris_mpc_test {
         T: Mul<T::Share, Output = T>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let mut iris_rng = SmallRng::from_entropy();
+        let mut iris_rng = ChaCha12Rng::from_entropy();
 
         let protocol = Plain::default();
         let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
@@ -363,7 +363,7 @@ mod iris_mpc_test {
         T: Mul<T::Share, Output = T>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let mut iris_rng = SmallRng::from_entropy();
+        let mut iris_rng = ChaCha12Rng::from_entropy();
 
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
@@ -495,16 +495,16 @@ mod iris_mpc_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_entropy();
+        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
             let t = tokio::spawn(async move {
-                lt_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                lt_test_aby3_mal_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -584,7 +584,7 @@ mod iris_mpc_test {
         T: Mul<T::Share, Output = T>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let mut iris_rng = SmallRng::from_entropy();
+        let mut iris_rng = ChaCha12Rng::from_entropy();
 
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
@@ -790,16 +790,16 @@ mod iris_mpc_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_entropy();
+        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
             let t = tokio::spawn(async move {
-                cmp_iris_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                cmp_iris_test_aby3_mal_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }
@@ -821,7 +821,7 @@ mod iris_mpc_test {
         T: Mul<T::Share, Output = T>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         // gen db and iris
         let db = create_database(DB_SIZE, &mut rng);
@@ -965,16 +965,16 @@ mod iris_mpc_test {
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_entropy();
+        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
             let t = tokio::spawn(async move {
-                full_test_aby3_mal_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
+                full_test_aby3_mal_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
             });
             tasks.push(t);
         }

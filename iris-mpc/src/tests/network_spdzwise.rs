@@ -11,9 +11,9 @@ mod spdzwise_test {
     use num_traits::Zero;
     use rand::{
         distributions::{Distribution, Standard},
-        rngs::SmallRng,
         Rng, SeedableRng,
     };
+    use rand_chacha::ChaCha12Rng;
     use std::ops::Mul;
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
@@ -60,14 +60,15 @@ mod spdzwise_test {
     async fn share_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_entropy();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
-            let t = tokio::spawn(async move { share_test_party::<u16, SmallRng>(n, seed).await });
+            let t =
+                tokio::spawn(async move { share_test_party::<u16, ChaCha12Rng>(n, seed).await });
             tasks.push(t);
         }
 
@@ -102,7 +103,7 @@ mod spdzwise_test {
             .unwrap();
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -158,7 +159,7 @@ mod spdzwise_test {
             .unwrap();
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -220,7 +221,7 @@ mod spdzwise_test {
             .unwrap();
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -312,17 +313,18 @@ mod spdzwise_test {
     async fn add_const_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut rng = SmallRng::from_seed(seed);
+        let mut rng = ChaCha12Rng::from_entropy();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_seed(seed);
         let add = rng.gen::<u16>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
-            let t =
-                tokio::spawn(async move { add_const_test_party::<u16, SmallRng>(n, seed).await });
+            let t = tokio::spawn(
+                async move { add_const_test_party::<u16, ChaCha12Rng>(n, seed).await },
+            );
             tasks.push(t);
         }
 
@@ -387,17 +389,18 @@ mod spdzwise_test {
     async fn sub_const_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut rng = SmallRng::from_seed(seed);
+        let mut rng = ChaCha12Rng::from_entropy();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_seed(seed);
         let add = rng.gen::<u16>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
-            let t =
-                tokio::spawn(async move { sub_const_test_party::<u16, SmallRng>(n, seed).await });
+            let t = tokio::spawn(
+                async move { sub_const_test_party::<u16, ChaCha12Rng>(n, seed).await },
+            );
             tasks.push(t);
         }
 
@@ -431,7 +434,7 @@ mod spdzwise_test {
             .unwrap();
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
         let input = rng.gen::<T>();
 
         let shares = protocol.input_all(input).await.unwrap();
@@ -527,17 +530,18 @@ mod spdzwise_test {
     async fn mul_const_test() {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
 
-        let mut rng = SmallRng::from_entropy();
-        let seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut rng = SmallRng::from_seed(seed);
+        let mut rng = ChaCha12Rng::from_entropy();
+        let seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
+        let mut rng = ChaCha12Rng::from_seed(seed);
         let mul = rng.gen::<u16>();
 
         let network = TestNetwork3p::new();
         let net = network.get_party_networks();
 
         for n in net {
-            let t =
-                tokio::spawn(async move { mul_const_test_party::<u16, SmallRng>(n, seed).await });
+            let t = tokio::spawn(
+                async move { mul_const_test_party::<u16, ChaCha12Rng>(n, seed).await },
+            );
             tasks.push(t);
         }
 
@@ -572,7 +576,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::set_new_mac_key(&mut protocol);
 
         let id = <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::get_id(&protocol);
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
 
         let mut input = Vec::with_capacity(DOT_SIZE);
         let mut a = Vec::with_capacity(DOT_SIZE);

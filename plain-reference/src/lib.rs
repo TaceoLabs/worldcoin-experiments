@@ -1,7 +1,8 @@
 use core::panic;
 use rand::distributions::{Bernoulli, Distribution};
 use rand::Rng;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::SeedableRng;
+use rand_chacha::ChaCha12Rng;
 
 const MASK_THRESHOLD_RATIO: f64 = 0.70;
 pub const MASK_THRESHOLD: usize =
@@ -121,7 +122,7 @@ impl Default for IrisCode {
 impl IrisCode {
     pub const IRIS_CODE_SIZE: usize = IrisCodeArray::IRIS_CODE_SIZE;
     pub fn random() -> Self {
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = ChaCha12Rng::from_entropy();
         Self::random_rng(&mut rng)
     }
 
