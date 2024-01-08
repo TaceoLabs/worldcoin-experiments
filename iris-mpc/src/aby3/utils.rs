@@ -238,7 +238,7 @@ where
         num += mod_;
     }
 
-    let output = inputs.get_at(0).to_owned();
+    let output = inputs.get_at(0);
     Ok(output)
 }
 

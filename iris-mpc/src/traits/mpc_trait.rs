@@ -181,8 +181,8 @@ impl<T: Sharable> VecShareTrait for Vec<T> {
         res
     }
 
-    fn get_at(&self, index: usize) -> &Self::Share {
-        &self[index]
+    fn get_at(&self, index: usize) -> Self::Share {
+        self[index].to_owned()
     }
 
     fn set_at(&mut self, index: usize, value: Self::Share) {
