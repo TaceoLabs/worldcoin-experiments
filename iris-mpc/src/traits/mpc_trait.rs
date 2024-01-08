@@ -66,8 +66,8 @@ pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
 
             for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
                 if !mask.get_bit(i) {
-                    code1[i] = Ashare::zero();
-                    code2[i] = Ashare::zero();
+                    code1.set_at(i, Ashare::zero());
+                    code2.set_at(i, Ashare::zero());
                 }
             }
 
@@ -179,6 +179,14 @@ impl<T: Sharable> VecShareTrait for Vec<T> {
             res.push(chunk.to_owned());
         }
         res
+    }
+
+    fn get_at(&self, index: usize) -> &Self::Share {
+        &self[index]
+    }
+
+    fn set_at(&mut self, index: usize, value: Self::Share) {
+        self[index] = value;
     }
 }
 

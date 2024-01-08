@@ -117,6 +117,14 @@ impl<T: Sharable> VecShareTrait for Vec<Share<T>> {
         }
         res
     }
+
+    fn get_at(&self, index: usize) -> &Self::Share {
+        &self[index]
+    }
+
+    fn set_at(&mut self, index: usize, value: Self::Share) {
+        self[index] = value;
+    }
 }
 
 impl<T: Sharable> Share<T> {
