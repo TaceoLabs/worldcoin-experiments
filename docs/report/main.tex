@@ -1,0 +1,224 @@
+\documentclass[a4paper,11pt,
+    %final, % to remove the draft watermark
+]{article}
+
+\usepackage[a4paper, top=3.5cm, bottom=3.5cm,
+  left=3cm, right=3cm]{geometry}
+\usepackage[parfill]{parskip}
+
+%%% PACKAGES
+\usepackage[ngerman,english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage[all]{nowidow}
+
+% Useful packages for complex content:
+\usepackage{amsmath,amsfonts,amssymb} % typesetting math
+\usepackage{tikz}                    % typesetting diagrams, figures, ...
+\usepackage{siunitx}                 % typesetting SI-units and formatted numbers
+\usepackage{booktabs,multirow}       % utils for complex/beautiful tables
+\usepackage{subcaption}              % placing multiple subfigures in a figure
+\usepackage{draftwatermark}          % to add a draft watermark
+
+\SetWatermarkText{DRAFT}
+\SetWatermarkScale{4}
+\SetWatermarkLightness{0.9}
+
+% Bibliography, referencing, and indexing
+\usepackage{csquotes}                 % typesetting \enquote{text in quotes} correctly
+\usepackage[backend=biber,
+    style=alphabetic,
+    minalphanames=3, maxalphanames=4,
+    maxbibnames=20]{biblatex} % to generate the bibliography
+\addbibresource{report.bib}
+
+%--- THIRD PARTY PACKAGES ------------------------------------------------------
+
+\usepackage{float}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{svg}
+\usepackage{mathrsfs}
+\usepackage{bm}
+\usepackage{comment}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mathtools}
+\usepackage{bigdelim}
+\usepackage[obeyDraft,obeyFinal]{todonotes}
+\usepackage{colortbl}
+\usepackage{xfrac}
+\usepackage{mleftright}
+\usepackage{nth}
+\usepackage{breakcites}
+\usepackage{pdfpages}
+\usepackage{xspace}
+\usepackage{placeins}
+\usepackage{setspace}
+\usepackage[n, advantage , operators ,
+    sets ,
+    adversary ,
+    landau ,
+    probability ,
+    notions ,
+    logic ,
+    ff ,
+    mm,
+    primitives ,
+    events ,
+    complexity ,
+    asymptotics ,
+    keys
+]{cryptocode}
+\usepackage{numprint}
+\npdecimalsign{.}
+\npthousandsep{\,}
+\usepackage{dblfloatfix}
+
+\usepackage{mdframed}
+
+% for the table footnote
+\usepackage{enumitem}
+\usepackage[referable]{threeparttablex}
+\renewlist{tablenotes}{enumerate}{1}
+\makeatletter
+\setlist[tablenotes]{label=\tnote{\alph*},ref=\alph*,itemsep=\z@,topsep=\z@skip,partopsep=\z@skip,parsep=\z@,itemindent=\z@,labelindent=\tabcolsep,labelsep=.2em,leftmargin=*,align=left,before={\footnotesize}}
+\makeatother
+
+% tikz
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{tikzscale}
+\usetikzlibrary{arrows}
+\usetikzlibrary{calc}
+\usetikzlibrary{decorations.pathreplacing}
+\usetikzlibrary{decorations.pathmorphing}
+\usetikzlibrary{math}
+\usetikzlibrary{matrix}
+\usetikzlibrary{patterns}
+\usetikzlibrary{shadows}
+\usetikzlibrary{shapes}
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{fit}
+\usetikzlibrary{automata}
+\usetikzlibrary{circuits.logic.US}
+\tikzset{>=stealth}
+\tikzset{font={\fontsize{9pt}{12}\selectfont}}
+
+\usepackage{fontawesome}
+\usepackage{pgffor}
+\newcommand{\stars}[1]{
+    \foreach \n in {1,...,5}{\ifnum \n>#1\faStarO\else\faStar\fi}%
+}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+\crefformat{footnote}{#2\footnotemark[#1]#3}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% macros
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\F}{\ensuremath{\mathbb{F}}\xspace}
+\newcommand{\G}{\ensuremath{\mathbb{G}}\xspace}
+\newcommand{\N}{\ensuremath{\mathbb{N}}\xspace}
+\newcommand{\R}{\ensuremath{\mathbb{R}}\xspace}
+\newcommand{\Z}{\ensuremath{\mathbb{Z}}\xspace}
+\newcommand{\T}{\ensuremath{\mathbb{T}}\xspace}
+\newcommand{\B}{\ensuremath{\mathbb{B}}\xspace}
+\newcommand{\Ring}{\ensuremath{\mathcal{R}\xspace}}
+\newcommand{\ctrans}{\ensuremath{\mathsf{CTrans}}} % 2008
+\newcommand{\centercell}[1]{\multicolumn{1}{c}{#1}}
+\newcommand{\centercellR}[1]{\multicolumn{1}{c|}{#1}}
+\newcommand*{\numero}{n\kern-.1em \raise.7ex\vbox{\hbox{\tiny \ensuremath{\circ}}\kern.5pt}}
+\newcommand{\todoi}[1]{\todo[inline]{#1}}
+
+\newcommand{\getsr}{\stackrel{\$}{\gets}}
+\newcommand{\checkeq}{\stackrel{?}{=}}
+
+\newcommand{\msg}{\ensuremath{\mathsf{msg}}}
+\newcommand{\pubp}{\ensuremath{\mathsf{pp}}}
+\newcommand{\ct}{\ensuremath{\mathsf{ct}}}
+\newcommand{\tx}{\ensuremath{\mathsf{tx}}}
+\newcommand{\cn}{\ensuremath{\mathsf{cn}}}
+\newcommand{\ck}{\ensuremath{\mathsf{ck}}}
+\newcommand{\act}{\ensuremath{\mathsf{act}}}
+\newcommand{\ask}{\ensuremath{\mathsf{ask}}}
+\newcommand{\Setup}{\ensuremath{\mathsf{Setup}}}
+\newcommand{\Open}{\ensuremath{\mathsf{Open}}}
+\newcommand{\KeyGen}{\ensuremath{\mathsf{KeyGen}}}
+\newcommand{\Mint}{\ensuremath{\mathsf{Mint}}}
+\newcommand{\Spend}{\ensuremath{\mathsf{Spend}}}
+\newcommand{\Verify}{\ensuremath{\mathsf{Verify}}}
+\newcommand{\Encaps}{\ensuremath{\mathsf{Encaps}}}
+\newcommand{\Decaps}{\ensuremath{\mathsf{Decaps}}}
+\newcommand{\Com}{\ensuremath{\mathsf{Com}}}
+\newcommand{\com}{\ensuremath{\mathsf{com}}}
+\newcommand{\acc}{\ensuremath{\mathsf{acc}}}
+\newcommand{\aux}{\ensuremath{\mathsf{aux}}}
+\newcommand{\mask}{\ensuremath{\mathsf{mask}}}
+
+%\newcommand{\bin}{\{0,1\}}
+
+\newcommand{\daniel}[1]{\todo[inline,color=cyan!40!white]{Daniel: #1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Setup
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+% floats
+\floatstyle{boxed}
+\newfloat{scheme}{ht}{sc}
+\floatname{scheme}{Scheme}
+\Crefname{scheme}{Scheme}{Schemes}
+\newfloat{functionality}{ht}{fc}
+\floatname{functionality}{Functionality}
+\Crefname{functionality}{Functionality}{Functionalities}
+
+\expandafter\def\expandafter\UrlBreaks\expandafter{\UrlBreaks%  save the current one
+    \do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j%
+    \do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t%
+    \do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D%
+    \do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N%
+    \do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X%
+    \do\Y\do\Z}
+
+\setlength{\tabcolsep}{6pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Document
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+\title{Experiments for Decentralized Iris Code Membership Protocols using MPC}
+
+
+\date{January 2024}
+
+\author{TACEO}
+
+\maketitle
+
+\begin{abstract}
+    This report
+\end{abstract}
+
+\section{Introduction}
+
+\section{Preliminaries}
+
+\subsection{MPC Protocols}
+
+\section{Iris Code Membership Protocol}
+
+\section{Experiments}
+
+\subsection{Benchmarks}
+
+\section{Conclusion and Open Problems}
+
+\end{document}
