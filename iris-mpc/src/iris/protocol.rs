@@ -177,8 +177,8 @@ where
         }
 
         let (sum_a, sum_b) = a
-            .into_iter()
-            .zip(b.into_iter())
+            .iter()
+            .zip(b)
             .enumerate()
             .filter(|(i, _)| mask.get_bit(*i))
             .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
@@ -225,11 +225,11 @@ where
         b: &[Vec<Ashare>],
         masks: Vec<IrisCodeArray>,
     ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.masked_dot_many(a, &b, &masks).await?;
+        let dots = self.mpc.masked_dot_many(a, b, &masks).await?;
 
         let mut res = Vec::with_capacity(dots.len());
-        for ((b_, dot), mask) in b.into_iter().zip(dots.into_iter()).zip(masks.into_iter()) {
-            let r = self.masked_hamming_distance_post(&a, &b_, &mask, dot)?;
+        for ((b_, dot), mask) in b.iter().zip(dots.into_iter()).zip(masks.into_iter()) {
+            let r = self.masked_hamming_distance_post(a, b_, &mask, dot)?;
             res.push(r);
         }
 
