@@ -1,8 +1,11 @@
-use crate::types::{
-    bit::Bit,
-    int_ring::IntRing2k,
-    ring_element::{RingElement, RingImpl},
-    sharable::Sharable,
+use crate::{
+    traits::share_trait::ShareTrait,
+    types::{
+        bit::Bit,
+        int_ring::IntRing2k,
+        ring_element::{RingElement, RingImpl},
+        sharable::Sharable,
+    },
 };
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -23,6 +26,8 @@ pub struct Share<T: Sharable> {
     pub(crate) b: T::Share,
     sharetype: PhantomData<T>,
 }
+
+impl<T: Sharable> ShareTrait for Share<T> {}
 
 impl<T: Sharable> Share<T> {
     pub fn new(a: T::Share, b: T::Share) -> Self {
