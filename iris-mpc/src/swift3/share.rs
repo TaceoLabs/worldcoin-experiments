@@ -29,7 +29,9 @@ pub struct Share<T: Sharable> {
     sharetype: PhantomData<T>,
 }
 
-impl<T: Sharable> ShareTrait for Share<T> {}
+impl<T: Sharable> ShareTrait for Share<T> {
+    type VecShare = Vec<Self>;
+}
 
 impl<T: Sharable> Share<T> {
     pub fn new(a: T::Share, b: T::Share, c: T::Share) -> Self {

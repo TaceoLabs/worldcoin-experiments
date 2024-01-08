@@ -95,7 +95,9 @@ pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
 #[derive(Default)]
 pub struct Plain {}
 
-impl<T: Sharable> ShareTrait for T {}
+impl<T: Sharable> ShareTrait for T {
+    type VecShare = Vec<Self>;
+}
 
 impl<T: Sharable> MpcTrait<T, T, Bit> for Plain {
     fn get_id(&self) -> usize {

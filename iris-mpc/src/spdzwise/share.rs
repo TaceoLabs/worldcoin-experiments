@@ -13,7 +13,9 @@ pub struct Share<T: Sharable> {
     mac: Aby3Share<T>,
 }
 
-impl<T: Sharable> ShareTrait for Share<T> {}
+impl<T: Sharable> ShareTrait for Share<T> {
+    type VecShare = Vec<Self>;
+}
 
 impl<T: Sharable> Share<T> {
     pub fn new(value: Aby3Share<T>, mac: Aby3Share<T>) -> Self {
