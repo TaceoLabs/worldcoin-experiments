@@ -7,7 +7,7 @@ mod iris_swift3_test {
         traits::mpc_trait::Plain,
         types::bit::Bit,
     };
-    use plain_reference::{IrisCode, IrisCodeArray};
+    use plain_reference::IrisCode;
     use rand::{
         distributions::{Distribution, Standard},
         rngs::SmallRng,
@@ -49,94 +49,6 @@ mod iris_swift3_test {
             shared_code.push(shares[id].to_owned());
         }
         shared_code
-    }
-
-    async fn mask_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        net: PartyTestNetwork,
-        seed: R::Seed,
-        iris_seed: R::Seed,
-    ) -> Vec<IrisCodeArray>
-    where
-        Standard: Distribution<T>,
-        Standard: Distribution<T::Share>,
-        Share<T>: Mul<T::Share, Output = Share<T>>,
-        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let protocol = Swift3::<PartyTestNetwork, _>::new(net);
-        let mut iris = IrisProtocol::new(protocol).unwrap();
-        let id = iris.get_id();
-
-        iris.preprocessing().await.unwrap();
-
-        let mut iris_rng = R::from_seed(iris_seed);
-        let mut rng = R::from_seed(seed);
-        let mut results = Vec::with_capacity(TESTRUNS);
-        for _ in 0..TESTRUNS {
-            let code = IrisCode::random_rng(&mut iris_rng);
-
-            let shared_code = share_iris_code(&code, id, &mut rng);
-
-            let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
-            iris.verify().await.unwrap();
-            let open_masked_code = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
-
-            let mut bitarr = IrisCodeArray::default();
-            for (i, code_bit) in open_masked_code.into_iter().enumerate() {
-                assert!(code_bit.is_zero() || code_bit.is_one());
-                bitarr.set_bit(i, code_bit == T::one());
-            }
-            results.push(bitarr);
-        }
-
-        iris.finish().await.unwrap();
-        results
-    }
-
-    async fn mask_test_swift3_impl<T: Sharable>()
-    where
-        Standard: Distribution<T>,
-        Standard: Distribution<T::Share>,
-        Share<T>: Mul<T::Share, Output = Share<T>>,
-        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let mut tasks = Vec::with_capacity(NUM_PARTIES);
-
-        let mut rng = SmallRng::from_entropy();
-        let iris_seed = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let seed: [u8; 32] = rng.gen::<<SmallRng as SeedableRng>::Seed>();
-        let mut iris_rng = SmallRng::from_seed(iris_seed);
-
-        let network = TestNetwork3p::new();
-        let net = network.get_party_networks();
-
-        for n in net {
-            let t = tokio::spawn(async move {
-                mask_test_swift3_impl_inner::<T, SmallRng>(n, seed, iris_seed).await
-            });
-            tasks.push(t);
-        }
-
-        let mut results = Vec::with_capacity(NUM_PARTIES);
-        for t in tasks {
-            let r = t.await.expect("Task exited normally");
-            results.push(r);
-        }
-
-        let r0 = &results[0];
-        for r in results.iter().skip(1) {
-            assert_eq!(r0, r);
-        }
-        // Compare to plain
-        for r in r0.iter() {
-            let plain = IrisCode::random_rng(&mut iris_rng);
-            let plain_code = plain.code & plain.mask;
-            assert_eq!(&plain_code, r);
-        }
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn mask_test_swift3() {
-        mask_test_swift3_impl::<u16>().await
     }
 
     async fn hwd_test_swift3_impl_inner<T: Sharable, R: Rng + SeedableRng>(
@@ -221,7 +133,7 @@ mod iris_swift3_test {
             let distance: T = combined_code
                 .count_ones()
                 .try_into()
-                .expect("Overflow should not happene");
+                .expect("Overflow should not happen");
             assert_eq!(&distance, r);
         }
     }

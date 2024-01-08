@@ -21,8 +21,8 @@ impl IrisCodeArray {
     pub const IRIS_CODE_SIZE: usize = 12800;
     pub const IRIS_CODE_SIZE_BYTES: usize = (Self::IRIS_CODE_SIZE + 7) / 8;
     pub const IRIS_CODE_SIZE_U64: usize = (Self::IRIS_CODE_SIZE + 63) / 64;
-    const ZERO: Self = IrisCodeArray([0; Self::IRIS_CODE_SIZE_U64]);
-    const ONES: Self = IrisCodeArray([u64::MAX; Self::IRIS_CODE_SIZE_U64]);
+    pub const ZERO: Self = IrisCodeArray([0; Self::IRIS_CODE_SIZE_U64]);
+    pub const ONES: Self = IrisCodeArray([u64::MAX; Self::IRIS_CODE_SIZE_U64]);
     #[inline]
     pub fn set_bit(&mut self, i: usize, val: bool) {
         let word = i / 64;
