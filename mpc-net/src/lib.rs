@@ -10,7 +10,9 @@ use channel::{BytesChannel, Channel};
 use codecs::BincodeCodec;
 use color_eyre::eyre::{self, Context, Report};
 use config::NetworkConfig;
-use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, TransportConfig};
+use quinn::{
+    ClientConfig, Connection, Endpoint, IdleTimeout, RecvStream, SendStream, TransportConfig,
+};
 use rustls::{Certificate, PrivateKey};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -57,6 +59,9 @@ impl MpcNetworkHandler {
 
         let client_config = {
             let mut transport_config = TransportConfig::default();
+            transport_config.max_idle_timeout(Some(
+                IdleTimeout::try_from(Duration::from_secs(60)).unwrap(),
+            ));
             // atm clients send keepalive packets
             transport_config.keep_alive_interval(Some(Duration::from_secs(1)));
             let mut client_config = ClientConfig::new(Arc::new(crypto));
