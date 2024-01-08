@@ -250,7 +250,7 @@ mod iris_mpc_test {
         let mut iris_rng = ChaCha12Rng::from_entropy();
 
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
@@ -283,7 +283,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let combined_mask = code1.mask & code2.mask;
         let combined_code = code1.code ^ code2.code;
@@ -299,7 +299,8 @@ mod iris_mpc_test {
         let cmp = iris
             .compare_threshold(distance, combined_mask.count_ones())
             .await
-            .unwrap();
+            .unwrap()
+            .convert();
 
         assert_eq!(cmp, cmp_);
         cmp
@@ -449,7 +450,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let inp1 = iris_code_plain_type(&code1);
 
@@ -464,10 +465,11 @@ mod iris_mpc_test {
             mask2.push(code.mask);
         }
 
-        let cmp = iris
-            .compare_iris_many(&inp1, &inp2s, &code1.mask, &mask2)
-            .await
-            .unwrap();
+        let cmp = Bit::convert_vec(
+            iris.compare_iris_many(&inp1, &inp2s, &code1.mask, &mask2)
+                .await
+                .unwrap(),
+        );
 
         assert_eq!(cmp, cmp_);
         cmp
@@ -481,7 +483,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let inp1 = iris_code_plain_type(&code1);
         let inp2 = iris_code_plain_type(&code2);
@@ -489,7 +491,8 @@ mod iris_mpc_test {
         let cmp = iris
             .compare_iris(inp1, inp2, &code1.mask, &code2.mask)
             .await
-            .unwrap();
+            .unwrap()
+            .convert();
 
         let cmp_ = code1.is_close(&code2);
         assert_eq!(cmp, cmp_);
@@ -735,7 +738,7 @@ mod iris_mpc_test {
 
         // calculate
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let res1 = iris
             .iris_in_db(&iris1_, &db_t, &iris1.mask, &masks, CHUNK_SIZE)

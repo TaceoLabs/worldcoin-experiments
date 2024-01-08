@@ -1,4 +1,7 @@
-use crate::prelude::{Aby3Share, Sharable};
+use crate::{
+    prelude::{Aby3Share, Sharable},
+    traits::share_trait::ShareTrait,
+};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
@@ -9,6 +12,8 @@ pub struct Share<T: Sharable> {
     value: Aby3Share<T>,
     mac: Aby3Share<T>,
 }
+
+impl<T: Sharable> ShareTrait for Share<T> {}
 
 impl<T: Sharable> Share<T> {
     pub fn new(value: Aby3Share<T>, mac: Aby3Share<T>) -> Self {

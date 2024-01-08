@@ -1,5 +1,7 @@
+use super::share_trait::ShareTrait;
 use crate::{
     error::Error,
+    prelude::Bit,
     types::{ring_element::RingImpl, sharable::Sharable},
 };
 use num_traits::Zero;
@@ -7,7 +9,7 @@ use plain_reference::IrisCodeArray;
 use rand::Rng;
 
 #[allow(async_fn_in_trait)]
-pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
+pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
     fn get_id(&self) -> usize;
     async fn preprocess(&mut self) -> Result<(), Error>;
     fn set_mac_key(&mut self, key: Ashare);
@@ -93,7 +95,9 @@ pub trait MpcTrait<T: Sharable, Ashare, Bshare> {
 #[derive(Default)]
 pub struct Plain {}
 
-impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
+impl<T: Sharable> ShareTrait for T {}
+
+impl<T: Sharable> MpcTrait<T, T, Bit> for Plain {
     fn get_id(&self) -> usize {
         0
     }
@@ -139,12 +143,12 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         Ok(shares)
     }
 
-    async fn open_bit(&mut self, share: bool) -> Result<bool, Error> {
-        Ok(share)
+    async fn open_bit(&mut self, share: Bit) -> Result<bool, Error> {
+        Ok(share.convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<bool>) -> Result<Vec<bool>, Error> {
-        Ok(shares)
+    async fn open_bit_many(&mut self, shares: Vec<Bit>) -> Result<Vec<bool>, Error> {
+        Ok(Bit::convert_vec(shares))
     }
 
     fn add(&self, a: T, b: T) -> T {
@@ -196,24 +200,24 @@ impl<T: Sharable> MpcTrait<T, T, bool> for Plain {
         Ok(res)
     }
 
-    async fn get_msb(&mut self, a: T) -> Result<bool, Error> {
-        Ok(a.to_sharetype().get_msb().convert().convert())
+    async fn get_msb(&mut self, a: T) -> Result<Bit, Error> {
+        Ok(a.to_sharetype().get_msb().convert())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<T>) -> Result<Vec<bool>, Error> {
+    async fn get_msb_many(&mut self, a: Vec<T>) -> Result<Vec<Bit>, Error> {
         let res = a
             .into_iter()
-            .map(|a_| a_.to_sharetype().get_msb().convert().convert())
+            .map(|a_| a_.to_sharetype().get_msb().convert())
             .collect();
         Ok(res)
     }
 
-    async fn binary_or(&mut self, a: bool, b: bool) -> Result<bool, Error> {
+    async fn binary_or(&mut self, a: Bit, b: Bit) -> Result<Bit, Error> {
         Ok(a | b)
     }
 
-    async fn reduce_binary_or(&mut self, a: Vec<bool>, _: usize) -> Result<bool, Error> {
-        Ok(a.into_iter().fold(false, |a, b| a | b))
+    async fn reduce_binary_or(&mut self, a: Vec<Bit>, _: usize) -> Result<Bit, Error> {
+        Ok(a.into_iter().fold(Bit::new(false), |a, b| a | b))
     }
 
     async fn verify(&mut self) -> Result<(), Error> {

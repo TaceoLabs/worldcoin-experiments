@@ -1,5 +1,6 @@
 use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpdzWiseShare, Swift3Share};
+use crate::traits::share_trait::ShareTrait;
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
@@ -16,14 +17,19 @@ pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, 
 pub type IrisSpdzWise<T: Sharable, Mpc> =
     IrisProtocol<T, SpdzWiseShare<T::VerificationShare>, Aby3Share<Bit>, Mpc>;
 
-pub struct IrisProtocol<T: Sharable, Ashare, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>> {
+pub struct IrisProtocol<
+    T: Sharable,
+    Ashare: ShareTrait,
+    Bshare: ShareTrait,
+    Mpc: MpcTrait<T, Ashare, Bshare>,
+> {
     mpc: Mpc,
     phantom_t: PhantomData<T>,
     phantom_a: PhantomData<Ashare>,
     phantom_b: PhantomData<Bshare>,
 }
 
-impl<T: Sharable, Ashare: Clone, Bshare, Mpc: MpcTrait<T, Ashare, Bshare>>
+impl<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait, Mpc: MpcTrait<T, Ashare, Bshare>>
     IrisProtocol<T, Ashare, Bshare, Mpc>
 where
     Ashare: Zero,

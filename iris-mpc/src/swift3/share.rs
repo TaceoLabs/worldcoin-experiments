@@ -1,5 +1,6 @@
 use crate::{
     prelude::{Bit, Sharable},
+    traits::share_trait::ShareTrait,
     types::{
         int_ring::IntRing2k,
         ring_element::{RingElement, RingImpl},
@@ -27,6 +28,8 @@ pub struct Share<T: Sharable> {
     pub(crate) c: T::Share,
     sharetype: PhantomData<T>,
 }
+
+impl<T: Sharable> ShareTrait for Share<T> {}
 
 impl<T: Sharable> Share<T> {
     pub fn new(a: T::Share, b: T::Share, c: T::Share) -> Self {
