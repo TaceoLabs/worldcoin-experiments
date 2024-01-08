@@ -1,0 +1,9 @@
+target/
+**/target/
+**/.git
+**/.idea
+**/.vscode
+deploy/
+docs/
+.github/
+iris-mpc/data/
