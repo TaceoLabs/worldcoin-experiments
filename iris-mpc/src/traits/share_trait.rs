@@ -1,3 +1,3 @@
 pub trait ShareTrait: Clone {
-    // type VecShare;
+    type VecShare;
 }
