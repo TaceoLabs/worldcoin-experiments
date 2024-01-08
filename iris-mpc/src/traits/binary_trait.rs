@@ -1,9 +1,10 @@
+use super::share_trait::{ShareTrait, VecShareTrait};
 use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Error, Sharable};
 use crate::types::ring_element::RingImpl;
 use std::ops::{BitXor, BitXorAssign};
 
-pub trait BinaryMpcTrait<T: Sharable, Bshare>
+pub trait BinaryMpcTrait<T: Sharable, Bshare: ShareTrait>
 where
     Bshare: Clone
         + BitXorAssign
@@ -18,16 +19,8 @@ where
         a ^ b
     }
 
-    fn xor_many(a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
-        if a.len() != b.len() {
-            return Err(Error::InvalidSizeError);
-        }
-        let res = a
-            .into_iter()
-            .zip(b)
-            .map(|(a_, b_)| Self::xor(a_, b_))
-            .collect();
-        Ok(res)
+    fn xor_many(a: Bshare::VecShare, b: Bshare::VecShare) -> Result<Bshare::VecShare, Error> {
+        a.xor_many(b)
     }
 
     fn xor_assign(a: &mut Bshare, b: Bshare) {
@@ -46,7 +39,11 @@ where
 
     async fn and(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
 
-    async fn and_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
+    async fn and_many(
+        &mut self,
+        a: Bshare::VecShare,
+        b: Bshare::VecShare,
+    ) -> Result<Bshare::VecShare, Error>;
 
     async fn or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error> {
         let x = Self::xor(a.to_owned(), b.to_owned());
@@ -54,18 +51,16 @@ where
         Ok(Self::xor(x, y))
     }
 
-    async fn or_many(&mut self, a: Vec<Bshare>, b: Vec<Bshare>) -> Result<Vec<Bshare>, Error> {
+    async fn or_many(
+        &mut self,
+        a: Bshare::VecShare,
+        b: Bshare::VecShare,
+    ) -> Result<Bshare::VecShare, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
         let y = self.and_many(a.to_owned(), b.to_owned()).await?;
-        let res = a
-            .into_iter()
-            .zip(b.into_iter())
-            .zip(y.into_iter())
-            .map(|((a_, b_), y_)| Self::xor(y_, Self::xor(a_, b_)))
-            .collect();
-        Ok(res)
+        y.xor_many(a.xor_many(b)?)
     }
 
     async fn binary_add_3(&mut self, x1: Bshare, x2: Bshare, x3: Bshare) -> Result<Bshare, Error> {
@@ -87,7 +82,13 @@ where
             let p_ = p.to_owned() << (1 << i);
             let g_ = g.to_owned() << (1 << i);
             // TODO Maybe work with Bits in the inner loop to have less communication?
-            let res = self.and_many(vec![p.to_owned(), p], vec![g_, p_]).await?;
+            let mut and_inp1 = Bshare::VecShare::with_capacity(2);
+            let mut and_inp2 = Bshare::VecShare::with_capacity(2);
+            and_inp1.push(p.to_owned());
+            and_inp1.push(p);
+            and_inp2.push(g_);
+            and_inp2.push(p_);
+            let res = self.and_many(and_inp1, and_inp2).await?;
             p = res[1].to_owned(); // p = p & p_
             Self::xor_assign(&mut g, res[0].to_owned()); // g = g ^ (p & g_)
         }
@@ -97,10 +98,10 @@ where
 
     async fn binary_add_3_many(
         &mut self,
-        x1: Vec<Bshare>,
-        x2: Vec<Bshare>,
-        x3: Vec<Bshare>,
-    ) -> Result<Vec<Bshare>, Error> {
+        x1: Bshare::VecShare,
+        x2: Bshare::VecShare,
+        x3: Bshare::VecShare,
+    ) -> Result<Bshare::VecShare, Error> {
         let len = x1.len();
         if len != x2.len() || len != x3.len() {
             return Err(Error::InvalidSizeError);
@@ -112,11 +113,10 @@ where
         let x2x3 = Self::xor_many(x2, x3.to_owned()).expect("Same length");
         let s = Self::xor_many(x1.to_owned(), x2x3.to_owned()).expect("Same length");
         let x1x3 = Self::xor_many(x1, x3.to_owned()).expect("Same length");
+
         let mut c = self.and_many(x1x3, x2x3).await?;
-        c.iter_mut().zip(x3.into_iter()).for_each(|(c_, x3_)| {
-            Self::xor_assign(c_, x3_);
-            *c_ <<= 1 // c = 2*c
-        });
+        c.xor_assign_many(x3).expect("Same length");
+        c.shl_assign_many(1); // c= 2*c;
 
         // Add 2c + s via a packed Kogge-Stone adder
 
@@ -124,8 +124,10 @@ where
         let mut g = self.and_many(s, c).await?;
         let s_ = p.to_owned();
         for i in 0..logk {
-            let p_: Vec<Bshare> = p.iter().cloned().map(|p_| p_ << (1 << i)).collect();
-            let g_: Vec<Bshare> = g.iter().cloned().map(|g_| g_ << (1 << i)).collect();
+            let mut p_ = p.to_owned();
+            p_.shl_assign_many(1 << i);
+            let mut g_ = g.to_owned();
+            g_.shl_assign_many(1 << i);
 
             // TODO Maybe work with Bits in the inner loop to have less communication?
 
@@ -136,22 +138,17 @@ where
             b.extend(p_);
 
             let res = self.and_many(a, b).await?;
-            p = res[len..].to_vec(); // p = p & p_
-            g.iter_mut()
-                .zip(res[0..len].to_vec())
-                .for_each(|(g_, r_)| Self::xor_assign(g_, r_)); // g = g ^ (p & g_)
+            let (tmp_g, tmp_p) = res.split_at(len);
+            p = tmp_p; // p = p & p_
+            g.xor_assign_many(tmp_g).expect("Same length"); // g = g ^ (p & g_)
         }
-        g.iter_mut().for_each(|g_| *g_ <<= 1);
-
-        let res = s_
-            .into_iter()
-            .zip(g.into_iter())
-            .map(|(s_, g_)| Self::xor(s_, g_))
-            .collect();
-
-        Ok(res)
+        g.shl_assign_many(1);
+        s_.xor_many(g)
     }
 
     async fn arithmetic_to_binary(&mut self, x: Bshare) -> Result<Bshare, Error>;
-    async fn arithmetic_to_binary_many(&mut self, x: Vec<Bshare>) -> Result<Vec<Bshare>, Error>;
+    async fn arithmetic_to_binary_many(
+        &mut self,
+        x: Vec<Bshare>,
+    ) -> Result<Bshare::VecShare, Error>;
 }

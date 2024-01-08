@@ -386,7 +386,7 @@ where
 
     async fn masked_dot_many(
         &mut self,
-        a: &[Share<T>],
+        a: &Vec<Share<T>>,
         b: &[Vec<Share<T>>],
         masks: &[IrisCodeArray],
     ) -> Result<Vec<Share<T>>, Error> {

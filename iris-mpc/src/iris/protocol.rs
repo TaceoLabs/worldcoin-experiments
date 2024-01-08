@@ -1,6 +1,6 @@
 use crate::aby3::utils::ceil_log2;
 use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpdzWiseShare, Swift3Share};
-use crate::traits::share_trait::ShareTrait;
+use crate::traits::share_trait::{ShareTrait, VecShareTrait};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
 use num_traits::Zero;
@@ -108,73 +108,10 @@ where
         Ok(combined_mask)
     }
 
-    #[cfg(test)]
-    pub(crate) fn apply_mask(
-        &self,
-        mut code: Vec<Ashare>,
-        mask: &IrisCodeArray,
-    ) -> Result<Vec<Ashare>, Error> {
-        if code.len() != IRIS_CODE_SIZE {
-            return Err(Error::InvalidCodeSizeError);
-        }
-
-        for (i, c) in code.iter_mut().enumerate() {
-            if !mask.get_bit(i) {
-                *c = Ashare::zero();
-            }
-        }
-        Ok(code)
-    }
-
-    pub(crate) fn apply_mask_twice(
-        &self,
-        mut code1: Vec<Ashare>,
-        mut code2: Vec<Ashare>,
-        mask: &IrisCodeArray,
-    ) -> Result<(Vec<Ashare>, Vec<Ashare>), Error> {
-        if code1.len() != IRIS_CODE_SIZE || code2.len() != IRIS_CODE_SIZE {
-            return Err(Error::InvalidCodeSizeError);
-        }
-
-        for i in 0..IRIS_CODE_SIZE {
-            if !mask.get_bit(i) {
-                code1[i] = Ashare::zero();
-                code2[i] = Ashare::zero();
-            }
-        }
-        Ok((code1, code2))
-    }
-
-    fn hamming_distance_post(
-        &self,
-        a: Vec<Ashare>,
-        b: Vec<Ashare>,
-        dot: Ashare,
-    ) -> Result<Ashare, Error> {
-        if a.is_empty() || a.len() != b.len() {
-            return Err(Error::InvalidCodeSizeError);
-        }
-
-        let sum_a = a
-            .into_iter()
-            .reduce(|a_, b_| self.mpc.add(a_, b_))
-            .expect("Size is not zero");
-        let sum_b = b
-            .into_iter()
-            .reduce(|a_, b_| self.mpc.add(a_, b_))
-            .expect("Size is not zero");
-
-        let dot = self.mpc.mul_const(dot, T::try_from(2).unwrap());
-
-        let sum = self.mpc.add(sum_a, sum_b);
-        let res = self.mpc.sub(sum, dot);
-        Ok(res)
-    }
-
     fn masked_hamming_distance_post(
         &self,
-        a: &[Ashare],
-        b: &[Ashare],
+        a: &Ashare::VecShare,
+        b: &Ashare::VecShare,
         mask: &IrisCodeArray,
         dot: Ashare,
     ) -> Result<Ashare, Error> {
@@ -182,14 +119,7 @@ where
             return Err(Error::InvalidCodeSizeError);
         }
 
-        let (sum_a, sum_b) = a
-            .iter()
-            .zip(b)
-            .enumerate()
-            .filter(|(i, _)| mask.get_bit(*i))
-            .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
-            .reduce(|(aa, ab), (ba, bb)| (self.mpc.add(aa, ba), self.mpc.add(ab, bb)))
-            .expect("Size is not zero");
+        let (sum_a, sum_b) = Ashare::VecShare::filter_reduce_add_twice(a, b, mask)?;
 
         let dot = self.mpc.mul_const(dot, T::try_from(2).unwrap());
 
@@ -198,37 +128,23 @@ where
         Ok(res)
     }
 
-    #[allow(unused)]
+    #[cfg(test)]
     pub(crate) async fn hamming_distance(
         &mut self,
-        a: Vec<Ashare>,
-        b: Vec<Ashare>,
+        a: Ashare::VecShare,
+        b: Ashare::VecShare,
     ) -> Result<Ashare, Error> {
-        let dot = self.mpc.dot(a.to_owned(), b.to_owned()).await?;
-        self.hamming_distance_post(a, b, dot)
-    }
+        let res = self
+            .masked_hamming_distance_many(&a, &[b], vec![IrisCodeArray::ONES])
+            .await?;
 
-    #[allow(unused)]
-    pub(crate) async fn hamming_distance_many(
-        &mut self,
-        a: Vec<Vec<Ashare>>,
-        b: Vec<Vec<Ashare>>,
-    ) -> Result<Vec<Ashare>, Error> {
-        let dots = self.mpc.dot_many(&a, &b).await?;
-
-        let mut res = Vec::with_capacity(dots.len());
-        for ((a_, b_), dot) in a.into_iter().zip(b.into_iter()).zip(dots.into_iter()) {
-            let r = self.hamming_distance_post(a_, b_, dot)?;
-            res.push(r);
-        }
-
-        Ok(res)
+        Ok(res[0].to_owned())
     }
 
     pub(crate) async fn masked_hamming_distance_many(
         &mut self,
-        a: &[Ashare],
-        b: &[Vec<Ashare>],
+        a: &Ashare::VecShare,
+        b: &[Ashare::VecShare],
         masks: Vec<IrisCodeArray>,
     ) -> Result<Vec<Ashare>, Error> {
         let dots = self.mpc.masked_dot_many(a, b, &masks).await?;
@@ -252,6 +168,7 @@ where
         )
     }
 
+    #[cfg(test)]
     pub(crate) async fn compare_threshold(
         &mut self,
         hwd: Ashare,
@@ -268,44 +185,42 @@ where
         &mut self,
         hwds: Vec<Ashare>,
         mask_lens: Vec<usize>,
-    ) -> Result<Vec<Bshare>, Error> {
+    ) -> Result<Bshare::VecShare, Error> {
         if hwds.len() != mask_lens.len() {
             return Err(Error::InvalidSizeError);
         }
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
-        let diffs = hwds
-            .into_iter()
-            .zip(mask_lens)
-            .map(|(hwd, mask_len)| self.get_cmp_diff(hwd, mask_len))
-            .collect();
+        let mut diffs = Ashare::VecShare::with_capacity(hwds.len());
+        for (hwd, mask_len) in hwds.into_iter().zip(mask_lens) {
+            let diff = self.get_cmp_diff(hwd, mask_len);
+            diffs.push(diff);
+        }
 
         self.mpc.get_msb_many(diffs).await
     }
 
-    #[allow(unused)]
+    #[cfg(test)]
     pub(crate) async fn compare_iris(
         &mut self,
-        a: Vec<Ashare>,
-        b: Vec<Ashare>,
+        a: Ashare::VecShare,
+        b: Ashare::VecShare,
         mask_a: &IrisCodeArray,
         mask_b: &IrisCodeArray,
     ) -> Result<Bshare, Error> {
-        let mask = self.combine_masks(mask_a, mask_b)?;
-        let (a, b) = self.apply_mask_twice(a, b, &mask)?;
-
-        let hwd = self.hamming_distance(a, b).await?;
-
-        self.compare_threshold(hwd, mask.count_ones()).await
+        let tmp = self
+            .compare_iris_many(&a, &[b], mask_a, &[mask_b.to_owned()])
+            .await?;
+        Ok(tmp[0].to_owned())
     }
 
     pub(crate) async fn compare_iris_many(
         &mut self,
-        a: &[Ashare],
-        b: &[Vec<Ashare>],
+        a: &Ashare::VecShare,
+        b: &[Ashare::VecShare],
         mask_a: &IrisCodeArray,
         mask_b: &[IrisCodeArray],
-    ) -> Result<Vec<Bshare>, Error> {
+    ) -> Result<Bshare::VecShare, Error> {
         let amount = b.len();
         if (amount != mask_b.len()) || (amount == 0) {
             return Err(Error::InvalidSizeError);
@@ -323,8 +238,8 @@ where
 
     pub async fn iris_in_db(
         &mut self,
-        iris: &[Ashare],
-        db: &[Vec<Ashare>],
+        iris: &Ashare::VecShare,
+        db: &[Ashare::VecShare],
         mask_iris: &IrisCodeArray,
         mask_db: &[IrisCodeArray],
         chunk_size: usize,
@@ -334,7 +249,7 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        let mut bool_shares = Vec::with_capacity(amount);
+        let mut bool_shares = Bshare::VecShare::with_capacity(amount);
 
         for (db_, mask_) in db.chunks(chunk_size).zip(mask_db.chunks(chunk_size)) {
             let res = self.compare_iris_many(iris, db_, mask_iris, mask_).await?;
