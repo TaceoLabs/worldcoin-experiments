@@ -40,7 +40,6 @@ impl<T: Sharable> VecShareTrait for Vec<Share<T>> {
         Vec::len(self)
     }
 
-    // TODO update for other share
     fn filter_reduce_add_twice(
         a: &Self,
         b: &Self,

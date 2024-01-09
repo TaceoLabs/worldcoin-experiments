@@ -390,11 +390,15 @@ where
         b: &[Vec<Share<T>>],
         masks: &[IrisCodeArray],
     ) -> Result<Vec<Share<T>>, Error> {
+        if a.len() != IrisCodeArray::IRIS_CODE_SIZE {
+            return Err(Error::InvalidSizeError);
+        }
+
         let mut shares_a = Vec::with_capacity(a.len());
 
         for (b_, mask_) in b.iter().zip(masks.iter()) {
             let mut rand = self.prf.gen_zero_share::<T>();
-            if a.len() != b_.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
+            if a.len() != b_.len() {
                 return Err(Error::InvalidSizeError);
             }
             for (i, (a__, b__)) in a.iter().zip(b_.iter()).enumerate() {

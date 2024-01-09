@@ -45,7 +45,6 @@ pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
         a: &[Ashare::VecShare],
         b: &[Ashare::VecShare],
     ) -> Result<Vec<Ashare>, Error>;
-    // TODO Remove Generic impl
     async fn masked_dot_many(
         &mut self,
         a: &Ashare::VecShare,
