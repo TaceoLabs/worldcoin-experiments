@@ -82,7 +82,7 @@ where
         self.aby3.network.get_id()
     }
 
-    async fn hash_based_zero_verifiy(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
+    async fn hash_based_zero_verify(&mut self, w: Aby3Share<U>) -> Result<(), Error> {
         let (wa, wb) = w.get_ab();
         let w_neg = -wa.to_owned() - &wb;
 
@@ -151,7 +151,7 @@ where
         )
         .await?;
         let zero = mul - &res[1];
-        self.hash_based_zero_verifiy(zero).await
+        self.hash_based_zero_verify(zero).await
     }
 
     #[inline(always)]
