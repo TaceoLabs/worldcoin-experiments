@@ -1,5 +1,5 @@
 use crate::aby3::utils::ceil_log2;
-use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable, SpdzWiseShare, Swift3Share};
+use crate::prelude::{Aby3Share, Error, MpcTrait, Sharable /*SpdzWiseShare, Swift3Share*/};
 use crate::traits::share_trait::{ShareTrait, VecShareTrait};
 use crate::types::bit::Bit;
 use crate::types::ring_element::RingImpl;
@@ -12,10 +12,10 @@ const MASK_THRESHOLD: usize = plain_reference::MASK_THRESHOLD;
 const MATCH_THRESHOLD_RATIO: f64 = plain_reference::MATCH_THRESHOLD_RATIO;
 
 pub type IrisAby3<T, Mpc> = IrisProtocol<T, Aby3Share<T>, Aby3Share<Bit>, Mpc>;
-pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
-#[allow(type_alias_bounds)]
-pub type IrisSpdzWise<T: Sharable, Mpc> =
-    IrisProtocol<T, SpdzWiseShare<T::VerificationShare>, Aby3Share<Bit>, Mpc>;
+// pub type IrisSwift3<T, Mpc> = IrisProtocol<T, Swift3Share<T>, Swift3Share<Bit>, Mpc>;
+// #[allow(type_alias_bounds)]
+// pub type IrisSpdzWise<T: Sharable, Mpc> =
+// IrisProtocol<T, SpdzWiseShare<T::VerificationShare>, Aby3Share<Bit>, Mpc>;
 
 pub struct IrisProtocol<
     T: Sharable,
@@ -191,7 +191,7 @@ where
         }
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
-        let mut diffs = Ashare::VecShare::with_capacity(hwds.len());
+        let mut diffs = Vec::with_capacity(hwds.len());
         for (hwd, mask_len) in hwds.into_iter().zip(mask_lens) {
             let diff = self.get_cmp_diff(hwd, mask_len);
             diffs.push(diff);

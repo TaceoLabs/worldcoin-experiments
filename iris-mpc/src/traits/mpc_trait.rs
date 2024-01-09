@@ -78,7 +78,7 @@ pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
     }
 
     async fn get_msb(&mut self, a: Ashare) -> Result<Bshare, Error>;
-    async fn get_msb_many(&mut self, a: Ashare::VecShare) -> Result<Bshare::VecShare, Error>;
+    async fn get_msb_many(&mut self, a: Vec<Ashare>) -> Result<Bshare::VecShare, Error>;
     async fn binary_or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error>;
     async fn reduce_binary_or(
         &mut self,

@@ -1,11 +1,13 @@
 use super::random::prf::{Prf, PrfSeed};
 use super::utils;
+use super::vecshare::VecShare;
 use crate::aby3::share::Share;
 use crate::error::Error;
 use crate::traits::binary_trait::BinaryMpcTrait;
 use crate::traits::mpc_trait::MpcTrait;
 use crate::traits::network_trait::NetworkTrait;
 use crate::traits::security::SemiHonest;
+use crate::traits::share_trait::VecShareTrait;
 use crate::types::bit::Bit;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
@@ -263,13 +265,14 @@ where
         Ok(T::from_sharetype(share.a + share.b + c))
     }
 
-    async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
-        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
-        let res = shares
-            .iter()
+    async fn open_many(&mut self, shares: VecShare<T>) -> Result<Vec<T>, Error> {
+        let (shares_a, shares_b) = shares.get_ab();
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b.to_owned()).await?;
+        let res = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
             .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
+            .map(|((a, b), c)| T::from_sharetype(c + a + b))
             .collect();
         Ok(res)
     }
@@ -279,13 +282,14 @@ where
         Ok((share.a ^ share.b ^ c).convert().convert())
     }
 
-    async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
-        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
-        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b).await?;
-        let res = shares
-            .iter()
+    async fn open_bit_many(&mut self, shares: VecShare<Bit>) -> Result<Vec<bool>, Error> {
+        let (shares_a, shares_b) = shares.get_ab();
+        let shares_c = utils::send_and_receive_vec(&mut self.network, shares_b.to_owned()).await?;
+        let res = shares_a
+            .into_iter()
+            .zip(shares_b.into_iter())
             .zip(shares_c.into_iter())
-            .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
+            .map(|((a, b), c)| (c ^ a ^ b).convert().convert())
             .collect();
         Ok(res)
     }
@@ -333,14 +337,19 @@ where
         a * b.to_sharetype()
     }
 
-    async fn dot(&mut self, a: Vec<Share<T>>, b: Vec<Share<T>>) -> Result<Share<T>, Error> {
+    async fn dot(&mut self, a: VecShare<T>, b: VecShare<T>) -> Result<Share<T>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
 
         let rand = self.prf.gen_zero_share::<T>();
         let mut c = Share::new(rand, T::zero().to_sharetype());
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        let (aa, ab) = a.get_ab();
+        let (ba, bb) = b.get_ab();
+
+        for ((aa_, ab_), (ba_, bb_)) in aa.into_iter().zip(ab).zip(ba.into_iter().zip(bb)) {
+            let a_ = Share::new(aa_, ab_);
+            let b_ = Share::new(ba_, bb_);
             c += a_ * b_;
         }
 
@@ -352,8 +361,8 @@ where
 
     async fn dot_many(
         &mut self,
-        a: &[Vec<Share<T>>],
-        b: &[Vec<Share<T>>],
+        a: &[VecShare<T>],
+        b: &[VecShare<T>],
     ) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
@@ -366,8 +375,13 @@ where
             if a_.len() != b_.len() {
                 return Err(Error::InvalidSizeError);
             }
-            for (a__, b__) in a_.iter().zip(b_.iter()) {
-                rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+
+            for ((aa, ab), (ba, bb)) in
+                a_.a.iter()
+                    .zip(a_.b.iter())
+                    .zip(b_.a.iter().zip(b_.b.iter()))
+            {
+                rand += (aa.clone() * ba) + (aa.clone() * bb) + (ab.clone() * ba);
             }
             shares_a.push(rand);
         }
@@ -386,8 +400,8 @@ where
 
     async fn masked_dot_many(
         &mut self,
-        a: &Vec<Share<T>>,
-        b: &[Vec<Share<T>>],
+        a: &VecShare<T>,
+        b: &[VecShare<T>],
         masks: &[IrisCodeArray],
     ) -> Result<Vec<Share<T>>, Error> {
         let mut shares_a = Vec::with_capacity(a.len());
@@ -397,10 +411,15 @@ where
             if a.len() != b_.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
                 return Err(Error::InvalidSizeError);
             }
-            for (i, (a__, b__)) in a.iter().zip(b_.iter()).enumerate() {
+            for (i, ((aa, ab), (ba, bb))) in
+                a.a.iter()
+                    .zip(a.b.iter())
+                    .zip(b_.a.iter().zip(b_.b.iter()))
+                    .enumerate()
+            {
                 // only aggregate if mask is set
                 if mask_.get_bit(i) {
-                    rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
+                    rand += (aa.clone() * ba) + (aa.clone() * bb) + (ab.clone() * ba);
                 }
             }
             shares_a.push(rand);
@@ -423,10 +442,12 @@ where
         Ok(bits.get_msb())
     }
 
-    async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
+    async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<VecShare<Bit>, Error> {
         let bits = self.arithmetic_to_binary_many(a).await?;
-        let res = bits.into_iter().map(|a| a.get_msb()).collect();
-        Ok(res)
+        let (bits_a, bits_b) = bits.get_ab();
+        let res_a = bits_a.into_iter().map(|a| a.get_msb()).collect();
+        let res_b = bits_b.into_iter().map(|a| a.get_msb()).collect();
+        Ok(VecShare::new(res_a, res_b))
     }
 
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {
@@ -435,7 +456,7 @@ where
 
     async fn reduce_binary_or(
         &mut self,
-        a: Vec<Share<Bit>>,
+        a: VecShare<Bit>,
         chunk_size: usize,
     ) -> Result<Share<Bit>, Error> {
         let packed = self.pack(a);
@@ -463,17 +484,18 @@ where
         Ok(c)
     }
 
-    async fn and_many(
-        &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    async fn and_many(&mut self, a: VecShare<T>, b: VecShare<T>) -> Result<VecShare<T>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
         let mut shares_a = Vec::with_capacity(a.len());
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        let (aa, ab) = a.get_ab();
+        let (ba, bb) = b.get_ab();
+
+        for ((aa_, ab_), (ba_, bb_)) in aa.into_iter().zip(ab).zip(ba.into_iter().zip(bb)) {
             let rand = self.prf.gen_binary_zero_share::<T>();
+            let a_ = Share::new(aa_, ab_);
+            let b_ = Share::new(ba_, bb_);
             let mut c = a_ & b_;
             c.a ^= rand;
             shares_a.push(c.a);
@@ -496,14 +518,11 @@ where
         self.binary_add_3(x1, x2, x3).await
     }
 
-    async fn arithmetic_to_binary_many(
-        &mut self,
-        x: Vec<Share<T>>,
-    ) -> Result<Vec<Share<T>>, Error> {
+    async fn arithmetic_to_binary_many(&mut self, x: Vec<Share<T>>) -> Result<VecShare<T>, Error> {
         let len = x.len();
-        let mut x1 = Vec::with_capacity(len);
-        let mut x2 = Vec::with_capacity(len);
-        let mut x3 = Vec::with_capacity(len);
+        let mut x1 = VecShare::with_capacity(len);
+        let mut x2 = VecShare::with_capacity(len);
+        let mut x3 = VecShare::with_capacity(len);
 
         for x_ in x {
             let (x1_, x2_, x3_) = self.a2b_pre(x_);
