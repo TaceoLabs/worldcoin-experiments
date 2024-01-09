@@ -2,9 +2,12 @@ mod iris_mpc_test {
     use crate::{
         iris::protocol::{IrisProtocol, IrisSpdzWise},
         prelude::{Aby3Share, Bit, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
-        spdzwise::protocol::{SpdzWise, TShare, UShare},
+        spdzwise::{
+            protocol::{SpdzWise, TShare, UShare, VecTShare},
+            vecshare::VecShare,
+        },
         tests::iris_config::iris_config::create_database,
-        traits::mpc_trait::Plain,
+        traits::{mpc_trait::Plain, share_trait::VecShareTrait},
     };
     use plain_reference::IrisCode;
     use rand::{
@@ -32,14 +35,14 @@ mod iris_mpc_test {
         mac_key: T::VerificationShare,
         id: usize,
         rng: &mut R,
-    ) -> Vec<TShare<T>>
+    ) -> VecTShare<T>
     where
         Standard: Distribution<UShare<T>>,
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut shared_code = VecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
             let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(
