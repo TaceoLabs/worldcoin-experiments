@@ -1,12 +1,13 @@
-use super::share::Share;
+use super::{share::Share, vecshare::VecShare};
 use crate::{
     aby3::utils,
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
-    traits::binary_trait::BinaryMpcTrait,
+    traits::{binary_trait::BinaryMpcTrait, share_trait::VecShareTrait},
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
 use num_traits::Zero;
+use plain_reference::IrisCodeArray;
 use rand::{
     distributions::{Distribution, Standard},
     Rng, SeedableRng,
@@ -18,14 +19,16 @@ use std::ops::{Mul, MulAssign};
 #[allow(type_alias_bounds)]
 pub(crate) type TShare<T: Sharable> = Share<T::VerificationShare>;
 #[allow(type_alias_bounds)]
+pub(crate) type VecTShare<T: Sharable> = VecShare<T::VerificationShare>;
+#[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
 pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     aby3: Aby3<N>,
     mac_key: Aby3Share<U>,
-    verifyqueue: Vec<Share<U>>, // For arithmetic
-    send_queue_prev: BytesMut,  // For binary
-    rcv_queue_next: BytesMut,   // For binary
+    verifyqueue: VecShare<U>,  // For arithmetic
+    send_queue_prev: BytesMut, // For binary
+    rcv_queue_next: BytesMut,  // For binary
 }
 
 impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U>
@@ -41,7 +44,7 @@ where
         Self {
             aby3,
             mac_key: Aby3Share::default(),
-            verifyqueue: Vec::new(),
+            verifyqueue: VecShare::default(),
             send_queue_prev,
             rcv_queue_next,
         }
@@ -109,17 +112,10 @@ where
             .map(|_| self.aby3.prf.gen_rand::<U>())
             .collect::<Vec<_>>();
 
-        let mut swap = Vec::new();
+        let mut swap = VecShare::default();
         std::mem::swap(&mut swap, &mut self.verifyqueue);
 
-        let mut values = Vec::with_capacity(len);
-        let mut macs = Vec::with_capacity(len);
-
-        for share in swap.into_iter() {
-            let (value, mac) = share.get();
-            values.push(value);
-            macs.push(mac);
-        }
+        let (values, macs) = swap.get();
 
         let res = <_ as MpcTrait<U, Aby3Share<U>, Aby3Share<Bit>>>::dot_many(
             &mut self.aby3,
@@ -319,7 +315,7 @@ where
             a_mul.push(self.aby3.prf.gen_rand());
         }
         let b_mul_ = b_mul.clone();
-        b_mul.extend(b_mul.to_owned());
+        <Vec<_> as std::iter::Extend<_>>::extend(&mut b_mul, b_mul_.to_owned());
         let a_ = a_mul[len..].to_vec();
 
         // Finally Mul
@@ -583,17 +579,15 @@ where
         Ok(T::from_verificationshare(result))
     }
 
-    async fn open_many(&mut self, shares: Vec<TShare<T>>) -> Result<Vec<T>, Error> {
+    async fn open_many(&mut self, shares: VecTShare<T>) -> Result<Vec<T>, Error> {
         self.verifyqueue.extend(shares.to_owned());
         self.verify_macs().await?;
-
-        let values = shares.into_iter().map(|s| s.get_value()).collect();
 
         let result = <_ as MpcTrait<
             T::VerificationShare,
             Aby3Share<T::VerificationShare>,
             Aby3Share<Bit>,
-        >>::open_many(&mut self.aby3, values)
+        >>::open_many(&mut self.aby3, shares.get_values())
         .await?;
 
         let result = result
@@ -762,22 +756,14 @@ where
         Share::new(value, mac)
     }
 
-    async fn dot(&mut self, a: Vec<TShare<T>>, b: Vec<TShare<T>>) -> Result<TShare<T>, Error> {
+    async fn dot(&mut self, a: VecTShare<T>, b: VecTShare<T>) -> Result<TShare<T>, Error> {
         let len = a.len();
         if len != b.len() {
             return Err(Error::InvalidSizeError);
         }
-        let mut a_values = Vec::with_capacity(len);
-        let mut a_macs = Vec::with_capacity(len);
-        let mut b_values = Vec::with_capacity(len);
 
-        for (a, b) in a.into_iter().zip(b.into_iter()) {
-            let (a_v, a_m) = a.get();
-            let b_v = b.get_value();
-            a_values.push(a_v);
-            a_macs.push(a_m);
-            b_values.push(b_v);
-        }
+        let (a_values, a_macs) = a.get();
+        let b_values = b.get_values();
 
         let res = <_ as MpcTrait<
             T::VerificationShare,
@@ -792,65 +778,138 @@ where
 
         let result = Share::new(res[0].to_owned(), res[1].to_owned());
 
+        // Add to verification queue
         self.verifyqueue.push(result.to_owned());
         Ok(result)
     }
 
     async fn dot_many(
         &mut self,
-        a: &[Vec<TShare<T>>],
-        b: &[Vec<TShare<T>>],
+        a: &[VecTShare<T>],
+        b: &[VecTShare<T>],
     ) -> Result<Vec<TShare<T>>, Error> {
         let len = a.len();
         if len != b.len() {
             return Err(Error::InvalidSizeError);
         }
 
-        let mut a_values = Vec::with_capacity(len);
-        let mut a_macs = Vec::with_capacity(len);
-        let mut b_values = Vec::with_capacity(len);
+        let mut shares_a = Vec::with_capacity(2 * len);
+        let mut mac_shares_a = Vec::with_capacity(2 * len);
 
-        for (a, b) in a.iter().zip(b.iter()) {
-            let mut a_v = Vec::with_capacity(len);
-            let mut a_m = Vec::with_capacity(len);
-            let mut b_v = Vec::with_capacity(len);
-            for (a, b) in a.iter().cloned().zip(b.iter().cloned()) {
-                let (a_v_, a_m_) = a.get();
-                let b_v_ = b.get_value();
-                a_v.push(a_v_);
-                a_m.push(a_m_);
-                b_v.push(b_v_);
+        for (a, b) in a.iter().cloned().zip(b.iter().cloned()) {
+            let (a_v, a_m) = a.get();
+            let b_v = b.get_values();
+
+            if a_v.len() != b_v.len() {
+                return Err(Error::InvalidSizeError);
             }
-            a_values.push(a_v);
-            a_macs.push(a_m);
-            b_values.push(b_v);
+
+            let mut rand = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
+            let mut rand2 = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
+
+            for (a_, b_) in a_v.into_iter().zip(b_v.iter()) {
+                rand += (a_ * b_).a;
+            }
+            shares_a.push(rand);
+
+            for (a_, b_) in a_m.into_iter().zip(b_v.iter()) {
+                rand2 += (a_ * b_).a;
+            }
+            mac_shares_a.push(rand2);
         }
 
-        a_values.extend(a_macs);
-        b_values.extend(b_values.to_owned());
+        shares_a.extend(mac_shares_a);
 
-        let values = <_ as MpcTrait<
-            T::VerificationShare,
-            Aby3Share<T::VerificationShare>,
-            Aby3Share<Bit>,
-        >>::dot_many(&mut self.aby3, &a_values, &b_values)
-        .await?;
+        // Network: reshare
+        let shares_b =
+            utils::send_and_receive_vec(&mut self.aby3.network, shares_a.to_owned()).await?;
 
-        let mut result = Vec::with_capacity(len);
+        let mac_a = shares_a[len..].to_vec();
+        let mac_b = shares_b[len..].to_vec();
+
+        let res = shares_a
+            .into_iter()
+            .zip(mac_a)
+            .zip(shares_b.into_iter().zip(mac_b))
+            .map(|((a_val, a_mac), (b_val, b_mac))| {
+                let share = Aby3Share::new(a_val, b_val);
+                let mac = Aby3Share::new(a_mac, b_mac);
+                Share::new(share, mac)
+            })
+            .collect::<Vec<_>>();
+
+        // Add to verification queue
         self.verifyqueue.reserve(len);
-
-        for (value, mac) in values
-            .iter()
-            .take(len)
-            .cloned()
-            .zip(values.iter().skip(len).cloned())
-        {
-            let share = Share::new(value, mac);
-            self.verifyqueue.push(share.to_owned());
-            result.push(share);
+        for r in res.iter().cloned() {
+            self.verifyqueue.push(r);
         }
 
-        Ok(result)
+        Ok(res)
+    }
+
+    async fn masked_dot_many(
+        &mut self,
+        a: &VecTShare<T>,
+        b: &[VecTShare<T>],
+        masks: &[IrisCodeArray],
+    ) -> Result<Vec<TShare<T>>, Error> {
+        let len = b.len();
+        if a.len() != IrisCodeArray::IRIS_CODE_SIZE {
+            return Err(Error::InvalidSizeError);
+        }
+
+        let mut shares_a = Vec::with_capacity(2 * len);
+        let mut mac_shares_a = Vec::with_capacity(2 * len);
+
+        for (b, mask) in b.iter().zip(masks.iter()) {
+            let mut rand = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
+            let mut rand2 = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
+
+            for (i, ((a_, b_), am)) in a
+                .values
+                .iter()
+                .zip(b.values.iter())
+                .zip(a.macs.iter())
+                .enumerate()
+            {
+                // only aggregate if mask is set
+                if mask.get_bit(i) {
+                    rand += (a_.clone() * b_).a;
+                    rand2 += (am.clone() * b_).a;
+                    // TODO: check if we can allow ref * ref ops in RingImpl
+                }
+            }
+            shares_a.push(rand);
+            mac_shares_a.push(rand2);
+        }
+
+        shares_a.extend(mac_shares_a);
+
+        // Network: reshare
+        let shares_b =
+            utils::send_and_receive_vec(&mut self.aby3.network, shares_a.to_owned()).await?;
+
+        let mac_a = shares_a[len..].to_vec();
+        let mac_b = shares_b[len..].to_vec();
+
+        let res = shares_a
+            .into_iter()
+            .zip(mac_a)
+            .zip(shares_b.into_iter().zip(mac_b))
+            .map(|((a_val, a_mac), (b_val, b_mac))| {
+                let share = Aby3Share::new(a_val, b_val);
+                let mac = Aby3Share::new(a_mac, b_mac);
+                Share::new(share, mac)
+            })
+            .collect::<Vec<_>>();
+
+        // Add to verification queue
+        self.verifyqueue.reserve(len);
+        for r in res.iter().cloned() {
+            self.verifyqueue.push(r);
+        }
+
+        Ok(res)
     }
 
     async fn get_msb(&mut self, a: TShare<T>) -> Result<Aby3Share<Bit>, Error> {
@@ -864,7 +923,10 @@ where
     }
 
     async fn get_msb_many(&mut self, a: Vec<TShare<T>>) -> Result<Vec<Aby3Share<Bit>>, Error> {
-        self.verifyqueue.extend(a.to_owned());
+        self.verifyqueue.reserve(a.len());
+        for a_ in a.iter().cloned() {
+            self.verifyqueue.push(a_);
+        }
         self.verify_macs().await?;
 
         // protocol switch
@@ -872,6 +934,7 @@ where
             .into_iter()
             .map(|a| Aby3Share::<T>::from_verificationtype(a.get_value()))
             .collect();
+
         let bits = self.arithmetic_to_binary_many(values).await?;
         let res = bits.into_iter().map(|a| a.get_msb()).collect();
         Ok(res)
@@ -930,11 +993,11 @@ where
         let mut b_bits = Vec::with_capacity(T::Share::K * len);
 
         for a in a.into_iter() {
-            a_bits.extend(a.to_bits());
+            <Vec<_> as std::iter::Extend<_>>::extend(&mut a_bits, a.to_bits());
         }
 
         for b in b.into_iter() {
-            b_bits.extend(b.to_bits());
+            <Vec<_> as std::iter::Extend<_>>::extend(&mut b_bits, b.to_bits());
         }
 
         let c_bits = self

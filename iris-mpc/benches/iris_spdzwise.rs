@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iris_mpc::prelude::{
     Aby3, Aby3Share, IrisSpdzWise, MpcTrait, PartyTestNetwork, Sharable, SpdzWise, SpdzWiseShare,
-    TestNetwork3p,
+    SpdzWiseVecShare, TestNetwork3p, VecShareTrait,
 };
 use plain_reference::{IrisCode, IrisCodeArray};
 use rand::{
@@ -19,9 +19,9 @@ pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 async fn spdzwise_task<T: Sharable>(
     net: PartyTestNetwork,
     mac_key: SpdzWiseShare<T::VerificationShare>,
-    code: Vec<SpdzWiseShare<T::VerificationShare>>,
+    code: SpdzWiseVecShare<T::VerificationShare>,
     mask: IrisCodeArray,
-    shared_db: Vec<Vec<SpdzWiseShare<T::VerificationShare>>>,
+    shared_db: Vec<SpdzWiseVecShare<T::VerificationShare>>,
     masks: Vec<IrisCodeArray>,
 ) -> bool
 where
@@ -47,7 +47,7 @@ where
 
 fn iris_spdzwise<T: Sharable, R: Rng>(
     c: &mut Criterion,
-    shared_code: &[Vec<Vec<SpdzWiseShare<T::VerificationShare>>>],
+    shared_code: &[Vec<SpdzWiseVecShare<T::VerificationShare>>],
     mac_key: T::VerificationShare,
     masks: &Vec<IrisCodeArray>,
     rng: &mut R,
@@ -70,9 +70,9 @@ fn iris_spdzwise<T: Sharable, R: Rng>(
 
     // share an iris
     let iris = IrisCode::random_rng(rng);
-    let mut code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-    let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-    let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_a = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_b = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
+    let mut code_c = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
     for i in 0..IrisCode::IRIS_CODE_SIZE {
         let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(
             T::from(iris.code.get_bit(i)),
@@ -139,7 +139,7 @@ fn spdzwise_share_db<T: Sharable, R: Rng>(
     mac_key: T::VerificationShare,
     rng: &mut R,
 ) -> (
-    Vec<Vec<Vec<SpdzWiseShare<T::VerificationShare>>>>,
+    Vec<Vec<SpdzWiseVecShare<T::VerificationShare>>>,
     Vec<IrisCodeArray>,
 )
 where
@@ -155,9 +155,9 @@ where
     let mut masks = Vec::with_capacity(db.len());
 
     for code in db {
-        let mut code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        let mut code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        let mut code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut code_a = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut code_b = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut code_c = SpdzWiseVecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(
                 T::from(code.code.get_bit(i)),

@@ -2,7 +2,11 @@ use super::random::prf::PrfSeed;
 use crate::{
     error::Error,
     prelude::Sharable,
-    traits::{binary_trait::BinaryMpcTrait, network_trait::NetworkTrait},
+    traits::{
+        binary_trait::BinaryMpcTrait,
+        network_trait::NetworkTrait,
+        share_trait::{ShareTrait, VecShareTrait},
+    },
     types::{
         int_ring::IntRing2k,
         ring_element::{RingElement, RingImpl},
@@ -191,9 +195,9 @@ where
     out.freeze()
 }
 
-pub(crate) async fn or_tree<T, Mpc, Share>(
+pub(crate) async fn or_tree<T, Mpc, Share: ShareTrait>(
     engine: &mut Mpc,
-    mut inputs: Vec<Share>,
+    mut inputs: Share::VecShare,
     chunk_size: usize,
 ) -> Result<Share, Error>
 where
@@ -214,24 +218,27 @@ where
         let mod_ = num & 1;
         num >>= 1;
 
-        let a_vec = &inputs[0..num];
-        let b_vec = &inputs[num..2 * num];
+        let (a_vec, tmp) = inputs.split_at(num);
+        let (b_vec, leftover) = tmp.split_at(num);
 
-        let mut res = Vec::with_capacity(num + mod_);
-        for (tmp_a, tmp_b) in a_vec.chunks(chunk_size).zip(b_vec.chunks(chunk_size)) {
-            let r = engine.or_many(tmp_a.to_vec(), tmp_b.to_vec()).await?;
+        let mut res = Share::VecShare::with_capacity(num + mod_);
+
+        for (tmp_a, tmp_b) in a_vec
+            .chunks(chunk_size)
+            .into_iter()
+            .zip(b_vec.chunks(chunk_size))
+        {
+            let r = engine.or_many(tmp_a, tmp_b).await?;
             res.extend(r);
         }
 
-        for leftover in inputs.into_iter().skip(2 * num) {
-            res.push(leftover);
-        }
+        res.extend(leftover);
         inputs = res;
 
         num += mod_;
     }
 
-    let output = inputs[0].to_owned();
+    let output = inputs.get_at(0);
     Ok(output)
 }
 

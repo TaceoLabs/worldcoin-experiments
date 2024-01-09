@@ -4,8 +4,12 @@ mod spdzwise_test {
         spdzwise::{
             protocol::{SpdzWise, TShare, UShare},
             share::Share,
+            vecshare::VecShare,
         },
-        traits::mpc_trait::{MpcTrait, Plain},
+        traits::{
+            mpc_trait::{MpcTrait, Plain},
+            share_trait::VecShareTrait,
+        },
         types::{int_ring::IntRing2k, sharable::Sharable},
     };
     use num_traits::Zero;
@@ -110,6 +114,7 @@ mod spdzwise_test {
         <_ as MpcTrait<T, TShare<T>, Aby3Share<Bit>>>::verify(&mut protocol)
             .await
             .unwrap();
+        let shares = VecShare::from_vec(shares);
         let open = protocol.open_many(shares).await.unwrap();
 
         MpcTrait::<T, TShare<T>, Aby3Share<Bit>>::finish(protocol)
@@ -579,8 +584,8 @@ mod spdzwise_test {
         let mut rng = ChaCha12Rng::from_entropy();
 
         let mut input = Vec::with_capacity(DOT_SIZE);
-        let mut a = Vec::with_capacity(DOT_SIZE);
-        let mut b = Vec::with_capacity(DOT_SIZE);
+        let mut a = VecShare::with_capacity(DOT_SIZE);
+        let mut b = VecShare::with_capacity(DOT_SIZE);
         for _ in 0..DOT_SIZE {
             let input1 = if id == 0 {
                 let inp = rng.gen::<T>();

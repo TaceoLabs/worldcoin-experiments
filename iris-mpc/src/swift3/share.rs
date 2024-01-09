@@ -1,5 +1,6 @@
 use crate::{
     prelude::{Bit, Sharable},
+    traits::share_trait::ShareTrait,
     types::{
         int_ring::IntRing2k,
         ring_element::{RingElement, RingImpl},
@@ -26,6 +27,10 @@ pub struct Share<T: Sharable> {
     pub(crate) b: T::Share,
     pub(crate) c: T::Share,
     sharetype: PhantomData<T>,
+}
+
+impl<T: Sharable> ShareTrait for Share<T> {
+    type VecShare = Vec<Self>;
 }
 
 impl<T: Sharable> Share<T> {

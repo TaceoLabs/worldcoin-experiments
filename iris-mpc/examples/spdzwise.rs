@@ -5,6 +5,7 @@ use color_eyre::{
 };
 use iris_mpc::prelude::{
     Aby3Network, Aby3Share, Error, IrisSpdzWise, MpcTrait, Sharable, SpdzWise, SpdzWiseShare,
+    SpdzWiseVecShare, VecShareTrait,
 };
 use mpc_net::config::{NetworkConfig, NetworkParty};
 use plain_reference::{IrisCode, IrisCodeArray};
@@ -100,7 +101,7 @@ async fn setup_network(args: Args) -> Result<Aby3Network> {
 
 #[derive(Default)]
 struct SharedDB<T: Sharable> {
-    shares: Vec<Vec<SpdzWiseShare<T::VerificationShare>>>,
+    shares: Vec<SpdzWiseVecShare<T::VerificationShare>>,
     masks: Vec<IrisCodeArray>,
     mac_key: T::VerificationShare,
     mac_key_share: SpdzWiseShare<T::VerificationShare>,
@@ -108,7 +109,7 @@ struct SharedDB<T: Sharable> {
 
 #[derive(Default)]
 struct SharedIris<T: Sharable> {
-    shares: Vec<SpdzWiseShare<T::VerificationShare>>,
+    shares: SpdzWiseVecShare<T::VerificationShare>,
     mask: IrisCodeArray,
 }
 
@@ -174,7 +175,8 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         {
             Err(Error::InvalidCodeSizeError)?;
         }
-        let mut share = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut shares = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut macs = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
 
         for ((a, b), (mac_a, mac_b)) in share_a
             .into_iter()
@@ -183,8 +185,10 @@ fn read_db<T: Sharable>(args: Args) -> Result<SharedDB<T>> {
         {
             let s = Aby3Share::new(a, b);
             let m = Aby3Share::new(mac_a, mac_b);
-            share.push(SpdzWiseShare::new(s, m));
+            shares.push(s);
+            macs.push(m);
         }
+        let share = SpdzWiseVecShare::new(shares, macs);
 
         res.shares.push(share);
         res.masks.push(mask);

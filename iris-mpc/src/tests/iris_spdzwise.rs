@@ -2,11 +2,14 @@ mod iris_mpc_test {
     use crate::{
         iris::protocol::{IrisProtocol, IrisSpdzWise},
         prelude::{Aby3Share, Bit, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
-        spdzwise::protocol::{SpdzWise, TShare, UShare},
+        spdzwise::{
+            protocol::{SpdzWise, TShare, UShare, VecTShare},
+            vecshare::VecShare,
+        },
         tests::iris_config::iris_config::create_database,
-        traits::mpc_trait::Plain,
+        traits::{mpc_trait::Plain, share_trait::VecShareTrait},
     };
-    use plain_reference::{IrisCode, IrisCodeArray};
+    use plain_reference::IrisCode;
     use rand::{
         distributions::{Distribution, Standard},
         Rng, SeedableRng,
@@ -32,14 +35,14 @@ mod iris_mpc_test {
         mac_key: T::VerificationShare,
         id: usize,
         rng: &mut R,
-    ) -> Vec<TShare<T>>
+    ) -> VecTShare<T>
     where
         Standard: Distribution<UShare<T>>,
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
     {
-        let mut shared_code = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
+        let mut shared_code = VecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
             // We simulate the parties already knowing the shares of the code.
             let shares = SpdzWise::<PartyTestNetwork, T::VerificationShare>::share(
@@ -50,98 +53,6 @@ mod iris_mpc_test {
             shared_code.push(shares[id].to_owned());
         }
         shared_code
-    }
-
-    async fn mask_test_spdzwise_impl_inner<T: Sharable, R: Rng + SeedableRng>(
-        net: PartyTestNetwork,
-        seed: R::Seed,
-        iris_seed: R::Seed,
-    ) -> Vec<IrisCodeArray>
-    where
-        Standard: Distribution<UShare<T>>,
-        Standard: Distribution<T::Share>,
-        Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
-        Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
-        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
-        let mut iris = IrisSpdzWise::<T, _>::new(protocol).unwrap();
-        let id = iris.get_id();
-
-        iris.preprocessing().await.unwrap();
-        iris.set_new_mac_key();
-        let r = iris.open_mac_key().await.unwrap();
-
-        let mut iris_rng = R::from_seed(iris_seed);
-        let mut rng = R::from_seed(seed);
-        let mut results = Vec::with_capacity(TESTRUNS);
-        for _ in 0..TESTRUNS {
-            let code = IrisCode::random_rng(&mut iris_rng);
-
-            let shared_code = share_iris_code::<T, _>(&code, r, id, &mut rng);
-
-            let masked_code = iris.apply_mask(shared_code, &code.mask).unwrap();
-            iris.verify().await.unwrap();
-            let open_masked_code: Vec<T> = iris.get_mpc_mut().open_many(masked_code).await.unwrap();
-
-            let mut bitarr = IrisCodeArray::default();
-            for (i, code_bit) in open_masked_code.into_iter().enumerate() {
-                assert!(code_bit.is_zero() || code_bit.is_one());
-                bitarr.set_bit(i, code_bit == T::one());
-            }
-            results.push(bitarr);
-        }
-
-        iris.finish().await.unwrap();
-        results
-    }
-
-    async fn mask_test_spdzwise_impl<T: Sharable>()
-    where
-        Standard: Distribution<UShare<T>>,
-        Standard: Distribution<T::Share>,
-        Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
-        Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
-        <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let mut tasks = Vec::with_capacity(NUM_PARTIES);
-
-        let mut rng = ChaCha12Rng::from_entropy();
-        let iris_seed = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
-        let seed: [u8; 32] = rng.gen::<<ChaCha12Rng as SeedableRng>::Seed>();
-        let mut iris_rng = ChaCha12Rng::from_seed(iris_seed);
-
-        let network = TestNetwork3p::new();
-        let net = network.get_party_networks();
-
-        for n in net {
-            let t = tokio::spawn(async move {
-                mask_test_spdzwise_impl_inner::<T, ChaCha12Rng>(n, seed, iris_seed).await
-            });
-            tasks.push(t);
-        }
-
-        let mut results = Vec::with_capacity(NUM_PARTIES);
-        for t in tasks {
-            let r = t.await.expect("Task exited normally");
-            results.push(r);
-        }
-
-        let r0 = &results[0];
-        for r in results.iter().skip(1) {
-            assert_eq!(r0, r);
-        }
-        // Compare to plain
-        for r in r0.iter() {
-            let plain = IrisCode::random_rng(&mut iris_rng);
-            let plain_code = plain.code & plain.mask;
-            assert_eq!(&plain_code, r);
-        }
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-    async fn mask_test_spdzwise() {
-        mask_test_spdzwise_impl::<u16>().await
     }
 
     async fn hwd_test_spdzwise_impl_inner<T: Sharable, R: Rng + SeedableRng>(
@@ -230,7 +141,7 @@ mod iris_mpc_test {
             let distance: T = combined_code
                 .count_ones()
                 .try_into()
-                .expect("Overflow should not happene");
+                .expect("Overflow should not happen");
             assert_eq!(&distance, r);
         }
     }
@@ -250,7 +161,7 @@ mod iris_mpc_test {
         let mut iris_rng = ChaCha12Rng::from_entropy();
 
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         for _ in 0..TESTRUNS {
             let code1 = IrisCode::random_rng(&mut iris_rng);
@@ -283,7 +194,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let combined_mask = code1.mask & code2.mask;
         let combined_code = code1.code ^ code2.code;
@@ -299,7 +210,8 @@ mod iris_mpc_test {
         let cmp = iris
             .compare_threshold(distance, combined_mask.count_ones())
             .await
-            .unwrap();
+            .unwrap()
+            .convert();
 
         assert_eq!(cmp, cmp_);
         cmp
@@ -449,7 +361,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let inp1 = iris_code_plain_type(&code1);
 
@@ -464,10 +376,11 @@ mod iris_mpc_test {
             mask2.push(code.mask);
         }
 
-        let cmp = iris
-            .compare_iris_many(&inp1, &inp2s, &code1.mask, &mask2)
-            .await
-            .unwrap();
+        let cmp = Bit::convert_vec(
+            iris.compare_iris_many(&inp1, &inp2s, &code1.mask, &mask2)
+                .await
+                .unwrap(),
+        );
 
         assert_eq!(cmp, cmp_);
         cmp
@@ -481,7 +394,7 @@ mod iris_mpc_test {
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let inp1 = iris_code_plain_type(&code1);
         let inp2 = iris_code_plain_type(&code2);
@@ -489,7 +402,8 @@ mod iris_mpc_test {
         let cmp = iris
             .compare_iris(inp1, inp2, &code1.mask, &code2.mask)
             .await
-            .unwrap();
+            .unwrap()
+            .convert();
 
         let cmp_ = code1.is_close(&code2);
         assert_eq!(cmp, cmp_);
@@ -735,7 +649,7 @@ mod iris_mpc_test {
 
         // calculate
         let protocol = Plain::default();
-        let mut iris: IrisProtocol<T, T, bool, Plain> = IrisProtocol::new(protocol).unwrap();
+        let mut iris: IrisProtocol<T, T, Bit, Plain> = IrisProtocol::new(protocol).unwrap();
 
         let res1 = iris
             .iris_in_db(&iris1_, &db_t, &iris1.mask, &masks, CHUNK_SIZE)

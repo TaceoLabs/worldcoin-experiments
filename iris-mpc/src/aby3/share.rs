@@ -1,8 +1,12 @@
-use crate::types::{
-    bit::Bit,
-    int_ring::IntRing2k,
-    ring_element::{RingElement, RingImpl},
-    sharable::Sharable,
+use super::id::PartyID;
+use crate::{
+    traits::share_trait::ShareTrait,
+    types::{
+        bit::Bit,
+        int_ring::IntRing2k,
+        ring_element::{RingElement, RingImpl},
+        sharable::Sharable,
+    },
 };
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -14,14 +18,16 @@ use std::{
     },
 };
 
-use super::id::PartyID;
-
 // share x = x1 + x2 + x3 where party i has (xi, x{i-1})
 #[derive(Clone, Debug, PartialEq, Default, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Share<T: Sharable> {
     pub(crate) a: T::Share,
     pub(crate) b: T::Share,
     sharetype: PhantomData<T>,
+}
+
+impl<T: Sharable> ShareTrait for Share<T> {
+    type VecShare = Vec<Self>;
 }
 
 impl<T: Sharable> Share<T> {

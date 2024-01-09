@@ -1,4 +1,8 @@
-use crate::prelude::{Aby3Share, Sharable};
+use super::vecshare::VecShare;
+use crate::{
+    prelude::{Aby3Share, Sharable},
+    traits::share_trait::ShareTrait,
+};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
@@ -8,6 +12,10 @@ use std::ops::Add;
 pub struct Share<T: Sharable> {
     value: Aby3Share<T>,
     mac: Aby3Share<T>,
+}
+
+impl<T: Sharable> ShareTrait for Share<T> {
+    type VecShare = VecShare<T>;
 }
 
 impl<T: Sharable> Share<T> {
@@ -47,7 +55,6 @@ impl<T: Sharable> Zero for Share<T> {
         }
     }
 
-    // TODO is this corect?
     fn is_zero(&self) -> bool {
         self.value.is_zero() && self.mac.is_zero()
     }

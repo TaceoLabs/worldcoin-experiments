@@ -26,6 +26,10 @@ impl std::fmt::Display for Bit {
 }
 
 impl Bit {
+    pub fn new(value: bool) -> Self {
+        Self(value)
+    }
+
     /// Safe because Bit has repr(transparent)
     pub fn convert_slice(vec: &[Self]) -> &[bool] {
         // SAFETY: Bit has repr(transparent)
