@@ -205,6 +205,13 @@ impl Iterator for Bits<'_> {
             Some(res)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            IrisCodeArray::IRIS_CODE_SIZE - self.index,
+            Some(IrisCodeArray::IRIS_CODE_SIZE - self.index),
+        )
+    }
 }
 
 #[cfg(test)]

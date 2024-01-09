@@ -72,9 +72,9 @@ fn create_aby3_db(opts: Opts) -> Result<()> {
         let mut shared_code_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut shared_code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut shared_code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        for i in 0..IrisCode::IRIS_CODE_SIZE {
+        for bit in code.code.bits() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = Aby3::<Aby3Network>::share(u16::from(code.code.get_bit(i)), 0, &mut rng);
+            let shares = Aby3::<Aby3Network>::share(u16::from(bit), 0, &mut rng);
             shared_code_a.push(shares[0].to_owned().get_a());
             shared_code_b.push(shares[1].to_owned().get_a());
             shared_code_c.push(shares[2].to_owned().get_a());
@@ -138,10 +138,9 @@ fn create_swift3_db(opts: Opts) -> Result<()> {
         let mut shared_code_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut shared_code_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut shared_code_d = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        for i in 0..IrisCode::IRIS_CODE_SIZE {
+        for bit in code.code.bits() {
             // We simulate the parties already knowing the shares of the code.
-            let shares =
-                Swift3::<Swift3Network, u16>::share(u16::from(code.code.get_bit(i)), 0, &mut rng);
+            let shares = Swift3::<Swift3Network, u16>::share(u16::from(bit), 0, &mut rng);
             let (a, d) = shares[0].to_owned().get_ac();
             shared_code_a.push(a);
             shared_code_b.push(shares[1].to_owned().get_a());
@@ -242,13 +241,9 @@ fn create_spdzwise_db(opts: Opts) -> Result<()> {
         let mut mac_a = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut mac_b = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
         let mut mac_c = Vec::with_capacity(IrisCode::IRIS_CODE_SIZE);
-        for i in 0..IrisCode::IRIS_CODE_SIZE {
+        for bit in code.code.bits() {
             // We simulate the parties already knowing the shares of the code.
-            let shares = SpdzWise::<Aby3Network, _>::share(
-                u16::from(code.code.get_bit(i)),
-                mac_key,
-                &mut rng,
-            );
+            let shares = SpdzWise::<Aby3Network, _>::share(u16::from(bit), mac_key, &mut rng);
             let (v1, m1) = shares[0].to_owned().get();
             let (v2, m2) = shares[1].to_owned().get();
             let (v3, m3) = shares[2].to_owned().get();

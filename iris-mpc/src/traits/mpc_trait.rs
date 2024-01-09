@@ -63,8 +63,8 @@ pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
                 return Err(Error::InvalidCodeSizeError);
             }
 
-            for i in 0..IrisCodeArray::IRIS_CODE_SIZE {
-                if !mask.get_bit(i) {
+            for (i, b) in mask.bits().enumerate() {
+                if !b {
                     code1.set_at(i, Ashare::zero());
                     code2.set_at(i, Ashare::zero());
                 }
@@ -107,16 +107,16 @@ impl<T: Sharable> VecShareTrait for Vec<T> {
         b: &Self,
         mask: &plain_reference::IrisCodeArray,
     ) -> Result<(Self::Share, Self::Share), Error> {
-        if a.is_empty() || a.len() != b.len() {
+        if a.is_empty() || a.len() != b.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
             return Err(Error::InvalidCodeSizeError);
         }
 
         let (sum_a, sum_b) = a
             .iter()
             .zip(b)
-            .enumerate()
-            .filter(|(i, _)| mask.get_bit(*i))
-            .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .map(|((a_, b_), _)| (a_.to_owned(), b_.to_owned()))
             .reduce(|(aa, ab), (ba, bb)| (aa + ba, ab + bb))
             .expect("Size is not zero");
         Ok((sum_a, sum_b))

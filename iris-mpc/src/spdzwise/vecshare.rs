@@ -59,9 +59,9 @@ impl<T: Sharable> VecShareTrait for VecShare<T> {
             .iter()
             .zip(a.macs.iter())
             .zip(b.values.iter().zip(b.macs.iter()))
-            .enumerate()
-            .filter(|(i, _)| mask.get_bit(*i))
-            .map(|(_, ((aval, amac), (bval, bmac)))| {
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .map(|(((aval, amac), (bval, bmac)), _)| {
                 (
                     aval.to_owned(),
                     amac.to_owned(),

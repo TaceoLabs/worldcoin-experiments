@@ -864,15 +864,12 @@ where
             let mut rand = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
             let mut rand2 = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
 
-            for (i, ((a_, b_), am)) in a
-                .values
-                .iter()
-                .zip(b.values.iter())
-                .zip(a.macs.iter())
-                .enumerate()
+            for (bit, ((a_, b_), am)) in mask
+                .bits()
+                .zip(a.values.iter().zip(b.values.iter()).zip(a.macs.iter()))
             {
                 // only aggregate if mask is set
-                if mask.get_bit(i) {
+                if bit {
                     rand += (a_.clone() * b_).a;
                     rand2 += (am.clone() * b_).a;
                     // TODO: check if we can allow ref * ref ops in RingImpl
