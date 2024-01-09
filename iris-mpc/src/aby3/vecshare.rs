@@ -34,20 +34,33 @@ impl<T: Sharable> VecShareTrait for VecShare<T> {
         b: &Self,
         mask: &plain_reference::IrisCodeArray,
     ) -> Result<(Self::Share, Self::Share), Error> {
-        todo!()
-        // if a.is_empty() || a.len() != b.len() {
-        //     return Err(Error::InvalidCodeSizeError);
-        // }
+        if a.is_empty() || a.len() != b.len() {
+            return Err(Error::InvalidCodeSizeError);
+        }
 
-        // let (sum_a, sum_b) = a
-        //     .iter()
-        //     .zip(b)
-        //     .enumerate()
-        //     .filter(|(i, _)| mask.get_bit(*i))
-        //     .map(|(_, (a_, b_))| (a_.to_owned(), b_.to_owned()))
-        //     .reduce(|(aa, ab), (ba, bb)| (aa + ba, ab + bb))
-        //     .expect("Size is not zero");
-        // Ok((sum_a, sum_b))
+        let (sum_aa, sum_ab, sum_ba, sum_bb) =
+            a.a.iter()
+                .zip(a.b.iter())
+                .zip(b.a.iter().zip(b.b.iter()))
+                .enumerate()
+                .filter(|(i, _)| mask.get_bit(*i))
+                .map(|(_, ((aa_, ab_), (ba_, bb_)))| {
+                    (
+                        aa_.to_owned(),
+                        ab_.to_owned(),
+                        ba_.to_owned(),
+                        bb_.to_owned(),
+                    )
+                })
+                .reduce(|(aa, ab, ba, bb), (aa_, ab_, ba_, bb_)| {
+                    (aa + aa_, ab + ab_, ba + ba_, bb + bb_)
+                })
+                .expect("Size is not zero");
+
+        let sum_a = Share::new(sum_aa, sum_ab);
+        let sum_b = Share::new(sum_ba, sum_bb);
+
+        Ok((sum_a, sum_b))
     }
 
     fn with_capacity(capacity: usize) -> Self {
