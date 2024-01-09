@@ -34,6 +34,13 @@ impl IrisCodeArray {
             self.0[word] &= !(1u64 << bit);
         }
     }
+    pub fn bits(&self) -> Bits<'_> {
+        Bits {
+            code: self,
+            current: 0,
+            index: 0,
+        }
+    }
     #[inline]
     pub fn get_bit(&self, i: usize) -> bool {
         let word = i / 64;
@@ -173,5 +180,40 @@ impl IrisCode {
         }
 
         res
+    }
+}
+
+pub struct Bits<'a> {
+    code: &'a IrisCodeArray,
+    current: u64,
+    index: usize,
+}
+
+impl Iterator for Bits<'_> {
+    type Item = bool;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= IrisCodeArray::IRIS_CODE_SIZE {
+            None
+        } else {
+            if self.index % 64 == 0 {
+                self.current = self.code.0[self.index / 64];
+            }
+            let res = self.current & 1 == 1;
+            self.current >>= 1;
+            self.index += 1;
+            Some(res)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn bit_iter_eq_get_bit() {
+        let iris = super::IrisCode::random();
+        for (i, bit) in iris.code.bits().enumerate() {
+            assert_eq!(iris.code.get_bit(i), bit);
+        }
     }
 }

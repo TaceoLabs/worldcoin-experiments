@@ -962,6 +962,7 @@ dependencies = [
  "bytemuck",
  "clap",
  "color-eyre",
+ "criterion",
  "rand",
  "rand_chacha",
  "rusqlite",
