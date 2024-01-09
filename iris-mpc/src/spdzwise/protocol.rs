@@ -778,6 +778,7 @@ where
 
         let result = Share::new(res[0].to_owned(), res[1].to_owned());
 
+        // Add to verification queue
         self.verifyqueue.push(result.to_owned());
         Ok(result)
     }
@@ -836,6 +837,13 @@ where
                 Share::new(share, mac)
             })
             .collect::<Vec<_>>();
+
+        // Add to verification queue
+        self.verifyqueue.reserve(len);
+        for r in res.iter().cloned() {
+            self.verifyqueue.push(r);
+        }
+
         Ok(res)
     }
 
@@ -894,6 +902,13 @@ where
                 Share::new(share, mac)
             })
             .collect::<Vec<_>>();
+
+        // Add to verification queue
+        self.verifyqueue.reserve(len);
+        for r in res.iter().cloned() {
+            self.verifyqueue.push(r);
+        }
+
         Ok(res)
     }
 

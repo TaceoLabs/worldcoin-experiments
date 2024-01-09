@@ -55,7 +55,6 @@ impl<T: Sharable> Zero for Share<T> {
         }
     }
 
-    // TODO is this corect?
     fn is_zero(&self) -> bool {
         self.value.is_zero() && self.mac.is_zero()
     }
