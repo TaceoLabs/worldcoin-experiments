@@ -30,6 +30,11 @@ impl<T: Sharable> VecShare<T> {
     pub fn get_macs(self) -> Vec<Aby3Share<T>> {
         self.macs
     }
+
+    pub fn from_vec(vec: Vec<Share<T>>) -> Self {
+        let (values, macs) = vec.into_iter().map(|s| s.get()).unzip();
+        Self::new(values, macs)
+    }
 }
 
 impl<T: Sharable> VecShareTrait for VecShare<T> {
