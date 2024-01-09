@@ -191,7 +191,7 @@ where
         }
         // a < b <=> msb(a - b)
         // Given no overflow, which is enforced in constructor
-        let mut diffs = Ashare::VecShare::with_capacity(hwds.len());
+        let mut diffs = Vec::with_capacity(hwds.len());
         for (hwd, mask_len) in hwds.into_iter().zip(mask_lens) {
             let diff = self.get_cmp_diff(hwd, mask_len);
             diffs.push(diff);
