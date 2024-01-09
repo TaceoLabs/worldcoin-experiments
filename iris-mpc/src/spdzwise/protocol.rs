@@ -14,7 +14,7 @@ use rand::{
 };
 use rand_chacha::ChaCha12Rng;
 use sha2::{digest::Output, Digest, Sha512};
-use std::ops::{Mul, MulAssign};
+use std::ops::Mul;
 
 #[allow(type_alias_bounds)]
 pub(crate) type TShare<T: Sharable> = Share<T::VerificationShare>;
@@ -245,17 +245,55 @@ where
         Ok(seed1)
     }
 
-    async fn permute(
+    #[inline(always)]
+    fn swap_bit(a: &mut [Aby3Share<u128>], i: usize, j: usize) {
+        let i_ = i / 128;
+        let i_mod = i % 128;
+        let j_ = j / 128;
+        let j_mod = j % 128;
+
+        let aa_i = a[i_].a.get_bit(i_mod);
+        let aa_j = a[j_].a.get_bit(j_mod);
+        a[i_].a.set_bit(i_mod, aa_j);
+        a[j_].a.set_bit(j_mod, aa_i);
+
+        let ab_i = a[i_].b.get_bit(i_mod);
+        let ab_j = a[j_].b.get_bit(j_mod);
+        a[i_].b.set_bit(i_mod, ab_j);
+        a[j_].b.set_bit(j_mod, ab_i);
+    }
+
+    async fn permute<R: Rng + SeedableRng>(
         &mut self,
         a: &mut [Aby3Share<u128>],
         b: &mut [Aby3Share<u128>],
         c: &mut [Aby3Share<u128>],
-    ) -> Result<(), Error> {
-        todo!();
+    ) -> Result<(), Error>
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: AsRef<[u8]>,
+    {
+        let len = a.len();
+        let bitlen = len * 128;
+        if len != b.len() || len != c.len() {
+            return Err(Error::InvalidSizeError);
+        }
+
+        let seed = self.coin::<R>().await?;
+        let mut rng = R::from_seed(seed);
+
+        for j in 0..bitlen {
+            let i = rng.gen_range(j..bitlen);
+
+            Self::swap_bit(a, i, j);
+            Self::swap_bit(b, i, j);
+            Self::swap_bit(c, i, j);
+        }
+
         Ok(())
     }
 
-    async fn generate_triples(
+    async fn generate_triples<R: Rng + SeedableRng>(
         &mut self,
         num: usize, // number of u128 bit to produce
     ) -> Result<
@@ -265,7 +303,11 @@ where
             Vec<Aby3Share<u128>>,
         ),
         Error,
-    > {
+    >
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: AsRef<[u8]>,
+    {
         // https://www.ieee-security.org/TC/SP2017/papers/96.pdf
         // Assumes B=2 buckets (Secure when generating 2^20 triples)
         const N: usize = 8192; // # of 128 bit registers, corresponds to 2^20 AND GATES
@@ -288,7 +330,7 @@ where
         let (c_triple, mut c_sacrifice) = c.split_at(n);
 
         // permute second bucket
-        self.permute(&mut a_sacrifice, &mut b_sacrifice, &mut c_sacrifice)
+        self.permute::<R>(&mut a_sacrifice, &mut b_sacrifice, &mut c_sacrifice)
             .await?;
 
         // Open 128 bit triples
@@ -493,7 +535,7 @@ where
         .await?;
 
         // TODO maybe modify here
-        self.generate_triples(8192).await?;
+        self.generate_triples::<ChaCha12Rng>(8192).await?;
 
         Ok(())
     }
