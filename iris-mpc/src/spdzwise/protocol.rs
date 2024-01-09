@@ -358,20 +358,15 @@ where
         }
 
         // Check each element in first bucket using sacrifice bucket
-        let mut pq = Vec::with_capacity(2 * n);
-        for (a_, x) in a_triple.iter().zip(a_sacrifice) {
-            pq.push(x ^ a_);
-        }
-        for (b_, y) in b_triple.iter().zip(b_sacrifice) {
-            pq.push(y ^ b_);
-        }
-
-        let pq_open = self.aby3_open_bin_many::<u128>(pq).await?;
-        let p = &pq_open[..n];
-        let q = &pq_open[n..];
-
-        self.verify_triples(&a_triple, &b_triple, &c_triple, p, q, c_sacrifice)
-            .await?;
+        self.verify_triples(
+            &a_triple,
+            &b_triple,
+            &c_triple,
+            a_sacrifice,
+            b_sacrifice,
+            c_sacrifice,
+        )
+        .await?;
 
         Ok(Triples::new(a_triple, b_triple, c_triple))
     }
@@ -381,13 +376,32 @@ where
         a: &[Aby3Share<u128>],
         b: &[Aby3Share<u128>],
         c: &[Aby3Share<u128>],
-        p: &[RingElement<u128>],
-        q: &[RingElement<u128>],
+        x: Vec<Aby3Share<u128>>,
+        y: Vec<Aby3Share<u128>>,
         z: Vec<Aby3Share<u128>>,
     ) -> Result<(), Error> {
         let id = self.get_id();
         // hash based verification
         let mut hasher = Sha512::new();
+
+        let n = a.len();
+        debug_assert_eq!(n, b.len());
+        debug_assert_eq!(n, c.len());
+        debug_assert_eq!(n, x.len());
+        debug_assert_eq!(n, y.len());
+        debug_assert_eq!(n, z.len());
+
+        let mut pq = Vec::with_capacity(2 * n);
+        for (a_, x) in a.iter().zip(x) {
+            pq.push(x ^ a_);
+        }
+        for (b_, y) in b.iter().zip(y) {
+            pq.push(y ^ b_);
+        }
+
+        let pq_open = self.aby3_open_bin_many::<u128>(pq).await?;
+        let p = &pq_open[..n];
+        let q = &pq_open[n..];
 
         match id {
             0 => {
