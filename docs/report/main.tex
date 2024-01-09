@@ -211,14 +211,37 @@
 
 \section{Preliminaries}
 
-\subsection{MPC Protocols}
+\subsection{MPC Protocols}\label{sec:prelim:mpc}
 
 \section{Iris Code Membership Protocol}
+
+\subsection{Core Building Block: Efficient Dot Product}
+
+One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
+
+\[
+    \mathsf{hd}(\vec{a}, \vec{b}) = \sum_i a_i - 2\sum_i a_i \cdot b_i + \sum_i b_i\,.
+\]
+
+This reduces the calculation of the hamming distance to two sums (which can be computed without party interaction in most MPC protocols), as well as a dot-product of two vectors.
+The calculation of this dot-product dominates the complexity of the hamming-distance operation, and we therefore want to use MPC protocols that support a very efficient dot-product operation.
+In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
+The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
+
+\subsection{Core Building Block: Arithmetic to Binary Conversion}
 
 \section{Experiments}
 
 \subsection{Benchmarks}
 
 \section{Conclusion and Open Problems}
+
+\subsection{Open Problems and Bottlenecks}
+
+\paragraph{Size of the Shared Iris Database}
+Due to the requirements for the efficient dot-product operation, the iris database needs to be shared over a ring of size $2^k$ for some $k$, such that the summations do not overflow the ring.
+For the example parameters of an iris code length of 12800, this means that $k$ is at least 14, and for simplicity we choose $k=16$.
+
+\printbibliography
 
 \end{document}
