@@ -245,108 +245,108 @@ where
         Ok(seed1)
     }
 
-    // Open_aby3_many without jmp_verify
-    async fn reconstruct_many<T: Sharable>(
+    async fn permute(
         &mut self,
-        shares: Vec<Aby3Share<T>>,
-    ) -> Result<Vec<T>, Error> {
-        let len = shares.len();
-        let mut shares_a = Vec::with_capacity(len);
-        let mut shares_b = Vec::with_capacity(len);
-
-        for share in shares.iter().cloned() {
-            let (a, b) = share.get_ab();
-            shares_a.push(a);
-            shares_b.push(b);
-        }
-
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
-
-        let res = shares
-            .iter()
-            .zip(shares_c.into_iter())
-            .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
-            .collect();
-        Ok(res)
+        a: &mut [Aby3Share<u128>],
+        b: &mut [Aby3Share<u128>],
+        c: &mut [Aby3Share<u128>],
+    ) -> Result<(), Error> {
+        todo!();
+        Ok(())
     }
 
-    async fn mul_sacrifice_many<T: Sharable, R: Rng + SeedableRng>(
+    async fn generate_triples(
         &mut self,
-        a: Vec<Aby3Share<T>>,
-        b: Vec<Aby3Share<T>>,
-    ) -> Result<Vec<Aby3Share<T>>, Error>
-    where
-        Standard: Distribution<<T::VerificationShare as Sharable>::Share>,
-        Standard: Distribution<R::Seed>,
-        Aby3Share<T::VerificationShare>:
-            for<'a> MulAssign<&'a <T::VerificationShare as Sharable>::Share>,
-        Aby3Share<T::VerificationShare>: for<'a> Mul<
-            &'a <T::VerificationShare as Sharable>::Share,
-            Output = Aby3Share<T::VerificationShare>,
-        >,
-        Aby3Share<T::VerificationShare>: Mul<
-            <T::VerificationShare as Sharable>::Share,
-            Output = Aby3Share<T::VerificationShare>,
-        >,
-        R::Seed: AsRef<[u8]>,
-    {
-        let len = a.len();
-        debug_assert_eq!(len, b.len());
-
-        #[allow(type_alias_bounds)]
-        type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
-
-        assert!(UShare::<T>::K - T::Share::K >= 40);
-
-        let a_mul = a
-            .into_iter()
-            .map(|a_| a_.to_verificationtype())
+        num: usize, // number of u128 bit to produce
+    ) -> Result<
+        (
+            Vec<Aby3Share<u128>>,
+            Vec<Aby3Share<u128>>,
+            Vec<Aby3Share<u128>>,
+        ),
+        Error,
+    > {
+        // https://www.ieee-security.org/TC/SP2017/papers/96.pdf
+        // Assumes B=2 buckets (Secure when generating 2^20 triples)
+        const N: usize = 8192; // # of 128 bit registers, corresponds to 2^20 AND GATES
+                               // Here we have C=128 which is significantly more than required for security
+        let n = std::cmp::max(num, N);
+        let a = (0..2 * n + 1)
+            .map(|_| self.aby3.prf.gen_rand::<u128>())
             .collect::<Vec<_>>();
-        let b_mul = b
-            .into_iter()
-            .map(|a_| a_.to_verificationtype())
+        let b = (0..2 * n + 1)
+            .map(|_| self.aby3.prf.gen_rand::<u128>())
             .collect::<Vec<_>>();
 
-        let mut v_ = a_mul.to_owned();
-
-        let a_mul_sacrifice = (0..len)
-            .map(|_| self.aby3.prf.gen_rand())
-            .collect::<Vec<_>>();
-
-        // Finally Mul
-        let cs = self.aby3.mul_many(a_mul, b_mul.to_owned()).await?;
-        let cs_sacrifice = self
-            .aby3
-            .mul_many(a_mul_sacrifice.to_owned(), b_mul.to_owned())
+        let c = self
+            .aby3_and_many::<u128>(a.to_owned(), b.to_owned())
             .await?;
 
-        let seed = self.coin::<R>().await?;
-        let mut rng = R::from_seed(seed);
+        // Split to buckets
+        let (a_triple, mut a_sacrifice) = a.split_at(n);
+        let (b_triple, mut b_sacrifice) = b.split_at(n);
+        let (c_triple, mut c_sacrifice) = c.split_at(n);
 
-        let r = rng.gen::<UShare<T>>();
+        // permute second bucket
+        self.permute(&mut a_sacrifice, &mut b_sacrifice, &mut c_sacrifice)
+            .await?;
 
-        for (des, a_) in v_.iter_mut().zip(a_mul_sacrifice.into_iter()) {
-            *des *= &r;
-            *des -= a_;
+        // Open 128 bit triples
+        let a_open = a_sacrifice.pop().expect("Enough triples generated");
+        let b_open = b_sacrifice.pop().expect("Enough triples generated");
+        let c_open = c_sacrifice.pop().expect("Enough triples generated");
+
+        let opened = self
+            .aby3_open_bin_many::<u128>(vec![a_open, b_open, c_open])
+            .await?;
+        if opened[0].to_owned() & &opened[1] != opened[2] {
+            return Err(Error::VerifyError);
         }
 
-        let v = self.reconstruct_many(v_).await?;
-        self.jmp_verify().await?;
+        // Check each element in first bucket using sacrifice bucket
+        let mut pq = Vec::with_capacity(2 * n);
+        for (a_, x) in a_triple.iter().zip(a_sacrifice) {
+            pq.push(x ^ a_);
+        }
+        for (b_, y) in b_triple.iter().zip(b_sacrifice) {
+            pq.push(y ^ b_);
+        }
 
+        let pq_open = self.aby3_open_bin_many::<u128>(pq).await?;
+        let p = &pq_open[..n];
+        let q = &pq_open[n..];
+
+        self.verify_triples(&a_triple, &b_triple, &c_triple, p, q, c_sacrifice)
+            .await?;
+
+        Ok((a_triple, b_triple, c_triple))
+    }
+
+    async fn verify_triples(
+        &mut self,
+        a: &[Aby3Share<u128>],
+        b: &[Aby3Share<u128>],
+        c: &[Aby3Share<u128>],
+        p: &[RingElement<u128>],
+        q: &[RingElement<u128>],
+        z: Vec<Aby3Share<u128>>,
+    ) -> Result<(), Error> {
+        let id = self.get_id();
         // hash based verification
         let mut hasher = Sha512::new();
 
-        match self.get_id() {
+        match id {
             0 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul
-                    .into_iter()
-                    .zip(v.into_iter())
-                    .zip(cs.iter().cloned().zip(cs_sacrifice))
+                for ((c, (a, b)), (z, (p, q))) in c
+                    .iter()
+                    .zip(a.iter().cloned().zip(b.iter().cloned()))
+                    .zip(z.into_iter().zip(p.iter().zip(q.iter())))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let mut w = z ^ c ^ (a & q) ^ (b & p);
+                    w.a ^= p.to_owned() & q; // Party0
 
-                    let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let (wa, wb) = w.get_ab();
+                    let w_neg = wa.to_owned() ^ &wb;
 
                     wa.add_to_hash(&mut hasher);
                     w_neg.add_to_hash(&mut hasher);
@@ -354,15 +354,16 @@ where
                 }
             }
             1 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul
-                    .into_iter()
-                    .zip(v.into_iter())
-                    .zip(cs.iter().cloned().zip(cs_sacrifice))
+                for ((c, (a, b)), (z, (p, q))) in c
+                    .iter()
+                    .zip(a.iter().cloned().zip(b.iter().cloned()))
+                    .zip(z.into_iter().zip(p.iter().zip(q.iter())))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let mut w = z ^ c ^ (a & q) ^ (b & p);
+                    w.b ^= p.to_owned() & q; // Party1
 
-                    let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let (wa, wb) = w.get_ab();
+                    let w_neg = wa.to_owned() ^ &wb;
 
                     wb.add_to_hash(&mut hasher);
                     wa.add_to_hash(&mut hasher);
@@ -370,22 +371,21 @@ where
                 }
             }
             2 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul
-                    .into_iter()
-                    .zip(v.into_iter())
-                    .zip(cs.iter().cloned().zip(cs_sacrifice))
+                for ((c, (a, b)), (z, (p, q))) in c
+                    .iter()
+                    .zip(a.iter().cloned().zip(b.iter().cloned()))
+                    .zip(z.into_iter().zip(p.iter().zip(q.iter())))
                 {
-                    let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
+                    let w = z ^ c ^ (a & q) ^ (b & p);
 
-                    let (wa, wb) = w_.get_ab();
-                    let w_neg = -wa.to_owned() - &wb;
+                    let (wa, wb) = w.get_ab();
+                    let w_neg = wa.to_owned() ^ &wb;
 
                     w_neg.add_to_hash(&mut hasher);
                     wb.add_to_hash(&mut hasher);
                     wa.add_to_hash(&mut hasher);
                 }
             }
-
             _ => unreachable!(),
         }
 
@@ -402,12 +402,49 @@ where
             return Err(Error::VerifyError);
         }
 
-        let mut c = Vec::with_capacity(len);
-        for c_ in cs.into_iter() {
-            c.push(Aby3Share::from_verificationtype(c_));
-        }
+        Ok(())
+    }
 
-        Ok(c)
+    async fn aby3_and<T: Sharable>(
+        &mut self,
+        a: Aby3Share<T>,
+        b: Aby3Share<T>,
+    ) -> Result<Aby3Share<T>, Error>
+    where
+        Standard: Distribution<T::Share>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    {
+        self.aby3.and(a, b).await
+    }
+
+    async fn aby3_and_many<T: Sharable>(
+        &mut self,
+        a: Vec<Aby3Share<T>>,
+        b: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<Aby3Share<T>>, Error>
+    where
+        Standard: Distribution<T::Share>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    {
+        self.aby3.and_many(a, b).await
+    }
+
+    async fn aby3_open_bin_many<T: Sharable>(
+        &mut self,
+        shares: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<T::Share>, Error>
+    where
+        Standard: Distribution<T::Share>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    {
+        let shares_b = shares.iter().map(|s| s.b.to_owned()).collect();
+        let shares_c = utils::send_and_receive_vec(&mut self.aby3.network, shares_b).await?;
+        let res = shares
+            .iter()
+            .zip(shares_c.into_iter())
+            .map(|(s, c)| c ^ &s.a ^ &s.b)
+            .collect();
+        Ok(res)
     }
 
     fn pack_exact<T: Sharable>(&self, a: Vec<Aby3Share<Bit>>) -> Aby3Share<T> {
@@ -454,6 +491,9 @@ where
             Aby3Share<Bit>,
         >>::preprocess(&mut self.aby3)
         .await?;
+
+        // TODO maybe modify here
+        self.generate_triples(8192).await?;
 
         Ok(())
     }
@@ -964,15 +1004,7 @@ where
     Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,
 {
     async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
-        let a_bits = a.to_bits();
-        let b_bits = b.to_bits();
-
-        let c_bits = self
-            .mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)
-            .await?;
-
-        let c = self.pack_exact(c_bits);
-        Ok(c)
+        todo!()
     }
 
     async fn and_many(
@@ -980,28 +1012,7 @@ where
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error> {
-        let len = a.len();
-        if len != b.len() {
-            return Err(Error::InvalidSizeError);
-        }
-
-        let mut a_bits = Vec::with_capacity(T::Share::K * len);
-        let mut b_bits = Vec::with_capacity(T::Share::K * len);
-
-        for a in a.into_iter() {
-            <Vec<_> as std::iter::Extend<_>>::extend(&mut a_bits, a.to_bits());
-        }
-
-        for b in b.into_iter() {
-            <Vec<_> as std::iter::Extend<_>>::extend(&mut b_bits, b.to_bits());
-        }
-
-        let c_bits = self
-            .mul_sacrifice_many::<Bit, ChaCha12Rng>(a_bits, b_bits)
-            .await?;
-
-        let c = self.pack::<T>(c_bits);
-        Ok(c)
+        todo!()
     }
 
     async fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
