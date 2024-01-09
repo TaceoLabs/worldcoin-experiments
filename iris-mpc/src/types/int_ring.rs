@@ -5,6 +5,7 @@ use num_traits::{
     One, WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub, Zero,
 };
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -63,6 +64,8 @@ pub trait IntRing2k:
 
     fn floor_div(self, other: &Self) -> Self;
     fn inverse(&self) -> Result<Self, Error>;
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D);
 
     /// a += b
     #[inline(always)]
@@ -147,6 +150,10 @@ impl IntRing2k for Bit {
         }
         Ok(*self)
     }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update([self.0 as u8]);
+    }
 }
 
 impl IntRing2k for u8 {
@@ -195,6 +202,10 @@ impl IntRing2k for u8 {
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
+    }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update(self.to_le_bytes());
     }
 }
 
@@ -245,6 +256,10 @@ impl IntRing2k for u16 {
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
     }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update(self.to_le_bytes());
+    }
 }
 
 impl IntRing2k for u32 {
@@ -293,6 +308,10 @@ impl IntRing2k for u32 {
 
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
+    }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update(self.to_le_bytes());
     }
 }
 
@@ -343,6 +362,10 @@ impl IntRing2k for u64 {
         debug_assert!((inv as Self).wrapping_mul(*self) == 1);
         Ok(inv as Self)
     }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update(self.to_le_bytes());
+    }
 }
 
 impl IntRing2k for u128 {
@@ -384,5 +407,9 @@ impl IntRing2k for u128 {
 
     fn inverse(&self) -> Result<Self, Error> {
         todo!("Implement inverse for u128")
+    }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        hasher.update(self.to_le_bytes());
     }
 }

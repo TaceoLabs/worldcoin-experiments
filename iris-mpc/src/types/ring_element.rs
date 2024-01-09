@@ -5,6 +5,7 @@ use bytes::{Bytes, BytesMut};
 use num_traits::{One, Zero};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::fmt::{Debug, Display};
 use std::mem::ManuallyDrop;
 use std::num::TryFromIntError;
@@ -75,6 +76,7 @@ pub trait RingImpl:
 
     fn floor_div(self, other: &Self) -> Self;
     fn inverse(&self) -> Result<Self, Error>;
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D);
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
@@ -134,6 +136,10 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn inverse(&self) -> Result<Self, Error> {
         Ok(RingElement(self.0.inverse()?))
+    }
+
+    fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
+        self.0.add_to_hash(hasher)
     }
 }
 

@@ -267,19 +267,19 @@ impl<N: NetworkTrait> MalAby3<N> {
         let mut hasher = Sha512::new();
         match self.network.get_id() {
             0 => {
-                hasher.update(wa.to_bytes());
-                hasher.update(w_neg.to_bytes());
-                hasher.update(wb.to_bytes());
+                wa.add_to_hash(&mut hasher);
+                w_neg.add_to_hash(&mut hasher);
+                wb.add_to_hash(&mut hasher);
             }
             1 => {
-                hasher.update(wb.to_bytes());
-                hasher.update(wa.to_bytes());
-                hasher.update(w_neg.to_bytes());
+                wb.add_to_hash(&mut hasher);
+                wa.add_to_hash(&mut hasher);
+                w_neg.add_to_hash(&mut hasher);
             }
             2 => {
-                hasher.update(w_neg.to_bytes());
-                hasher.update(wb.to_bytes());
-                hasher.update(wa.to_bytes());
+                w_neg.add_to_hash(&mut hasher);
+                wb.add_to_hash(&mut hasher);
+                wa.add_to_hash(&mut hasher);
             }
             _ => unreachable!(),
         };
@@ -380,9 +380,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(wa.to_bytes());
-                    hasher.update(w_neg.to_bytes());
-                    hasher.update(wb.to_bytes());
+                    wa.add_to_hash(&mut hasher);
+                    w_neg.add_to_hash(&mut hasher);
+                    wb.add_to_hash(&mut hasher);
                 }
             }
             1 => {
@@ -397,9 +397,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(wb.to_bytes());
-                    hasher.update(wa.to_bytes());
-                    hasher.update(w_neg.to_bytes());
+                    wb.add_to_hash(&mut hasher);
+                    wa.add_to_hash(&mut hasher);
+                    w_neg.add_to_hash(&mut hasher);
                 }
             }
             2 => {
@@ -414,9 +414,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(w_neg.to_bytes());
-                    hasher.update(wb.to_bytes());
-                    hasher.update(wa.to_bytes());
+                    w_neg.add_to_hash(&mut hasher);
+                    wb.add_to_hash(&mut hasher);
+                    wa.add_to_hash(&mut hasher);
                 }
             }
 
@@ -511,19 +511,19 @@ impl<N: NetworkTrait> MalAby3<N> {
         let mut hasher = Sha512::new();
         match self.network.get_id() {
             0 => {
-                hasher.update(wa.to_bytes());
-                hasher.update(w_neg.to_bytes());
-                hasher.update(wb.to_bytes());
+                wa.add_to_hash(&mut hasher);
+                w_neg.add_to_hash(&mut hasher);
+                wb.add_to_hash(&mut hasher);
             }
             1 => {
-                hasher.update(wb.to_bytes());
-                hasher.update(wa.to_bytes());
-                hasher.update(w_neg.to_bytes());
+                wb.add_to_hash(&mut hasher);
+                wa.add_to_hash(&mut hasher);
+                w_neg.add_to_hash(&mut hasher);
             }
             2 => {
-                hasher.update(w_neg.to_bytes());
-                hasher.update(wb.to_bytes());
-                hasher.update(wa.to_bytes());
+                w_neg.add_to_hash(&mut hasher);
+                wb.add_to_hash(&mut hasher);
+                wa.add_to_hash(&mut hasher);
             }
             _ => unreachable!(),
         };
@@ -640,9 +640,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(wa.to_bytes());
-                    hasher.update(w_neg.to_bytes());
-                    hasher.update(wb.to_bytes());
+                    wa.add_to_hash(&mut hasher);
+                    w_neg.add_to_hash(&mut hasher);
+                    wb.add_to_hash(&mut hasher);
                 }
             }
             1 => {
@@ -661,9 +661,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(wb.to_bytes());
-                    hasher.update(wa.to_bytes());
-                    hasher.update(w_neg.to_bytes());
+                    wb.add_to_hash(&mut hasher);
+                    wa.add_to_hash(&mut hasher);
+                    w_neg.add_to_hash(&mut hasher);
                 }
             }
             2 => {
@@ -682,9 +682,9 @@ impl<N: NetworkTrait> MalAby3<N> {
                     let (wa, wb) = w_.get_ab();
                     let w_neg = -wa.to_owned() - &wb;
 
-                    hasher.update(w_neg.to_bytes());
-                    hasher.update(wb.to_bytes());
-                    hasher.update(wa.to_bytes());
+                    w_neg.add_to_hash(&mut hasher);
+                    wb.add_to_hash(&mut hasher);
+                    wa.add_to_hash(&mut hasher);
                 }
             }
             _ => unreachable!(),
