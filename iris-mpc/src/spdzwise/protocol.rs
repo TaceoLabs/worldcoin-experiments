@@ -23,12 +23,29 @@ pub(crate) type VecTShare<T: Sharable> = VecShare<T::VerificationShare>;
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
 
+#[derive(Clone, Debug, Default)]
+struct Triples {
+    a: Vec<Aby3Share<u128>>,
+    b: Vec<Aby3Share<u128>>,
+    c: Vec<Aby3Share<u128>>,
+}
+
+impl Triples {
+    fn new(a: Vec<Aby3Share<u128>>, b: Vec<Aby3Share<u128>>, c: Vec<Aby3Share<u128>>) -> Self {
+        assert_eq!(a.len(), b.len());
+        assert_eq!(a.len(), c.len());
+        Self { a, b, c }
+    }
+}
+
 pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     aby3: Aby3<N>,
     mac_key: Aby3Share<U>,
     verifyqueue: VecShare<U>,  // For arithmetic
     send_queue_prev: BytesMut, // For binary
     rcv_queue_next: BytesMut,  // For binary
+    prec_triples: Triples,
+    triple_buffer: Triples,
 }
 
 impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U>
@@ -47,6 +64,8 @@ where
             verifyqueue: VecShare::default(),
             send_queue_prev,
             rcv_queue_next,
+            prec_triples: Triples::default(),
+            triple_buffer: Triples::default(),
         }
     }
 
@@ -296,14 +315,7 @@ where
     async fn generate_triples<R: Rng + SeedableRng>(
         &mut self,
         num: usize, // number of u128 bit to produce
-    ) -> Result<
-        (
-            Vec<Aby3Share<u128>>,
-            Vec<Aby3Share<u128>>,
-            Vec<Aby3Share<u128>>,
-        ),
-        Error,
-    >
+    ) -> Result<Triples, Error>
     where
         Standard: Distribution<R::Seed>,
         R::Seed: AsRef<[u8]>,
@@ -361,7 +373,7 @@ where
         self.verify_triples(&a_triple, &b_triple, &c_triple, p, q, c_sacrifice)
             .await?;
 
-        Ok((a_triple, b_triple, c_triple))
+        Ok(Triples::new(a_triple, b_triple, c_triple))
     }
 
     async fn verify_triples(
@@ -535,7 +547,7 @@ where
         .await?;
 
         // TODO maybe modify here
-        self.generate_triples::<ChaCha12Rng>(8192).await?;
+        self.prec_triples = self.generate_triples::<ChaCha12Rng>(8192).await?;
 
         Ok(())
     }
