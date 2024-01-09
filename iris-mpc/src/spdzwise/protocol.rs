@@ -298,35 +298,34 @@ where
 
         assert!(UShare::<T>::K - T::Share::K >= 40);
 
-        let mut a_mul = a
+        let a_mul = a
             .into_iter()
             .map(|a_| a_.to_verificationtype())
             .collect::<Vec<_>>();
-        let mut b_mul = b
+        let b_mul = b
             .into_iter()
             .map(|a_| a_.to_verificationtype())
             .collect::<Vec<_>>();
 
         let mut v_ = a_mul.to_owned();
 
-        // Get the second mul triple
-        a_mul.reserve(len);
-        for _ in 0..len {
-            a_mul.push(self.aby3.prf.gen_rand());
-        }
-        let b_mul_ = b_mul.clone();
-        <Vec<_> as std::iter::Extend<_>>::extend(&mut b_mul, b_mul_.to_owned());
-        let a_ = a_mul[len..].to_vec();
+        let a_mul_sacrifice = (0..len)
+            .map(|_| self.aby3.prf.gen_rand())
+            .collect::<Vec<_>>();
 
         // Finally Mul
-        let cs = self.aby3.mul_many(a_mul, b_mul).await?;
+        let cs = self.aby3.mul_many(a_mul, b_mul.to_owned()).await?;
+        let cs_sacrifice = self
+            .aby3
+            .mul_many(a_mul_sacrifice.to_owned(), b_mul.to_owned())
+            .await?;
 
         let seed = self.coin::<R>().await?;
         let mut rng = R::from_seed(seed);
 
         let r = rng.gen::<UShare<T>>();
 
-        for (des, a_) in v_.iter_mut().zip(a_.into_iter()) {
+        for (des, a_) in v_.iter_mut().zip(a_mul_sacrifice.into_iter()) {
             *des *= &r;
             *des -= a_;
         }
@@ -339,10 +338,10 @@ where
 
         match self.get_id() {
             0 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul_
+                for ((b_, v_), (c_0, c_1)) in b_mul
                     .into_iter()
                     .zip(v.into_iter())
-                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                    .zip(cs.iter().cloned().zip(cs_sacrifice))
                 {
                     let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
 
@@ -355,10 +354,10 @@ where
                 }
             }
             1 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul_
+                for ((b_, v_), (c_0, c_1)) in b_mul
                     .into_iter()
                     .zip(v.into_iter())
-                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                    .zip(cs.iter().cloned().zip(cs_sacrifice))
                 {
                     let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
 
@@ -371,10 +370,10 @@ where
                 }
             }
             2 => {
-                for ((b_, v_), (c_0, c_1)) in b_mul_
+                for ((b_, v_), (c_0, c_1)) in b_mul
                     .into_iter()
                     .zip(v.into_iter())
-                    .zip(cs.iter().take(len).zip(cs.iter().skip(len)))
+                    .zip(cs.iter().cloned().zip(cs_sacrifice))
                 {
                     let w_ = b_ * v_.to_sharetype() - c_0.to_owned() * &r + c_1.to_owned();
 
@@ -404,7 +403,7 @@ where
         }
 
         let mut c = Vec::with_capacity(len);
-        for c_ in cs.into_iter().take(len) {
+        for c_ in cs.into_iter() {
             c.push(Aby3Share::from_verificationtype(c_));
         }
 
