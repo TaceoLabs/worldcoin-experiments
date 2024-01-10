@@ -2,7 +2,7 @@ use super::{share::Share, triples::Triples, vecshare::VecShare};
 use crate::{
     aby3::utils,
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
-    traits::{binary_trait::BinaryMpcTrait, share_trait::VecShareTrait},
+    traits::{binary_trait::BinaryMpcTrait, security::MaliciousAbort, share_trait::VecShareTrait},
     types::ring_element::{RingElement, RingImpl},
 };
 use bytes::{Bytes, BytesMut};
@@ -31,6 +31,26 @@ pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     rcv_queue_next: BytesMut,  // For binary
     prec_triples: Triples,
     triple_buffer: Triples,
+}
+
+impl<N: NetworkTrait, U: Sharable> MaliciousAbort for SpdzWise<N, U> {}
+
+macro_rules! reduce_or {
+    ($([$typ_a:ident, $typ_b:ident,$name_a:ident,$name_b:ident]),*) => {
+        $(
+            async fn $name_a(&mut self, a: Aby3Share<$typ_a>) -> Result<Aby3Share<Bit>, Error> {
+                let (a, b) = a.get_ab();
+                let (a1, a2) = utils::split::<$typ_a, $typ_b>(a);
+                let (b1, b2) = utils::split::<$typ_a, $typ_b>(b);
+
+                let share_a = Aby3Share::new(a1, b1);
+                let share_b = Aby3Share::new(a2, b2);
+
+                let out = <Self as BinaryMpcTrait<$typ_b, Aby3Share<$typ_b>>>::or(self, share_a, share_b).await?;
+                self.$name_b(out).await
+            }
+        )*
+    };
 }
 
 impl<N: NetworkTrait, U: Sharable> SpdzWise<N, U>
@@ -522,28 +542,58 @@ where
         Ok(res)
     }
 
-    fn pack_exact<T: Sharable>(&self, a: Vec<Aby3Share<Bit>>) -> Aby3Share<T> {
-        debug_assert!(a.len() <= T::Share::K);
-        let mut share_a = T::Share::zero();
-        let mut share_b = T::Share::zero();
-        for (i, bit) in a.iter().enumerate() {
-            let (bit_a, bit_b) = bit.to_owned().get_ab();
-            share_a |= T::Share::from(bit_a.convert().convert()) << (i as u32);
-            share_b |= T::Share::from(bit_b.convert().convert()) << (i as u32);
-        }
-        Aby3Share::new(share_a, share_b)
-    }
-
     fn pack<T: Sharable>(&self, a: Vec<Aby3Share<Bit>>) -> Vec<Aby3Share<T>> {
         let outlen = (a.len() + T::Share::K - 1) / T::Share::K;
         let mut out = Vec::with_capacity(outlen);
 
         for a_ in a.chunks(T::Share::K) {
-            let share = self.pack_exact(a_.to_vec());
+            let mut share_a = T::Share::zero();
+            let mut share_b = T::Share::zero();
+            for (i, bit) in a_.iter().enumerate() {
+                let (bit_a, bit_b) = bit.to_owned().get_ab();
+                share_a |= T::Share::from(bit_a.convert().convert()) << (i as u32);
+                share_b |= T::Share::from(bit_b.convert().convert()) << (i as u32);
+            }
+            let share = Aby3Share::new(share_a, share_b);
             out.push(share);
         }
 
         out
+    }
+
+    reduce_or!(
+        [u128, u64, reduce_or_u128, reduce_or_u64],
+        [u64, u32, reduce_or_u64, reduce_or_u32],
+        [u32, u16, reduce_or_u32, reduce_or_u16],
+        [u16, u8, reduce_or_u16, reduce_or_u8]
+    );
+
+    async fn reduce_or_u8(&mut self, a: Aby3Share<u8>) -> Result<Aby3Share<Bit>, Error> {
+        const K: usize = 8;
+
+        let mut decomp: Vec<Aby3Share<Bit>> = Vec::with_capacity(K);
+        for i in 0..K as u32 {
+            let bit_a = ((a.a.to_owned() >> i) & RingElement(1)) == RingElement(1);
+            let bit_b = ((a.b.to_owned() >> i) & RingElement(1)) == RingElement(1);
+
+            decomp.push(Aby3Share::new(
+                <Bit as Sharable>::Share::from(bit_a),
+                <Bit as Sharable>::Share::from(bit_b),
+            ));
+        }
+
+        let mut k = K;
+        while k != 1 {
+            k >>= 1;
+            decomp = <Self as BinaryMpcTrait<Bit, Aby3Share<Bit>>>::or_many(
+                self,
+                decomp[..k].to_vec(),
+                decomp[k..].to_vec(),
+            )
+            .await?;
+        }
+
+        Ok(decomp[0].to_owned())
     }
 }
 
@@ -1073,8 +1123,9 @@ where
         a: Vec<Aby3Share<Bit>>,
         chunk_size: usize,
     ) -> Result<Aby3Share<Bit>, Error> {
-        let chunk_size = chunk_size * 128;
-        utils::or_tree::<Bit, _, _>(self, a, chunk_size).await
+        let packed = self.pack(a);
+        let reduced = utils::or_tree::<u128, _, _>(self, packed, chunk_size).await?;
+        self.reduce_or_u128(reduced).await
     }
 
     async fn verify(&mut self) -> Result<(), Error> {

@@ -49,6 +49,7 @@ pub trait IntRing2k:
     type Signed: Sharable<Share = RingElement<Self>>;
 
     fn to_signed(self) -> Self::Signed;
+    fn upgrade_to_128(self) -> u128;
 
     fn add_to_bytes(self, other: &mut BytesMut);
     fn from_bytes_mut(other: BytesMut) -> Result<Self, Error>;
@@ -154,6 +155,10 @@ impl IntRing2k for Bit {
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update([self.0 as u8]);
     }
+
+    fn upgrade_to_128(self) -> u128 {
+        self.0 as u128
+    }
 }
 
 impl IntRing2k for u8 {
@@ -206,6 +211,10 @@ impl IntRing2k for u8 {
 
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update(self.to_le_bytes());
+    }
+
+    fn upgrade_to_128(self) -> u128 {
+        self as u128
     }
 }
 
@@ -260,6 +269,10 @@ impl IntRing2k for u16 {
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update(self.to_le_bytes());
     }
+
+    fn upgrade_to_128(self) -> u128 {
+        self as u128
+    }
 }
 
 impl IntRing2k for u32 {
@@ -312,6 +325,10 @@ impl IntRing2k for u32 {
 
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update(self.to_le_bytes());
+    }
+
+    fn upgrade_to_128(self) -> u128 {
+        self as u128
     }
 }
 
@@ -366,6 +383,10 @@ impl IntRing2k for u64 {
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update(self.to_le_bytes());
     }
+
+    fn upgrade_to_128(self) -> u128 {
+        self as u128
+    }
 }
 
 impl IntRing2k for u128 {
@@ -411,5 +432,9 @@ impl IntRing2k for u128 {
 
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         hasher.update(self.to_le_bytes());
+    }
+
+    fn upgrade_to_128(self) -> u128 {
+        self
     }
 }

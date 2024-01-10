@@ -1,17 +1,27 @@
-use crate::prelude::{Aby3Share, Error};
+use crate::{
+    prelude::{Aby3Share, Error, Sharable},
+    types::ring_element::RingImpl,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct Triples {
     a: Vec<Aby3Share<u128>>,
     b: Vec<Aby3Share<u128>>,
     c: Vec<Aby3Share<u128>>,
+    bits_in_last: usize,
 }
 
 impl Triples {
     pub fn new(a: Vec<Aby3Share<u128>>, b: Vec<Aby3Share<u128>>, c: Vec<Aby3Share<u128>>) -> Self {
+        let bits_in_last = if a.is_empty() { 0 } else { 128 };
         assert_eq!(a.len(), b.len());
         assert_eq!(a.len(), c.len());
-        Self { a, b, c }
+        Self {
+            a,
+            b,
+            c,
+            bits_in_last,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -34,6 +44,7 @@ impl Triples {
         (a, b, c)
     }
 
+    // Gets a multiple of 128 triples
     #[allow(clippy::type_complexity)]
     pub fn get(
         &mut self,
@@ -57,8 +68,28 @@ impl Triples {
     }
 
     pub fn extend(&mut self, other: Self) {
+        assert_eq!(other.bits_in_last, 128);
         self.a.extend(other.a);
         self.b.extend(other.b);
         self.c.extend(other.c);
+    }
+
+    pub fn add_t<T: Sharable>(
+        &mut self,
+        a: Aby3Share<T>,
+        b: Aby3Share<T>,
+        c: Aby3Share<T>,
+    ) -> Result<(), Error> {
+        let open = 128 - self.bits_in_last;
+        if open == 0 {
+            // put all into a new element
+            let (aa, ab) = a.get_ab();
+            let aa = aa.upgrade_to_128();
+            let ab = ab.upgrade_to_128();
+            self.a.push(Aby3Share::new(aa, ab));
+        } else if open > T::Share::K {
+            // TODO wip
+        }
+        todo!()
     }
 }

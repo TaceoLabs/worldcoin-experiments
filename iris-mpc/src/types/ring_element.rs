@@ -79,6 +79,7 @@ pub trait RingImpl:
     fn floor_div(self, other: &Self) -> Self;
     fn inverse(&self) -> Result<Self, Error>;
     fn add_to_hash<D: Digest>(&self, hasher: &mut D);
+    fn upgrade_to_128(self) -> RingElement<u128>;
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
@@ -151,6 +152,10 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         self.0.add_to_hash(hasher)
+    }
+
+    fn upgrade_to_128(self) -> RingElement<u128> {
+        RingElement(self.0.upgrade_to_128())
     }
 }
 
