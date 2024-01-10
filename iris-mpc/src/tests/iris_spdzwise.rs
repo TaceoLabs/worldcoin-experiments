@@ -41,6 +41,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     {
         let mut shared_code = VecShare::with_capacity(IrisCode::IRIS_CODE_SIZE);
         for i in 0..IrisCode::IRIS_CODE_SIZE {
@@ -65,6 +66,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
@@ -104,6 +106,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -253,6 +256,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -294,6 +298,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
@@ -322,6 +327,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -454,6 +460,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -503,6 +510,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let id = protocol.get_id();
@@ -532,6 +540,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
@@ -586,6 +595,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);
@@ -680,6 +690,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
@@ -741,6 +752,7 @@ mod iris_mpc_test {
         Standard: Distribution<T::Share>,
         Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
         Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
         <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     {
         let mut tasks = Vec::with_capacity(NUM_PARTIES);

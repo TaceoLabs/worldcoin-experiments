@@ -465,6 +465,9 @@ where
     {
         // We consume precomputed triples always as multiples of 128 bit
         let len = self.triple_buffer.len();
+        if len == 0 {
+            return Ok(());
+        }
         let (a, b, c) = self.triple_buffer.get_all();
         let (mut x, mut y, mut z) = self.prec_triples.get(len)?;
 
@@ -551,6 +554,7 @@ where
     Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
 {
     fn get_id(&self) -> usize {
         self.get_id()
@@ -1082,10 +1086,16 @@ where
 impl<N: NetworkTrait, T: Sharable, U: Sharable> BinaryMpcTrait<T, Aby3Share<T>> for SpdzWise<N, U>
 where
     Standard: Distribution<U::Share>,
+    Standard: Distribution<T::Share>,
     Aby3Share<U>: Mul<U::Share, Output = Aby3Share<U>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
 {
     async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
-        todo!()
+        let c = self.aby3_and::<T>(a.to_owned(), b.to_owned()).await?;
+
+        // TODO add to triple queue
+
+        Ok(c)
     }
 
     async fn and_many(
@@ -1093,7 +1103,11 @@ where
         a: Vec<Aby3Share<T>>,
         b: Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error> {
-        todo!()
+        let c = self.aby3_and_many::<T>(a.to_owned(), b.to_owned()).await?;
+
+        // TODO add to triple queue
+
+        Ok(c)
     }
 
     async fn arithmetic_to_binary(&mut self, x: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {

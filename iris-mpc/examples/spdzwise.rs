@@ -71,6 +71,7 @@ fn print_stats<T: Sharable>(
 ) -> Result<()>
 where
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
     Standard: Distribution<UShare<T>>,
     Standard: Distribution<T::Share>,
@@ -202,6 +203,7 @@ where
     Standard: Distribution<UShare<T>>,
     Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
 {
     let mut rng = ChaCha12Rng::seed_from_u64(args.iris_seed);
     let iris = if args.should_match {
