@@ -76,6 +76,15 @@ pub(crate) async fn send_and_receive_vec<N: NetworkTrait, R: RingImpl>(
     ring_vec_from_bytes(response, len)
 }
 
+pub(crate) async fn send_and_receive_iter<'a, N: NetworkTrait, R: RingImpl + 'a>(
+    network: &mut N,
+    values: impl Iterator<Item = &'a R> + ExactSizeIterator,
+) -> Result<Vec<R>, Error> {
+    let len = values.len();
+    let response = send_and_receive(network, ring_iter_to_bytes(values)).await?;
+    ring_vec_from_bytes(response, len)
+}
+
 pub(crate) async fn send_value<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     value: R,
@@ -190,6 +199,20 @@ where
     let size = T::K / 8 + ((T::K % 8) != 0) as usize;
     let mut out = BytesMut::with_capacity(size * vec.len());
     for v in vec {
+        v.add_to_bytes(&mut out);
+    }
+    out.freeze()
+}
+
+pub(crate) fn ring_iter_to_bytes<'a, T: 'a>(
+    iter: impl Iterator<Item = &'a T> + ExactSizeIterator,
+) -> Bytes
+where
+    T: RingImpl,
+{
+    let size = T::K / 8 + ((T::K % 8) != 0) as usize;
+    let mut out = BytesMut::with_capacity(size * iter.len());
+    for v in iter {
         v.add_to_bytes(&mut out);
     }
     out.freeze()
