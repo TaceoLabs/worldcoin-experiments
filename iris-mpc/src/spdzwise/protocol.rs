@@ -484,6 +484,7 @@ where
     {
         // We consume precomputed triples always as multiples of 128 bit
         let len = self.triple_buffer.len();
+        println!("len: {}", len * 128);
         if len == 0 {
             return Ok(());
         }
@@ -650,12 +651,12 @@ where
         debug_assert_eq!(len, x2.len());
         let inner_len = x1[0].len();
 
-        let x3 = self
-            .aby3_and_many::<u128>(
-                x1.into_iter().flatten().collect_vec(),
-                x2.into_iter().flatten().collect_vec(),
-            )
-            .await?;
+        let x3 = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+            self,
+            x1.into_iter().flatten().collect_vec(),
+            x2.into_iter().flatten().collect_vec(),
+        )
+        .await?;
 
         Ok(x3.chunks(inner_len))
     }
@@ -707,12 +708,18 @@ where
 
         // now p and g have same size
         for (p_, g_) in p.chunks_exact(2).zip(g.chunks_exact(2)) {
-            let p__ = self
-                .aby3_and_many::<u128>(p_[0].to_owned(), p_[1].to_owned())
-                .await?;
-            let mut tmp = self
-                .aby3_and_many::<u128>(g_[0].to_owned(), p_[1].to_owned())
-                .await?;
+            let p__ = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+                self,
+                p_[0].to_owned(),
+                p_[1].to_owned(),
+            )
+            .await?;
+            let mut tmp = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+                self,
+                g_[0].to_owned(),
+                p_[1].to_owned(),
+            )
+            .await?;
             tmp.iter_mut().zip(g_[1].iter()).for_each(|(t, g)| *t ^= g);
             let g__ = tmp;
 
@@ -735,12 +742,18 @@ where
 
             // now p and g have same size
             for (p_, g_) in p.chunks_exact(2).zip(g.chunks_exact(2)) {
-                let p__ = self
-                    .aby3_and_many::<u128>(p_[0].to_owned(), p_[1].to_owned())
-                    .await?;
-                let mut tmp = self
-                    .aby3_and_many::<u128>(g_[0].to_owned(), p_[1].to_owned())
-                    .await?;
+                let p__ = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+                    self,
+                    p_[0].to_owned(),
+                    p_[1].to_owned(),
+                )
+                .await?;
+                let mut tmp = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+                    self,
+                    g_[0].to_owned(),
+                    p_[1].to_owned(),
+                )
+                .await?;
                 tmp.iter_mut().zip(g_[1].iter()).for_each(|(t, g)| *t ^= g);
                 let g__ = tmp;
 
@@ -1276,6 +1289,7 @@ where
 
         // let bits = self.arithmetic_to_binary_many(values).await?;
         // let res = bits.into_iter().map(|a| a.get_msb()).collect();
+        // Ok(res)
 
         let len = values.len();
         let mut x1 = Vec::with_capacity(len);

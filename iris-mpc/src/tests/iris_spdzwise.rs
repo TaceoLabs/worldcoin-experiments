@@ -21,7 +21,7 @@ mod iris_mpc_test {
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DB_SIZE: usize = 128;
-    const CHUNK_SIZE: usize = 32;
+    const CHUNK_SIZE: usize = 128;
     const TESTRUNS: usize = 5;
 
     fn iris_code_plain_type<T: Sharable>(code: &IrisCode) -> Vec<T> {
