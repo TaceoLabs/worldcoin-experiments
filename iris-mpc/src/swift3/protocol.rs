@@ -942,7 +942,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let res: Vec<Aby3Share<T>> = shares_a
             .into_iter()
@@ -1063,7 +1063,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let mut res = Vec::with_capacity(len);
 

@@ -160,11 +160,10 @@ impl<N: NetworkTrait> Aby3<N> {
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
-
+        let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;
         let res: Vec<Share<T>> = shares_a
             .into_iter()
-            .zip(shares_b.into_iter())
+            .zip(shares_b)
             .map(|(a_, b_)| Share::new(a_, b_))
             .collect();
 
@@ -236,10 +235,10 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;
 
         let mut shares = Vec::with_capacity(3);
-        for (share_a, share_b) in shares_a.into_iter().zip(shares_b.into_iter()) {
+        for (share_a, share_b) in shares_a.into_iter().zip(shares_b) {
             shares.push(Share::new(share_a, share_b));
         }
 
@@ -265,7 +264,7 @@ where
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_and_receive_iter(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -281,7 +280,7 @@ where
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_and_receive_iter(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_vec(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -373,11 +372,11 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;
 
         let res = shares_a
             .into_iter()
-            .zip(shares_b.into_iter())
+            .zip(shares_b)
             .map(|(a_, b_)| Share::new(a_, b_))
             .collect();
 
@@ -411,11 +410,11 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;
 
         let res = shares_a
             .into_iter()
-            .zip(shares_b.into_iter())
+            .zip(shares_b)
             .map(|(a_, b_)| Share::new(a_, b_))
             .collect();
 
@@ -484,11 +483,11 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_iter(&mut self.network, &shares_a).await?;
 
         let res = shares_a
             .into_iter()
-            .zip(shares_b.into_iter())
+            .zip(shares_b)
             .map(|(a_, b_)| Share::new(a_, b_))
             .collect();
 

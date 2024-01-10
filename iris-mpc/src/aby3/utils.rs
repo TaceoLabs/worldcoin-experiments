@@ -67,7 +67,7 @@ pub(crate) async fn send_and_receive_value<N: NetworkTrait, R: RingImpl>(
     R::from_bytes_mut(response)
 }
 
-pub(crate) async fn send_and_receive_vec<N: NetworkTrait, R: RingImpl>(
+pub(crate) async fn send_slice_and_receive_vec<N: NetworkTrait, R: RingImpl>(
     network: &mut N,
     values: &[R],
 ) -> Result<Vec<R>, Error> {
@@ -76,7 +76,24 @@ pub(crate) async fn send_and_receive_vec<N: NetworkTrait, R: RingImpl>(
     ring_vec_from_bytes(response, len)
 }
 
-pub(crate) async fn send_and_receive_iter<'a, N: NetworkTrait, R: RingImpl + 'a>(
+pub(crate) async fn send_slice_and_receive_iter<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+    values: &[R],
+) -> Result<RingBytesIter<R>, Error> {
+    let len = values.len();
+    let response = send_and_receive(network, ring_vec_to_bytes(values)).await?;
+    ring_iter_from_bytes(response, len)
+}
+
+#[allow(unused)]
+pub(crate) async fn send_slice_and_receive_bytes<N: NetworkTrait, R: RingImpl>(
+    network: &mut N,
+    values: &[R],
+) -> Result<BytesMut, Error> {
+    Ok(send_and_receive(network, ring_vec_to_bytes(values)).await?)
+}
+
+pub(crate) async fn send_iter_and_receive_vec<'a, N: NetworkTrait, R: RingImpl + 'a>(
     network: &mut N,
     values: impl Iterator<Item = &'a R> + ExactSizeIterator,
 ) -> Result<Vec<R>, Error> {
@@ -191,6 +208,44 @@ where
     }
     Ok(res)
 }
+
+pub(crate) fn ring_iter_from_bytes<T>(bytes: BytesMut, n: usize) -> Result<RingBytesIter<T>, Error>
+where
+    T: RingImpl,
+{
+    if bytes.remaining() != n * ((T::K + 7) / 8) {
+        return Err(Error::ConversionError);
+    }
+
+    Ok(RingBytesIter {
+        bytes,
+        _marker: std::marker::PhantomData,
+    })
+}
+
+pub(crate) struct RingBytesIter<T> {
+    bytes: BytesMut,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<T: RingImpl> Iterator for RingBytesIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.bytes.remaining() == 0 {
+            None
+        } else {
+            Some(T::take_from_bytes_mut(&mut self.bytes).expect("checked while constructing"))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.bytes.remaining() / ((T::K + 7) / 8);
+        (len, Some(len))
+    }
+}
+
+impl<T: RingImpl> ExactSizeIterator for RingBytesIter<T> {}
 
 pub(crate) fn ring_vec_to_bytes<T>(vec: &[T]) -> Bytes
 where

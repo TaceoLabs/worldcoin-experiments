@@ -164,7 +164,7 @@ impl<N: NetworkTrait> MalAby3<N> {
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let res: Vec<Share<T>> = shares_a
             .into_iter()
@@ -201,7 +201,7 @@ impl<N: NetworkTrait> MalAby3<N> {
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let res = shares_a
             .into_iter()

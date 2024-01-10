@@ -533,7 +533,7 @@ where
         Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_and_receive_iter(&mut self.aby3.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_vec(&mut self.aby3.network, shares_b).await?;
         let res = shares
             .iter()
             .zip(shares_c.into_iter())
@@ -994,7 +994,7 @@ where
         shares_a.extend(mac_shares_a);
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
 
         let mac_a = shares_a[len..].to_vec();
         let mac_b = shares_b[len..].to_vec();
@@ -1055,7 +1055,7 @@ where
         shares_a.extend(mac_shares_a);
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
+        let shares_b = utils::send_slice_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
 
         let mac_a = shares_a[len..].to_vec();
         let mac_b = shares_b[len..].to_vec();
