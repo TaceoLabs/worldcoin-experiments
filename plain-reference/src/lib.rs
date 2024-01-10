@@ -214,6 +214,8 @@ impl Iterator for Bits<'_> {
     }
 }
 
+impl ExactSizeIterator for Bits<'_> {}
+
 #[cfg(test)]
 mod tests {
     #[test]
