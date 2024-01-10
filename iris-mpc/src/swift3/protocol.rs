@@ -145,7 +145,7 @@ where
         values: &[T::Share],
         id: usize,
     ) -> Result<(), Error> {
-        utils::send_vec(&mut self.network, &values, id).await
+        utils::send_vec(&mut self.network, values, id).await
     }
 
     fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
@@ -1115,11 +1115,11 @@ where
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
         if id == (my_id + 1) % 3 {
-            for value in values.iter().cloned() {
+            for value in values.iter() {
                 value.add_to_bytes(&mut self.rcv_queue_prev);
             }
         } else if id == (my_id + 2) % 3 {
-            for value in values.iter().cloned() {
+            for value in values.iter() {
                 value.add_to_bytes(&mut self.rcv_queue_next);
             }
         } else {
@@ -1433,17 +1433,17 @@ where
     ) -> Result<(), Error> {
         let mut msg1 = BytesMut::new();
         let mut msg2 = BytesMut::new();
-        for val in opening1.values.iter().cloned() {
+        for val in opening1.values.iter() {
             val.add_to_bytes(&mut msg1);
         }
         msg1.extend_from_slice(&opening1.rand);
 
-        for val in opening2.values.iter().cloned() {
+        for val in opening2.values.iter() {
             val.add_to_bytes(&mut msg2);
         }
         msg2.extend_from_slice(&opening2.rand);
 
-        for val in opening3.values.iter().cloned() {
+        for val in opening3.values.iter() {
             val.to_owned().add_to_bytes(&mut msg1);
             val.add_to_bytes(&mut msg2);
         }

@@ -30,6 +30,9 @@ pub enum Error {
     /// DZKP verify failed Error
     #[error("DZKP verify failed")]
     DZKPVerifyError,
+    /// Not enough triples error
+    #[error("Not enough triples error")]
+    NotEnoughTriplesError,
     /// Config Error
     #[error("Invalid Configuration")]
     ConfigError,

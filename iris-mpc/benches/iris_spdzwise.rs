@@ -28,6 +28,7 @@ where
     Standard: Distribution<UShare<T>>,
     Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let protocol = SpdzWise::<PartyTestNetwork, T::VerificationShare>::new(net);
@@ -56,6 +57,7 @@ fn iris_spdzwise<T: Sharable, R: Rng>(
     Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     assert_eq!(shared_code.len(), 3);
@@ -147,6 +149,7 @@ where
     Standard: Distribution<T::Share>,
     Aby3Share<T::VerificationShare>: Mul<Output = Aby3Share<T::VerificationShare>>,
     Aby3Share<T::VerificationShare>: Mul<UShare<T>, Output = Aby3Share<T::VerificationShare>>,
+    Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let mut shares_a = Vec::with_capacity(db.len());

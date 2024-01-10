@@ -11,6 +11,9 @@ use rand::Rng;
 pub trait MpcTrait<T: Sharable, Ashare: ShareTrait, Bshare: ShareTrait> {
     fn get_id(&self) -> usize;
     async fn preprocess(&mut self) -> Result<(), Error>;
+    async fn precompute_and_triples(&mut self, _amount: usize) -> Result<(), Error> {
+        Ok(())
+    }
     fn set_mac_key(&mut self, key: Ashare);
     fn set_new_mac_key(&mut self);
     #[cfg(test)]

@@ -74,7 +74,7 @@ impl<N: NetworkTrait> MalAby3<N> {
     async fn jmp_receive_many<T: Sharable>(&mut self, len: usize) -> Result<Vec<T::Share>, Error> {
         let values: Vec<T::Share> = utils::receive_vec_prev(&mut self.network, len).await?;
 
-        for value in values.iter().cloned() {
+        for value in values.iter() {
             value.add_to_bytes(&mut self.rcv_queue_next);
         }
 
@@ -705,12 +705,12 @@ impl<N: NetworkTrait> MalAby3<N> {
     ) -> Result<(), Error> {
         let mut msg1 = BytesMut::new();
         let mut msg2 = BytesMut::new();
-        for val in opening1.values.iter().cloned() {
+        for val in opening1.values.iter() {
             val.add_to_bytes(&mut msg1);
         }
         msg1.extend_from_slice(&opening1.rand);
 
-        for val in opening2.values.iter().cloned() {
+        for val in opening2.values.iter() {
             val.add_to_bytes(&mut msg2);
         }
         msg2.extend_from_slice(&opening2.rand);

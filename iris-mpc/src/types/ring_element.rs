@@ -65,6 +65,8 @@ pub trait RingImpl:
     const K: usize;
 
     fn get_msb(&self) -> RingElement<Bit>;
+    fn get_bit(&self, index: usize) -> RingElement<Bit>;
+    fn set_bit(&mut self, index: usize, bit: RingElement<Bit>);
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
@@ -77,6 +79,7 @@ pub trait RingImpl:
     fn floor_div(self, other: &Self) -> Self;
     fn inverse(&self) -> Result<Self, Error>;
     fn add_to_hash<D: Digest>(&self, hasher: &mut D);
+    fn upgrade_to_128(self) -> RingElement<u128>;
 }
 
 impl<T: IntRing2k> RingImpl for RingElement<T> {
@@ -84,6 +87,15 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn get_msb(&self) -> RingElement<Bit> {
         RingElement(Bit(self.0 >> (Self::K - 1) == T::one()))
+    }
+
+    fn get_bit(&self, index: usize) -> RingElement<Bit> {
+        RingElement(Bit((self.0 >> index) & T::one() == T::one()))
+    }
+
+    fn set_bit(&mut self, index: usize, bit: RingElement<Bit>) {
+        self.0 &= !(T::one() << index); // Reset first
+        self.0 |= T::from(bit.0.convert()) << index;
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
@@ -140,6 +152,10 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
 
     fn add_to_hash<D: Digest>(&self, hasher: &mut D) {
         self.0.add_to_hash(hasher)
+    }
+
+    fn upgrade_to_128(self) -> RingElement<u128> {
+        RingElement(self.0.upgrade_to_128())
     }
 }
 
