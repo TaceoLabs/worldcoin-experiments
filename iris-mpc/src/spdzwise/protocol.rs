@@ -1,4 +1,4 @@
-use super::{share::Share, vecshare::VecShare};
+use super::{share::Share, triples::Triples, vecshare::VecShare};
 use crate::{
     aby3::utils,
     prelude::{Aby3, Aby3Share, Bit, Error, MpcTrait, NetworkTrait, Sharable},
@@ -22,21 +22,6 @@ pub(crate) type TShare<T: Sharable> = Share<T::VerificationShare>;
 pub(crate) type VecTShare<T: Sharable> = VecShare<T::VerificationShare>;
 #[allow(type_alias_bounds)]
 pub(crate) type UShare<T: Sharable> = <T::VerificationShare as Sharable>::Share;
-
-#[derive(Clone, Debug, Default)]
-struct Triples {
-    a: Vec<Aby3Share<u128>>,
-    b: Vec<Aby3Share<u128>>,
-    c: Vec<Aby3Share<u128>>,
-}
-
-impl Triples {
-    fn new(a: Vec<Aby3Share<u128>>, b: Vec<Aby3Share<u128>>, c: Vec<Aby3Share<u128>>) -> Self {
-        assert_eq!(a.len(), b.len());
-        assert_eq!(a.len(), c.len());
-        Self { a, b, c }
-    }
-}
 
 pub struct SpdzWise<N: NetworkTrait, U: Sharable> {
     aby3: Aby3<N>,
@@ -469,6 +454,24 @@ where
         if hashes[0] != hashes[1] || hashes[0] != hashes[2] {
             return Err(Error::VerifyError);
         }
+
+        Ok(())
+    }
+
+    async fn verify_triple_queue<R: Rng + SeedableRng>(&mut self) -> Result<(), Error>
+    where
+        Standard: Distribution<R::Seed>,
+        R::Seed: AsRef<[u8]>,
+    {
+        let len = self.triple_buffer.len();
+        let (a, b, c) = self.triple_buffer.get_all();
+        let (mut x, mut y, mut z) = self.prec_triples.get(len)?;
+
+        // Permute the precomputed triples again
+        self.permute::<R>(&mut x, &mut y, &mut z).await?;
+
+        // Finally verify
+        self.verify_triples(&a, &b, &c, x, y, z).await?;
 
         Ok(())
     }
@@ -1062,7 +1065,8 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        self.verify_macs().await
+        self.verify_macs().await?;
+        self.verify_triple_queue::<ChaCha12Rng>().await
     }
 }
 
