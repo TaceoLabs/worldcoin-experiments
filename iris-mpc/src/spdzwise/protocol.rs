@@ -146,12 +146,12 @@ where
     }
 
     #[inline(always)]
-    async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
+    async fn jmp_send_many<T: Sharable>(&mut self, send: &[T::Share]) -> Result<(), Error> {
         utils::send_vec_next(&mut self.aby3.network, &send).await
     }
 
-    fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
-        for value in buffer.into_iter() {
+    fn jmp_buffer_many<T: Sharable>(&mut self, buffer: &[T::Share]) {
+        for value in buffer {
             value.add_to_bytes(&mut self.send_queue_prev);
         }
     }
@@ -184,8 +184,8 @@ where
 
     async fn jmp_send_receive_many<T: Sharable>(
         &mut self,
-        send: Vec<T::Share>,
-        buffer: Vec<T::Share>,
+        send: &[T::Share],
+        buffer: &[T::Share],
     ) -> Result<Vec<T::Share>, Error> {
         let len = send.len();
         self.jmp_buffer_many::<T>(buffer);
@@ -229,8 +229,8 @@ where
 
         let seed3 = self
             .jmp_send_receive_many::<u8>(
-                RingElement::convert_slice_rev(seed2.as_ref()).to_vec(),
-                RingElement::convert_slice_rev(seed1.as_ref()).to_vec(),
+                RingElement::convert_slice_rev(seed2.as_ref()),
+                RingElement::convert_slice_rev(seed1.as_ref()),
             )
             .await?;
 
@@ -260,7 +260,9 @@ where
             shares_b.push(b);
         }
 
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
 
         let res = shares
             .iter()
@@ -621,7 +623,7 @@ where
         }
 
         let shares_c = self
-            .jmp_send_receive_many::<Bit>(shares_b, shares_a)
+            .jmp_send_receive_many::<Bit>(&shares_b, &shares_a)
             .await?;
         self.jmp_verify().await?;
 

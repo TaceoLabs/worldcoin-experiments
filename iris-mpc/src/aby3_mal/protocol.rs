@@ -55,12 +55,12 @@ impl<N: NetworkTrait> MalAby3<N> {
     }
 
     #[inline(always)]
-    async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
-        utils::send_vec_next(&mut self.network, &send).await
+    async fn jmp_send_many<T: Sharable>(&mut self, send: &[T::Share]) -> Result<(), Error> {
+        utils::send_vec_next(&mut self.network, send).await
     }
 
-    fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
-        for value in buffer.into_iter() {
+    fn jmp_buffer_many<T: Sharable>(&mut self, buffer: &[T::Share]) {
+        for value in buffer {
             value.add_to_bytes(&mut self.send_queue_prev);
         }
     }
@@ -93,8 +93,8 @@ impl<N: NetworkTrait> MalAby3<N> {
 
     async fn jmp_send_receive_many<T: Sharable>(
         &mut self,
-        send: Vec<T::Share>,
-        buffer: Vec<T::Share>,
+        send: &[T::Share],
+        buffer: &[T::Share],
     ) -> Result<Vec<T::Share>, Error> {
         let len = send.len();
         self.jmp_buffer_many::<T>(buffer);
@@ -102,18 +102,9 @@ impl<N: NetworkTrait> MalAby3<N> {
         self.jmp_receive_many::<T>(len).await
     }
 
-    fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
-        let mut swap = BytesMut::new();
-        std::mem::swap(&mut swap, data);
-        let bytes = swap.freeze();
-        let mut hasher = Sha512::new();
-        hasher.update(bytes);
-        hasher.finalize()
-    }
-
     async fn jmp_verify(&mut self) -> Result<(), Error> {
-        let send_prev = Self::clear_and_hash(&mut self.send_queue_prev);
-        let hash_next = Self::clear_and_hash(&mut self.rcv_queue_next);
+        let send_prev = clear_and_hash(&mut self.send_queue_prev);
+        let hash_next = clear_and_hash(&mut self.rcv_queue_next);
 
         self.network
             .send_prev_id(Bytes::from(send_prev.to_vec()))
@@ -137,8 +128,8 @@ impl<N: NetworkTrait> MalAby3<N> {
 
         let seed3 = self
             .jmp_send_receive_many::<u8>(
-                RingElement::convert_slice_rev(seed2.as_ref()).to_vec(),
-                RingElement::convert_slice_rev(seed1.as_ref()).to_vec(),
+                RingElement::convert_slice_rev(seed2.as_ref()),
+                RingElement::convert_slice_rev(seed1.as_ref()),
             )
             .await?;
 
@@ -901,7 +892,9 @@ impl<N: NetworkTrait> MalAby3<N> {
             shares_b.push(b);
         }
 
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
 
         let res = shares
             .iter()
@@ -926,7 +919,9 @@ impl<N: NetworkTrait> MalAby3<N> {
             shares_b.push(b);
         }
 
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
 
         let res = shares
             .iter()
@@ -1094,7 +1089,9 @@ where
             shares_b.push(b);
         }
 
-        let shares_c = self.jmp_send_receive_many::<T>(shares_b, shares_a).await?;
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
 
         self.jmp_verify().await?;
         let res = shares
@@ -1129,7 +1126,7 @@ where
         }
 
         let shares_c = self
-            .jmp_send_receive_many::<Bit>(shares_b, shares_a)
+            .jmp_send_receive_many::<Bit>(&shares_b, &shares_a)
             .await?;
         self.jmp_verify().await?;
 
@@ -1347,4 +1344,13 @@ where
         }
         self.binary_add_3_many(x1, x2, x3).await
     }
+}
+
+fn clear_and_hash(data: &mut BytesMut) -> Output<Sha512> {
+    let mut swap = BytesMut::new();
+    std::mem::swap(&mut swap, data);
+    let bytes = swap.freeze();
+    let mut hasher = Sha512::new();
+    hasher.update(bytes);
+    hasher.finalize()
 }
