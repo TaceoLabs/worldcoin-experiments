@@ -85,6 +85,11 @@ where
         self.mpc.open_mac_key().await
     }
 
+    #[cfg(test)]
+    pub async fn precompute_and_triples(&mut self, amount: usize) -> Result<(), Error> {
+        self.mpc.precompute_and_triples(amount).await
+    }
+
     pub async fn finish(self) -> Result<(), Error> {
         self.mpc.finish().await
     }
@@ -249,8 +254,12 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        // TODO adapt the number here
-        self.mpc.precompute_and_triples(8192).await?;
+        // Get enough and triples
+        // amount - 1 for or_reduce
+        // amount * a2b, with K (2 + 2 * (log_2(K))) each
+        let logk = ceil_log2(T::Share::K);
+        let num_and_triples = amount * T::Share::K * (2 + 2 * logk) + amount - 1;
+        self.mpc.precompute_and_triples(num_and_triples).await?;
 
         let mut bool_shares = Bshare::VecShare::with_capacity(amount);
 
