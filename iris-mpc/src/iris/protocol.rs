@@ -249,6 +249,9 @@ where
             return Err(Error::InvalidSizeError);
         }
 
+        // TODO adapt the number here
+        self.mpc.precompute_and_triples(8192).await?;
+
         let mut bool_shares = Bshare::VecShare::with_capacity(amount);
 
         for (db_, mask_) in db.chunks(chunk_size).zip(mask_db.chunks(chunk_size)) {

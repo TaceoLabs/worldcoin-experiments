@@ -55,4 +55,10 @@ impl Triples {
         let c = self.c.drain(0..amount).collect();
         Ok((a, b, c))
     }
+
+    pub fn extend(&mut self, other: Self) {
+        self.a.extend(other.a);
+        self.b.extend(other.b);
+        self.c.extend(other.c);
+    }
 }

@@ -463,6 +463,7 @@ where
         Standard: Distribution<R::Seed>,
         R::Seed: AsRef<[u8]>,
     {
+        // We consume precomputed triples always as multiples of 128 bit
         let len = self.triple_buffer.len();
         let (a, b, c) = self.triple_buffer.get_all();
         let (mut x, mut y, mut z) = self.prec_triples.get(len)?;
@@ -563,9 +564,17 @@ where
         >>::preprocess(&mut self.aby3)
         .await?;
 
-        // TODO maybe modify here
-        self.prec_triples = self.generate_triples::<ChaCha12Rng>(8192).await?;
+        Ok(())
+    }
 
+    async fn precompute_and_triples(&mut self, amount: usize) -> Result<(), Error> {
+        let ands = self.prec_triples.len();
+        let amount = (amount + 127) / 128; // We allow precomputing as multiples of 128 bit
+        if ands <= amount {
+            // We have to precompute AND gates
+            let prec_triples = self.generate_triples::<ChaCha12Rng>(amount - ands).await?;
+            self.prec_triples.extend(prec_triples);
+        }
         Ok(())
     }
 
