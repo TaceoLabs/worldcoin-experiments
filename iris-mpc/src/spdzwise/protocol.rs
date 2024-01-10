@@ -991,18 +991,15 @@ where
             mac_shares_a.push(rand2);
         }
 
-        shares_a.extend(mac_shares_a);
-
         // Network: reshare
-        let shares_b = utils::send_slice_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
-
-        let mac_a = shares_a[len..].to_vec();
-        let mac_b = shares_b[len..].to_vec();
+        let (shares_b, mac_shares_b) =
+            utils::send_slices_and_receive_iters(&mut self.aby3.network, &shares_a, &mac_shares_a)
+                .await?;
 
         let res = shares_a
             .into_iter()
-            .zip(mac_a)
-            .zip(shares_b.into_iter().zip(mac_b))
+            .zip(mac_shares_a.into_iter())
+            .zip(shares_b.zip(mac_shares_b))
             .map(|((a_val, a_mac), (b_val, b_mac))| {
                 let share = Aby3Share::new(a_val, b_val);
                 let mac = Aby3Share::new(a_mac, b_mac);
@@ -1030,8 +1027,8 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        let mut shares_a = Vec::with_capacity(2 * len);
-        let mut mac_shares_a = Vec::with_capacity(2 * len);
+        let mut shares_a = Vec::with_capacity(len);
+        let mut mac_shares_a = Vec::with_capacity(len);
 
         for (b, mask) in b.iter().zip(masks.iter()) {
             let mut rand = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
@@ -1052,18 +1049,15 @@ where
             mac_shares_a.push(rand2);
         }
 
-        shares_a.extend(mac_shares_a);
-
         // Network: reshare
-        let shares_b = utils::send_slice_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
-
-        let mac_a = shares_a[len..].to_vec();
-        let mac_b = shares_b[len..].to_vec();
+        let (shares_b, mac_shares_b) =
+            utils::send_slices_and_receive_iters(&mut self.aby3.network, &shares_a, &mac_shares_a)
+                .await?;
 
         let res = shares_a
             .into_iter()
-            .zip(mac_a)
-            .zip(shares_b.into_iter().zip(mac_b))
+            .zip(mac_shares_a.into_iter())
+            .zip(shares_b.zip(mac_shares_b))
             .map(|((a_val, a_mac), (b_val, b_mac))| {
                 let share = Aby3Share::new(a_val, b_val);
                 let mac = Aby3Share::new(a_mac, b_mac);

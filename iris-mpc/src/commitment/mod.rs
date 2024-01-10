@@ -1,4 +1,4 @@
-use crate::{aby3::utils::ring_vec_to_bytes, types::ring_element::RingImpl};
+use crate::{aby3::utils::ring_slice_to_bytes, types::ring_element::RingImpl};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
@@ -39,7 +39,7 @@ impl<R: RingImpl> Commitment<R> {
 
     pub fn commit_with_rand(values: Vec<R>, rand: [u8; 32]) -> Self {
         let mut hasher = Sha512::new();
-        let bytes = ring_vec_to_bytes(&values);
+        let bytes = ring_slice_to_bytes(&values);
         hasher.update(bytes);
         hasher.update(rand);
 
@@ -58,7 +58,7 @@ impl<R: RingImpl> Commitment<R> {
 impl<R: RingImpl> CommitOpening<R> {
     pub fn verify(self, comm: Vec<u8>) -> bool {
         let mut hasher = Sha512::new();
-        let bytes = ring_vec_to_bytes(&self.values);
+        let bytes = ring_slice_to_bytes(&self.values);
         hasher.update(bytes);
         hasher.update(self.rand);
 
