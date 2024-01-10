@@ -93,6 +93,7 @@ pub(crate) async fn send_slice_and_receive_bytes<N: NetworkTrait, R: RingImpl>(
     Ok(send_and_receive(network, ring_vec_to_bytes(values)).await?)
 }
 
+#[allow(unused)]
 pub(crate) async fn send_iter_and_receive_vec<'a, N: NetworkTrait, R: RingImpl + 'a>(
     network: &mut N,
     values: impl Iterator<Item = &'a R> + ExactSizeIterator,
@@ -100,6 +101,15 @@ pub(crate) async fn send_iter_and_receive_vec<'a, N: NetworkTrait, R: RingImpl +
     let len = values.len();
     let response = send_and_receive(network, ring_iter_to_bytes(values)).await?;
     ring_vec_from_bytes(response, len)
+}
+
+pub(crate) async fn send_iter_and_receive_iter<'a, N: NetworkTrait, R: RingImpl + 'a>(
+    network: &mut N,
+    values: impl Iterator<Item = &'a R> + ExactSizeIterator,
+) -> Result<RingBytesIter<R>, Error> {
+    let len = values.len();
+    let response = send_and_receive(network, ring_iter_to_bytes(values)).await?;
+    ring_iter_from_bytes(response, len)
 }
 
 pub(crate) async fn send_value<N: NetworkTrait, R: RingImpl>(

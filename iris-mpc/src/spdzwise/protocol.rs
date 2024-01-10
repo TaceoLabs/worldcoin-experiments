@@ -533,10 +533,10 @@ where
         Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
     {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_iter_and_receive_vec(&mut self.aby3.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_iter(&mut self.aby3.network, shares_b).await?;
         let res = shares
             .iter()
-            .zip(shares_c.into_iter())
+            .zip(shares_c)
             .map(|(s, c)| c ^ &s.a ^ &s.b)
             .collect();
         Ok(res)

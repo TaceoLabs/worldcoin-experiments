@@ -264,10 +264,10 @@ where
 
     async fn open_many(&mut self, shares: Vec<Share<T>>) -> Result<Vec<T>, Error> {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_iter_and_receive_vec(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_iter(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
-            .zip(shares_c.into_iter())
+            .zip(shares_c)
             .map(|(s, c)| T::from_sharetype(c + &s.a + &s.b))
             .collect();
         Ok(res)
@@ -280,10 +280,10 @@ where
 
     async fn open_bit_many(&mut self, shares: Vec<Share<Bit>>) -> Result<Vec<bool>, Error> {
         let shares_b = shares.iter().map(|s| &s.b);
-        let shares_c = utils::send_iter_and_receive_vec(&mut self.network, shares_b).await?;
+        let shares_c = utils::send_iter_and_receive_iter(&mut self.network, shares_b).await?;
         let res = shares
             .iter()
-            .zip(shares_c.into_iter())
+            .zip(shares_c)
             .map(|(s, c)| (c ^ &s.a ^ &s.b).convert().convert())
             .collect();
         Ok(res)
