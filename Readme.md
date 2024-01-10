@@ -52,7 +52,8 @@ We are investigating several different MPC protocols:
   - Working over larger ring for soundness, leading to communication overhead.
   - Additional MAC essentially doubles the communication and computation further.
   - [Publication](https://eprint.iacr.org/2020/1330.pdf)
-  - We use [triple sacrificing](https://eprint.iacr.org/2019/1298.pdf) for binary computations, such as AND gates.
+  - We use a cut-and-choose protocol to get maliciously secure binary computations.
+  - [Publication](https://www.ieee-security.org/TC/SP2017/papers/96.pdf)
 
 ## Examples & Benchmarks
 
