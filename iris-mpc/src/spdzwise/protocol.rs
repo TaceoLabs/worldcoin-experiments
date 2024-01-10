@@ -147,7 +147,7 @@ where
 
     #[inline(always)]
     async fn jmp_send_many<T: Sharable>(&mut self, send: Vec<T::Share>) -> Result<(), Error> {
-        utils::send_vec_next(&mut self.aby3.network, send).await
+        utils::send_vec_next(&mut self.aby3.network, &send).await
     }
 
     fn jmp_buffer_many<T: Sharable>(&mut self, buffer: Vec<T::Share>) {
@@ -820,8 +820,7 @@ where
         shares_a.extend(mac_shares_a);
 
         // Network: reshare
-        let shares_b =
-            utils::send_and_receive_vec(&mut self.aby3.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
 
         let mac_a = shares_a[len..].to_vec();
         let mac_b = shares_b[len..].to_vec();
@@ -882,8 +881,7 @@ where
         shares_a.extend(mac_shares_a);
 
         // Network: reshare
-        let shares_b =
-            utils::send_and_receive_vec(&mut self.aby3.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.aby3.network, &shares_a).await?;
 
         let mac_a = shares_a[len..].to_vec();
         let mac_b = shares_b[len..].to_vec();

@@ -145,7 +145,7 @@ where
         values: Vec<T::Share>,
         id: usize,
     ) -> Result<(), Error> {
-        utils::send_vec(&mut self.network, values, id).await
+        utils::send_vec(&mut self.network, &values, id).await
     }
 
     fn jmp_queue<T: Sharable>(&mut self, value: T::Share, id: usize) -> Result<(), Error> {
@@ -946,7 +946,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let res: Vec<Aby3Share<T>> = shares_a
             .into_iter()
@@ -1067,7 +1067,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let mut res = Vec::with_capacity(len);
 
