@@ -39,7 +39,7 @@ impl<R: RingImpl> Commitment<R> {
 
     pub fn commit_with_rand(values: Vec<R>, rand: [u8; 32]) -> Self {
         let mut hasher = Sha512::new();
-        let bytes = ring_vec_to_bytes(values.to_owned());
+        let bytes = ring_vec_to_bytes(&values);
         hasher.update(bytes);
         hasher.update(rand);
 
@@ -58,7 +58,7 @@ impl<R: RingImpl> Commitment<R> {
 impl<R: RingImpl> CommitOpening<R> {
     pub fn verify(self, comm: Vec<u8>) -> bool {
         let mut hasher = Sha512::new();
-        let bytes = ring_vec_to_bytes(self.values.to_owned());
+        let bytes = ring_vec_to_bytes(&self.values);
         hasher.update(bytes);
         hasher.update(self.rand);
 

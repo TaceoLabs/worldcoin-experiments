@@ -142,7 +142,7 @@ where
     #[inline(always)]
     async fn jmp_send_many<T: Sharable>(
         &mut self,
-        values: Vec<T::Share>,
+        values: &[T::Share],
         id: usize,
     ) -> Result<(), Error> {
         utils::send_vec(&mut self.network, values, id).await
@@ -160,11 +160,7 @@ where
         Ok(())
     }
 
-    fn jmp_queue_many<T: Sharable>(
-        &mut self,
-        values: Vec<T::Share>,
-        id: usize,
-    ) -> Result<(), Error> {
+    fn jmp_queue_many<T: Sharable>(&mut self, values: &[T::Share], id: usize) -> Result<(), Error> {
         let my_id = self.network.get_id();
         if id == (my_id + 1) % 3 {
             for value in values {
@@ -342,8 +338,8 @@ where
                     y3s.push(y3);
                     rs.push(r);
                 }
-                self.jmp_send_many::<T>(y1s, 2).await?;
-                self.jmp_send_many::<T>(y3s, 1).await?;
+                self.jmp_send_many::<T>(&y1s, 2).await?;
+                self.jmp_send_many::<T>(&y3s, 1).await?;
 
                 let resp = self.jshare_binary_many(None, 1, 2, 0, len).await?;
                 for (share, r) in resp.into_iter().zip(rs) {
@@ -371,7 +367,7 @@ where
                     y1s.push(y1);
                     rs.push(r);
                 }
-                self.jmp_queue_many::<T>(y1s, 2)?;
+                self.jmp_queue_many::<T>(&y1s, 2)?;
                 let y3s = self.jmp_receive_many::<T>(0, len).await?;
 
                 for (zr_, y3) in zr.iter_mut().zip(y3s) {
@@ -404,7 +400,7 @@ where
                     y3s.push(y3);
                     rs.push(r);
                 }
-                self.jmp_queue_many::<T>(y3s, 1)?;
+                self.jmp_queue_many::<T>(&y3s, 1)?;
                 let y1s = self.jmp_receive_many::<T>(0, len).await?;
 
                 for (zr_, y1) in zr.iter_mut().zip(y1s) {
@@ -529,9 +525,9 @@ where
                     rs.push(r);
                 }
                 tracing::debug!("jmp_send_many -> 2");
-                self.jmp_send_many::<U>(y1s, 2).await?;
+                self.jmp_send_many::<U>(&y1s, 2).await?;
                 tracing::debug!("jmp_send_many -> 1");
-                self.jmp_send_many::<U>(y3s, 1).await?;
+                self.jmp_send_many::<U>(&y3s, 1).await?;
 
                 tracing::debug!("jshare_many 1,2 -> 0");
                 let resp = self.jshare_many(None, 1, 2, 0, len).await?;
@@ -568,7 +564,7 @@ where
                     rs.push(r);
                 }
                 tracing::debug!("jmp_queue_many -> 2");
-                self.jmp_queue_many::<U>(y1s, 2)?;
+                self.jmp_queue_many::<U>(&y1s, 2)?;
                 tracing::debug!("jmp_recv_many <- 0");
                 let y3s = self.jmp_receive_many::<U>(0, len).await?;
 
@@ -611,7 +607,7 @@ where
                     rs.push(r);
                 }
                 tracing::debug!("jmp_queue_many -> 1");
-                self.jmp_queue_many::<U>(y3s, 1)?;
+                self.jmp_queue_many::<U>(&y3s, 1)?;
                 tracing::debug!("jmp_recv_many <- 0");
                 let y1s = self.jmp_receive_many::<U>(0, len).await?;
 
@@ -946,7 +942,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let res: Vec<Aby3Share<T>> = shares_a
             .into_iter()
@@ -1067,7 +1063,7 @@ where
         }
 
         // Network: reshare
-        let shares_b = utils::send_and_receive_vec(&mut self.network, shares_a.to_owned()).await?;
+        let shares_b = utils::send_and_receive_vec(&mut self.network, &shares_a).await?;
 
         let mut res = Vec::with_capacity(len);
 
@@ -1119,11 +1115,11 @@ where
         let my_id = self.network.get_id();
         // if id==next_id, i should recv from prev and vice versa
         if id == (my_id + 1) % 3 {
-            for value in values.iter().cloned() {
+            for value in values.iter() {
                 value.add_to_bytes(&mut self.rcv_queue_prev);
             }
         } else if id == (my_id + 2) % 3 {
-            for value in values.iter().cloned() {
+            for value in values.iter() {
                 value.add_to_bytes(&mut self.rcv_queue_next);
             }
         } else {
@@ -1258,7 +1254,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_send_many::<T>(betas.to_owned(), receiver).await?;
+            self.jmp_send_many::<T>(&betas, receiver).await?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_1, alpha_p, beta));
             }
@@ -1281,7 +1277,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_queue_many::<T>(betas.to_owned(), receiver)?;
+            self.jmp_queue_many::<T>(&betas, receiver)?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_p, alpha_1, beta));
             }
@@ -1387,7 +1383,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_send_many::<T>(betas.to_owned(), receiver).await?;
+            self.jmp_send_many::<T>(&betas, receiver).await?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_1, alpha_p, beta));
             }
@@ -1410,7 +1406,7 @@ where
                 alphas_p.push(alpha_p);
             }
 
-            self.jmp_queue_many::<T>(betas.to_owned(), receiver)?;
+            self.jmp_queue_many::<T>(&betas, receiver)?;
             for ((alpha_1, alpha_p), beta) in alphas_1.into_iter().zip(alphas_p).zip(betas) {
                 shares.push(Share::new(alpha_p, alpha_1, beta));
             }
@@ -1437,17 +1433,17 @@ where
     ) -> Result<(), Error> {
         let mut msg1 = BytesMut::new();
         let mut msg2 = BytesMut::new();
-        for val in opening1.values.iter().cloned() {
+        for val in opening1.values.iter() {
             val.add_to_bytes(&mut msg1);
         }
         msg1.extend_from_slice(&opening1.rand);
 
-        for val in opening2.values.iter().cloned() {
+        for val in opening2.values.iter() {
             val.add_to_bytes(&mut msg2);
         }
         msg2.extend_from_slice(&opening2.rand);
 
-        for val in opening3.values.iter().cloned() {
+        for val in opening3.values.iter() {
             val.to_owned().add_to_bytes(&mut msg1);
             val.add_to_bytes(&mut msg2);
         }
@@ -2101,16 +2097,16 @@ where
         }
 
         let rcv = if id == 0 {
-            self.jmp_send_many::<T>(a.to_owned(), 2).await?;
-            self.jmp_send_many::<T>(b.to_owned(), 1).await?;
+            self.jmp_send_many::<T>(&a, 2).await?;
+            self.jmp_send_many::<T>(&b, 1).await?;
             self.jmp_receive_many::<T>(1, len).await?
         } else if id == 1 {
-            self.jmp_send_many::<T>(a.to_owned(), 0).await?;
-            self.jmp_queue_many::<T>(b.to_owned(), 2)?;
+            self.jmp_send_many::<T>(&a, 0).await?;
+            self.jmp_queue_many::<T>(&b, 2)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else if id == 2 {
-            self.jmp_queue_many::<T>(b.to_owned(), 0)?;
-            self.jmp_queue_many::<T>(a.to_owned(), 1)?;
+            self.jmp_queue_many::<T>(&b, 0)?;
+            self.jmp_queue_many::<T>(&a, 1)?;
             self.jmp_receive_many::<T>(0, len).await?
         } else {
             unreachable!()
@@ -2171,16 +2167,16 @@ where
         }
 
         let rcv = if id == 0 {
-            self.jmp_send_many::<Bit>(a.to_owned(), 2).await?;
-            self.jmp_send_many::<Bit>(b.to_owned(), 1).await?;
+            self.jmp_send_many::<Bit>(&a, 2).await?;
+            self.jmp_send_many::<Bit>(&b, 1).await?;
             self.jmp_receive_many::<Bit>(1, len).await?
         } else if id == 1 {
-            self.jmp_send_many::<Bit>(a.to_owned(), 0).await?;
-            self.jmp_queue_many::<Bit>(b.to_owned(), 2)?;
+            self.jmp_send_many::<Bit>(&a, 0).await?;
+            self.jmp_queue_many::<Bit>(&b, 2)?;
             self.jmp_receive_many::<Bit>(0, len).await?
         } else if id == 2 {
-            self.jmp_queue_many::<Bit>(b.to_owned(), 0)?;
-            self.jmp_queue_many::<Bit>(a.to_owned(), 1)?;
+            self.jmp_queue_many::<Bit>(&b, 0)?;
+            self.jmp_queue_many::<Bit>(&a, 1)?;
             self.jmp_receive_many::<Bit>(0, len).await?
         } else {
             unreachable!()

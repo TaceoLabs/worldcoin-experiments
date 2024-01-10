@@ -70,7 +70,7 @@ pub trait RingImpl:
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
-    fn add_to_bytes(self, other: &mut BytesMut);
+    fn add_to_bytes(&self, other: &mut BytesMut);
     fn from_bytes_mut(other: BytesMut) -> Result<Self, Error>;
     fn from_bytes(other: Bytes) -> Result<Self, Error>;
     fn take_from_bytes_mut(other: &mut BytesMut) -> Result<Self, Error>;
@@ -122,7 +122,7 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
         Ok(res)
     }
 
-    fn add_to_bytes(self, other: &mut BytesMut) {
+    fn add_to_bytes(&self, other: &mut BytesMut) {
         self.0.add_to_bytes(other)
     }
 
