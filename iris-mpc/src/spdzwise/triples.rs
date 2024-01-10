@@ -155,4 +155,19 @@ impl Triples {
             self.bits_in_last = diff;
         }
     }
+
+    pub fn add_many_t<T: Sharable>(
+        &mut self,
+        a: Vec<Aby3Share<T>>,
+        b: Vec<Aby3Share<T>>,
+        c: Vec<Aby3Share<T>>,
+    ) {
+        debug_assert_eq!(a.len(), b.len());
+        debug_assert_eq!(a.len(), c.len());
+
+        // TODO maybe optimize this
+        for ((a_, b_), c_) in a.into_iter().zip(b).zip(c) {
+            self.add_t(a_, b_, c_);
+        }
+    }
 }
