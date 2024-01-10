@@ -3,7 +3,7 @@ use crate::{
     types::ring_element::RingImpl,
 };
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Triples {
     a: Vec<Aby3Share<u128>>,
     b: Vec<Aby3Share<u128>>,
@@ -11,9 +11,20 @@ pub struct Triples {
     bits_in_last: usize,
 }
 
+impl Default for Triples {
+    fn default() -> Self {
+        Self {
+            a: Vec::new(),
+            b: Vec::new(),
+            c: Vec::new(),
+            bits_in_last: 128,
+        }
+    }
+}
+
 impl Triples {
     pub fn new(a: Vec<Aby3Share<u128>>, b: Vec<Aby3Share<u128>>, c: Vec<Aby3Share<u128>>) -> Self {
-        let bits_in_last = if a.is_empty() { 0 } else { 128 };
+        let bits_in_last = 128;
         assert_eq!(a.len(), b.len());
         assert_eq!(a.len(), c.len());
         Self {
@@ -41,6 +52,7 @@ impl Triples {
         let a = std::mem::take(&mut self.a);
         let b = std::mem::take(&mut self.b);
         let c = std::mem::take(&mut self.c);
+        self.bits_in_last = 128;
         (a, b, c)
     }
 
@@ -64,6 +76,7 @@ impl Triples {
         let a = self.a.drain(0..amount).collect();
         let b = self.b.drain(0..amount).collect();
         let c = self.c.drain(0..amount).collect();
+        self.bits_in_last = 128;
         Ok((a, b, c))
     }
 

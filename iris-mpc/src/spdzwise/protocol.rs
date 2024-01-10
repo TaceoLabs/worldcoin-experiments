@@ -1144,7 +1144,7 @@ where
     async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
         let c = self.aby3_and::<T>(a.to_owned(), b.to_owned()).await?;
 
-        // TODO add to triple queue
+        self.triple_buffer.add_t(a, b, c.to_owned());
 
         Ok(c)
     }
