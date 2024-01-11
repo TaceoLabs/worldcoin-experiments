@@ -215,7 +215,7 @@
 
 \subsection{MPC Protocols}\label{sec:prelim:mpc}
 
-To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$.
+To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$. The protocols we discuss achieve either semi-honest security, or malicious security with abort against one corrupted party.
 
 \subsection{Semi-honest ABY3: Our baseline protocol}
 
@@ -231,6 +231,20 @@ where $r_i$ is a freshly generated random share of 0 required for re-randomizati
 To translate the additive share $z_i$ to a replicated share $(z_i, z_{i-1})$ it suffices that party $i$ sends its share to party $i+1$.
 
 When computing a dot-product $\shared{z} = \langle\shared{\vec{x}}, \shared{\vec{y}}\rangle = \sum \shared{x_i} \cdot \shared{y_i}$, one does not have to reshare after each individual multiplication $\shared{x_i} \cdot \shared{y_i}$, but can perform the summation on additive shares and reshare just the result. Consequently, a dot product requires the same amount of communication as a multiplication in ABY3, i.e., it is independent to the length of the vectors $|\shared{\vec{x}}| = |\shared{\vec{y}}|$.
+
+\subsection{Malicious Security}
+
+Many publications following ABY3's blueprint have been proposed in the literatures, which mainly differ on how to get malicious security in different security models. We discuss the main methods in this section, limiting ourselves to the 3-party setting and malicious security with abort.
+
+\subsubsection{Joint Message Sharing}
+
+Since ABY3 is a replicated secret sharing protocol each party has access to two out of three shares. Consequently, whenever one of the two shares is transmitted to another party (e.g., when reconstructing the output from the shares), two parties potentially can send the missing share. As example, when the value $\shared{x} = (x_1, x_2, x_3)$ needs to be reconstructed, party $i$ already has access to the shares $x_i$ and $x_{i-1}$ and can potentially send $x_i$ to party $i-1$ or $x_{i-1}$ to party $i+1$. Thus, when each party sends both shares to the correct other parties, the parties can check whether the received shares match and abort otherwise. Furthermore, one can delay sending one out of the two shares to the end of the protocol and only send a hash of all messages to reduce communication.
+
+This simple and powerful technique allows to detect malicious behavior for all linear operations performed on the shares. However, it does not work for multiplications and dot products, since they involve a subprotocol translating the replicated share to just an additive one. So only one party knows the resulting share and the other parties cannot be used to verify correctness. Thus, multiplications need an additional way of checking correctness, which we investigate in the next sections.
+
+% SPDZ Wise arithmetic does not require joint message sharing due to having the MAC
+
+\subsubsection{Protocol Choices}
 
 \section{Iris Code Membership Protocol}
 
