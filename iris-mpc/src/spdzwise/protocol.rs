@@ -328,8 +328,8 @@ where
     {
         // https://www.ieee-security.org/TC/SP2017/papers/96.pdf
         // Assumes B=2 buckets (Secure when generating 2^20 triples)
-        const N: usize = (1usize << 20) / 128; // # of 128 bit registers, corresponds to 2^20 AND GATES
-                                               // Here we have C=128 which is significantly more than required for security
+        const N: usize = 1usize << (20 - 7); // # of 128 bit registers, corresponds to 2^20 AND GATES
+                                             // Here we have C=128 which is significantly more than required for security
         let n = std::cmp::max(num, N);
         let a = (0..2 * n + 1)
             .map(|_| self.aby3.prf.gen_rand::<u128>())
@@ -488,10 +488,17 @@ where
             return Ok(());
         }
         let (a, b, c) = self.triple_buffer.get_all();
-        let (mut x, mut y, mut z) = self.prec_triples.get(len)?;
+        let len_ = std::cmp::max(len, 1usize << (20 - 7)); // Permute at least 2^(20) triples, as required for security
+        let (mut x, mut y, mut z) = self.prec_triples.get(len_)?;
 
         // Permute the precomputed triples again
         self.permute::<R>(&mut x, &mut y, &mut z).await?;
+
+        if len_ > len {
+            x.truncate(len);
+            y.truncate(len);
+            z.truncate(len);
+        }
 
         // Finally verify
         self.verify_triples(&a, &b, &c, x, y, z).await?;
