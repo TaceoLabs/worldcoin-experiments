@@ -598,50 +598,6 @@ where
         Ok(decomp[0].to_owned())
     }
 
-    fn transpose_pack_u128<T: Sharable>(x: Vec<Aby3Share<T>>) -> Vec<Vec<Aby3Share<u128>>> {
-        let mut res = vec![Vec::new(); T::Share::K];
-
-        for x in x.chunks(128) {
-            let x = utils::transpose_shared_input::<T, u128>(x);
-
-            for (src, des) in x.into_iter().zip(res.iter_mut()) {
-                des.push(src);
-            }
-        }
-        res
-    }
-
-    fn transposed_pack_xor(
-        x1: &[Vec<Aby3Share<u128>>],
-        x2: &[Vec<Aby3Share<u128>>],
-    ) -> Vec<Vec<Aby3Share<u128>>> {
-        let len = x1.len();
-        debug_assert_eq!(len, x2.len());
-
-        let mut res = Vec::with_capacity(len);
-        for (x1, x2) in x1.iter().zip(x2.iter()) {
-            debug_assert_eq!(x1.len(), x2.len());
-            let mut v = Vec::with_capacity(x1.len());
-            for (x1, x2) in x1.iter().cloned().zip(x2.iter()) {
-                v.push(x1 ^ x2);
-            }
-            res.push(v);
-        }
-        res
-    }
-
-    fn transposed_pack_xor_assign(x1: &mut [Vec<Aby3Share<u128>>], x2: &[Vec<Aby3Share<u128>>]) {
-        let len = x1.len();
-        debug_assert_eq!(len, x2.len());
-
-        for (x1, x2) in x1.iter_mut().zip(x2.iter()) {
-            debug_assert_eq!(x1.len(), x2.len());
-            for (x1, x2) in x1.iter_mut().zip(x2.iter()) {
-                *x1 ^= x2;
-            }
-        }
-    }
-
     async fn transposed_pack_and(
         &mut self,
         x1: Vec<Vec<Aby3Share<u128>>>,
@@ -672,109 +628,53 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        let logk = utils::ceil_log2(T::Share::K);
+        let x1 = utils::transpose_pack_u128::<T>(x1);
+        let x2 = utils::transpose_pack_u128::<T>(x2);
+        let mut x3 = utils::transpose_pack_u128::<T>(x3);
 
-        let x1 = Self::transpose_pack_u128::<T>(x1);
-        let x2 = Self::transpose_pack_u128::<T>(x2);
-        let mut x3 = Self::transpose_pack_u128::<T>(x3);
-
-        // Full adder
-        let mut x2x3 = Self::transposed_pack_xor(&x2, &x3);
-        let mut s = Self::transposed_pack_xor(&x1, &x2x3);
-        let mut x1x3 = Self::transposed_pack_xor(&x1, &x3);
-
+        // Full adder to get 2 * c and s
+        let mut x2x3 = utils::transposed_pack_xor(&x2, &x3);
+        let s = utils::transposed_pack_xor(&x1, &x2x3);
+        let mut x1x3 = utils::transposed_pack_xor(&x1, &x3);
         // 2 * c
         x1x3.pop().expect("Enough elements present");
         x2x3.pop().expect("Enough elements present");
         x3.pop().expect("Enough elements present");
         let mut c = self.transposed_pack_and(x1x3, x2x3).await?;
-        Self::transposed_pack_xor_assign(&mut c, &x3);
+        utils::transposed_pack_xor_assign(&mut c, &x3);
 
-        // Add 2c + s via a packed Kogge-Stone adder, but just for MSB
+        // Add 2c + s via a ripple carry adder
         // LSB of c is 0
-        let mut p = Self::transposed_pack_xor(&s[1..], &c);
-        p.insert(0, s[0].to_owned());
-        s.remove(0);
-        let mut g = self.transposed_pack_and(s, c).await?; // g has no LSB
-        let mut res = p[p.len() - 1].to_owned();
+        // First round: half adder can be skipped due to LSB of c beign 0
+        let mut a = s;
+        let mut b = c;
 
-        // First depth:
-        let mut lsb_g = g.remove(0);
-        p.remove(0);
-        p.remove(0);
+        // First full adder
+        let mut c = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
+            self,
+            a[1].to_owned(),
+            b[0].to_owned(),
+        )
+        .await?;
 
-        let mut p_new = Vec::new();
-        let mut g_new = Vec::new();
+        // For last round
+        let a_msb = a.pop().expect("Enough elements present");
+        let b_msb = b.pop().expect("Enough elements present");
 
-        // now p and g have same size
-        for (p_, g_) in p.chunks_exact(2).zip(g.chunks_exact(2)) {
-            let p__ = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
-                self,
-                p_[0].to_owned(),
-                p_[1].to_owned(),
-            )
-            .await?;
-            let mut tmp = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
-                self,
-                g_[0].to_owned(),
-                p_[1].to_owned(),
-            )
-            .await?;
-            tmp.iter_mut().zip(g_[1].iter()).for_each(|(t, g)| *t ^= g);
-            let g__ = tmp;
-
-            p_new.push(p__);
-            g_new.push(g__);
+        // 2 -> k-1
+        for (a_, b_) in a.into_iter().skip(2).zip(b.into_iter().skip(1)) {
+            let tmp_a =
+                <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(a_, c.to_owned())?;
+            let tmp_b =
+                <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(b_, c.to_owned())?;
+            let tmp_c =
+                <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(self, tmp_a, tmp_b)
+                    .await?;
+            c = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(tmp_c, c)?;
         }
 
-        p = p_new;
-        g = g_new;
-
-        for _ in 0..logk - 2 {
-            let mut tmp = self.aby3_and_many::<u128>(p[0].to_owned(), lsb_g).await?;
-            tmp.iter_mut().zip(g[0].iter()).for_each(|(t, g)| *t ^= g);
-            lsb_g = tmp;
-            g.remove(0);
-            p.remove(0);
-
-            let mut p_new = Vec::new();
-            let mut g_new = Vec::new();
-
-            // now p and g have same size
-            for (p_, g_) in p.chunks_exact(2).zip(g.chunks_exact(2)) {
-                let p__ = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
-                    self,
-                    p_[0].to_owned(),
-                    p_[1].to_owned(),
-                )
-                .await?;
-                let mut tmp = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::and_many(
-                    self,
-                    g_[0].to_owned(),
-                    p_[1].to_owned(),
-                )
-                .await?;
-                tmp.iter_mut().zip(g_[1].iter()).for_each(|(t, g)| *t ^= g);
-                let g__ = tmp;
-
-                p_new.push(p__);
-                g_new.push(g__);
-            }
-
-            p = p_new;
-            g = g_new;
-        }
-
-        // last level
-        assert_eq!(p.len(), 1);
-        assert_eq!(g.len(), 1);
-        let mut tmp = self.aby3_and_many::<u128>(p[0].to_owned(), lsb_g).await?;
-        tmp.iter_mut().zip(g[0].iter()).for_each(|(t, g)| *t ^= g);
-
-        // xor s
-        res.iter_mut()
-            .zip(tmp.into_iter())
-            .for_each(|(t, g)| *t ^= g);
+        let res = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(a_msb, b_msb)?;
+        let res = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(res, c)?;
 
         // Extract bits for outputs
         let mut res = res
@@ -1286,6 +1186,8 @@ where
             .into_iter()
             .map(|a| Aby3Share::<T>::from_verificationtype(a.get_value()))
             .collect::<Vec<_>>();
+
+        // TODO one can switch adder here
 
         // let bits = self.arithmetic_to_binary_many(values).await?;
         // let res = bits.into_iter().map(|a| a.get_msb()).collect();

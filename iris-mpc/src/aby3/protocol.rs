@@ -10,6 +10,7 @@ use crate::types::bit::Bit;
 use crate::types::ring_element::{RingElement, RingImpl};
 use crate::types::sharable::Sharable;
 use bytes::Bytes;
+use itertools::Itertools;
 use num_traits::Zero;
 use plain_reference::IrisCodeArray;
 use rand::distributions::{Distribution, Standard};
@@ -166,6 +167,91 @@ impl<N: NetworkTrait> Aby3<N> {
             .zip(shares_b)
             .map(|(a_, b_)| Share::new(a_, b_))
             .collect();
+
+        Ok(res)
+    }
+
+    async fn transposed_pack_and(
+        &mut self,
+        x1: Vec<Vec<Share<u128>>>,
+        x2: Vec<Vec<Share<u128>>>,
+    ) -> Result<Vec<Vec<Share<u128>>>, Error> {
+        let len = x1.len();
+        debug_assert_eq!(len, x2.len());
+        let inner_len = x1[0].len();
+
+        let x3 = <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(
+            self,
+            x1.into_iter().flatten().collect_vec(),
+            x2.into_iter().flatten().collect_vec(),
+        )
+        .await?;
+
+        Ok(x3.chunks(inner_len).map(|x| x.to_owned()).collect_vec())
+    }
+
+    async fn msb_adder_many<T: Sharable>(
+        &mut self,
+        x1: Vec<Share<T>>,
+        x2: Vec<Share<T>>,
+        x3: Vec<Share<T>>,
+    ) -> Result<Vec<Share<Bit>>, Error> {
+        let len = x1.len();
+        if len != x2.len() || len != x3.len() {
+            return Err(Error::InvalidSizeError);
+        }
+
+        let x1 = utils::transpose_pack_u128::<T>(x1);
+        let x2 = utils::transpose_pack_u128::<T>(x2);
+        let mut x3 = utils::transpose_pack_u128::<T>(x3);
+
+        // Full adder to get 2 * c and s
+        let mut x2x3 = utils::transposed_pack_xor(&x2, &x3);
+        let s = utils::transposed_pack_xor(&x1, &x2x3);
+        let mut x1x3 = utils::transposed_pack_xor(&x1, &x3);
+        // 2 * c
+        x1x3.pop().expect("Enough elements present");
+        x2x3.pop().expect("Enough elements present");
+        x3.pop().expect("Enough elements present");
+        let mut c = self.transposed_pack_and(x1x3, x2x3).await?;
+        utils::transposed_pack_xor_assign(&mut c, &x3);
+
+        // Add 2c + s via a ripple carry adder
+        // LSB of c is 0
+        // First round: half adder can be skipped due to LSB of c beign 0
+        let mut a = s;
+        let mut b = c;
+
+        // First full adder
+        let mut c = <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(
+            self,
+            a[1].to_owned(),
+            b[0].to_owned(),
+        )
+        .await?;
+
+        // For last round
+        let a_msb = a.pop().expect("Enough elements present");
+        let b_msb = b.pop().expect("Enough elements present");
+
+        // 2 -> k-1
+        for (a_, b_) in a.into_iter().skip(2).zip(b.into_iter().skip(1)) {
+            let tmp_a = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(a_, c.to_owned())?;
+            let tmp_b = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(b_, c.to_owned())?;
+            let tmp_c =
+                <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(self, tmp_a, tmp_b).await?;
+            c = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(tmp_c, c)?;
+        }
+
+        let res = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(a_msb, b_msb)?;
+        let res = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(res, c)?;
+
+        // Extract bits for outputs
+        let mut res = res
+            .into_iter()
+            .flat_map(|t| t.to_bits())
+            .collect::<Vec<_>>();
+        res.resize(len, Share::default());
 
         Ok(res)
     }
@@ -427,9 +513,25 @@ where
     }
 
     async fn get_msb_many(&mut self, a: Vec<Share<T>>) -> Result<Vec<Share<Bit>>, Error> {
-        let bits = self.arithmetic_to_binary_many(a).await?;
-        let res = bits.into_iter().map(|a| a.get_msb()).collect();
-        Ok(res)
+        // TODO one can switch adder here
+
+        // let bits = self.arithmetic_to_binary_many(a).await?;
+        // let res = bits.into_iter().map(|a| a.get_msb()).collect();
+        // Ok(res)
+
+        let len = a.len();
+        let mut x1 = Vec::with_capacity(len);
+        let mut x2 = Vec::with_capacity(len);
+        let mut x3 = Vec::with_capacity(len);
+
+        for x_ in a {
+            let (x1_, x2_, x3_) = self.a2b_pre(x_);
+            x1.push(x1_);
+            x2.push(x2_);
+            x3.push(x3_);
+        }
+
+        self.msb_adder_many(x1, x2, x3).await
     }
 
     async fn binary_or(&mut self, a: Share<Bit>, b: Share<Bit>) -> Result<Share<Bit>, Error> {

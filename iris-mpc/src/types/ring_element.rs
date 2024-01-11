@@ -99,9 +99,8 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
-        let k = Self::K;
-        let mut res = Vec::with_capacity(k);
-        for i in 0..k {
+        let mut res = Vec::with_capacity(Self::K);
+        for i in 0..Self::K {
             let bit = ((self.0 >> i) & T::one()) == T::one();
             res.push(RingElement(Bit(bit)));
         }
