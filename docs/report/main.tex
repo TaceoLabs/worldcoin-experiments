@@ -215,6 +215,22 @@
 
 \subsection{MPC Protocols}\label{sec:prelim:mpc}
 
+To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$.
+
+\subsection{Semi-honest ABY3: Our baseline protocol}
+
+The ABY3 \cite{DBLP:conf/ccs/MohasselR18} protocol is the baseline for many 3-party, replicated-ring-based MPC protocols and its semi-honest variant is amongst the most efficient semi-honest MPC protocols to date. Thus, we will implement and use it for the semi-honest version of the use case.
+
+In ABY3, arithmetic values $x \in \Z_{2^k}$ are shared additively, such that $\texttt{Share}(x) = \shared{x} = (x_1, x_2, x_3)$ and $x = \sum x_i$. Then each party $i$ gets as its share the values $(x_i, x_{i-1})$ (where the indices are taken$\mod 3$). Since additive sharing is used, linear operations, such as addition, subtraction, and multiplications with constants, can be performed on the shares without the parties communicating with each other.
+
+Multiplications $\shared{z} = \shared{x} \cdot \shared{y}$, on the other hand, can not be computed purely without communication. However, since each party has 2 additive shares, one can compute an additive share of the result without communication, namely
+$$
+    z_i = x_i \cdot y_i + x_{i-1} \cdot y_i + x_i \cdot y_{i-1} + r_i,
+$$
+where $r_i$ is a freshly generated random share of 0 required for re-randomization which can be produced without communication in ABY3.
+To translate the additive share $z_i$ to a replicated share $(z_i, z_{i-1})$ it suffices that party $i$ sends its share to party $i+1$.
+
+
 \section{Iris Code Membership Protocol}
 
 \subsection{Core Building Block: Efficient Dot Product}
