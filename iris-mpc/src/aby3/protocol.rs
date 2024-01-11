@@ -469,14 +469,14 @@ where
 
     async fn and_many(
         &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
+        a: &Vec<Share<T>>,
+        b: &Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
         let mut shares_a = Vec::with_capacity(a.len());
-        for (a_, b_) in a.into_iter().zip(b.into_iter()) {
+        for (a_, b_) in a.iter().cloned().zip(b.iter()) {
             let rand = self.prf.gen_binary_zero_share::<T>();
             let mut c = a_ & b_;
             c.a ^= rand;

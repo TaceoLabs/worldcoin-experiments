@@ -327,8 +327,8 @@ where
     {
         // https://www.ieee-security.org/TC/SP2017/papers/96.pdf
         // Assumes B=2 buckets (Secure when generating 2^20 triples)
-        const N: usize = 8192; // # of 128 bit registers, corresponds to 2^20 AND GATES
-                               // Here we have C=128 which is significantly more than required for security
+        const N: usize = (1usize << 20) / 128; // # of 128 bit registers, corresponds to 2^20 AND GATES
+                                               // Here we have C=128 which is significantly more than required for security
         let n = std::cmp::max(num, N);
         let a = (0..2 * n + 1)
             .map(|_| self.aby3.prf.gen_rand::<u128>())
@@ -337,9 +337,7 @@ where
             .map(|_| self.aby3.prf.gen_rand::<u128>())
             .collect::<Vec<_>>();
 
-        let c = self
-            .aby3_and_many::<u128>(a.to_owned(), b.to_owned())
-            .await?;
+        let c = self.aby3_and_many::<u128>(&a, &b).await?;
 
         // Split to buckets
         let (a_triple, mut a_sacrifice) = a.split_at(n);
@@ -512,10 +510,12 @@ where
         self.aby3.and(a, b).await
     }
 
+    // we need this since the method below takes a ref to vec
+    #[allow(clippy::ptr_arg)]
     async fn aby3_and_many<T: Sharable>(
         &mut self,
-        a: Vec<Aby3Share<T>>,
-        b: Vec<Aby3Share<T>>,
+        a: &Vec<Aby3Share<T>>,
+        b: &Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error>
     where
         Standard: Distribution<T::Share>,
@@ -1142,19 +1142,19 @@ where
     async fn and(&mut self, a: Aby3Share<T>, b: Aby3Share<T>) -> Result<Aby3Share<T>, Error> {
         let c = self.aby3_and::<T>(a.to_owned(), b.to_owned()).await?;
 
-        self.triple_buffer.add_t(a, b, c.to_owned());
+        self.triple_buffer.add_t(&a, &b, &c);
 
         Ok(c)
     }
 
     async fn and_many(
         &mut self,
-        a: Vec<Aby3Share<T>>,
-        b: Vec<Aby3Share<T>>,
+        a: &Vec<Aby3Share<T>>,
+        b: &Vec<Aby3Share<T>>,
     ) -> Result<Vec<Aby3Share<T>>, Error> {
-        let c = self.aby3_and_many::<T>(a.to_owned(), b.to_owned()).await?;
+        let c = self.aby3_and_many::<T>(a, b).await?;
 
-        self.triple_buffer.add_many_t(a, b, c.to_owned());
+        self.triple_buffer.add_many_t(a, b, &c);
 
         Ok(c)
     }

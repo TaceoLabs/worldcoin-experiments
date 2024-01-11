@@ -303,8 +303,8 @@ where
 
     async fn and_post_many<T: Sharable>(
         &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
+        a: &Vec<Share<T>>,
+        b: &Vec<Share<T>>,
         de: Vec<Aby3Share<T>>,
     ) -> Result<Vec<Share<T>>, Error>
     where
@@ -323,9 +323,9 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
-                    let (x_a, x_b, x_c) = a.get_abc();
-                    let (y_a, y_b, y_c) = b.get_abc();
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
+                    let (x_a, x_b, x_c) = a.clone().get_abc();
+                    let (y_a, y_b, y_c) = b.clone().get_abc();
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<T::Share>();
@@ -351,9 +351,9 @@ where
                 let mut y1s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
-                    let (x_a, x_b, x_c) = a.get_abc();
-                    let (y_a, y_b, y_c) = b.get_abc();
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
+                    let (x_a, x_b, x_c) = a.clone().get_abc();
+                    let (y_a, y_b, y_c) = b.clone().get_abc();
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<T::Share>();
@@ -384,9 +384,9 @@ where
                 let mut y3s = Vec::with_capacity(len);
                 let mut rs = Vec::with_capacity(len);
 
-                for (de, (a, b)) in de.into_iter().zip(a.into_iter().zip(b)) {
-                    let (x_a, x_b, x_c) = a.get_abc();
-                    let (y_a, y_b, y_c) = b.get_abc();
+                for (de, (a, b)) in de.into_iter().zip(a.iter().zip(b)) {
+                    let (x_a, x_b, x_c) = a.clone().get_abc();
+                    let (y_a, y_b, y_c) = b.clone().get_abc();
                     let (de_a, de_b) = de.get_ab();
 
                     let r1 = self.prf.gen_1::<T::Share>();
@@ -2327,8 +2327,8 @@ where
 
     async fn and_many(
         &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
+        a: &Vec<Share<T>>,
+        b: &Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {

@@ -1274,8 +1274,8 @@ where
 
     async fn and_many(
         &mut self,
-        a: Vec<Share<T>>,
-        b: Vec<Share<T>>,
+        a: &Vec<Share<T>>,
+        b: &Vec<Share<T>>,
     ) -> Result<Vec<Share<T>>, Error> {
         let len = a.len();
         if len != b.len() {
@@ -1303,8 +1303,9 @@ where
         let mut res = Vec::with_capacity(len);
 
         for (z, ((a, b), (u, v))) in z.into_iter().zip(
-            a.into_iter()
-                .zip(b.into_iter())
+            a.iter()
+                .cloned()
+                .zip(b.iter().cloned())
                 .zip(uv.iter().take(len).zip(uv.iter().skip(len))),
         ) {
             let u = u.to_sharetype();

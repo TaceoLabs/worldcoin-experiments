@@ -41,8 +41,8 @@ where
 
     async fn and_many(
         &mut self,
-        a: Bshare::VecShare,
-        b: Bshare::VecShare,
+        a: &Bshare::VecShare,
+        b: &Bshare::VecShare,
     ) -> Result<Bshare::VecShare, Error>;
 
     async fn or(&mut self, a: Bshare, b: Bshare) -> Result<Bshare, Error> {
@@ -59,7 +59,7 @@ where
         if a.len() != b.len() {
             return Err(Error::InvalidSizeError);
         }
-        let y = self.and_many(a.to_owned(), b.to_owned()).await?;
+        let y = self.and_many(&a, &b).await?;
         y.xor_many(a.xor_many(b)?)
     }
 
@@ -88,7 +88,7 @@ where
             and_inp1.push(p);
             and_inp2.push(g_);
             and_inp2.push(p_);
-            let res = self.and_many(and_inp1, and_inp2).await?;
+            let res = self.and_many(&and_inp1, &and_inp2).await?;
             p = res.get_at(1); // p = p & p_
             Self::xor_assign(&mut g, res.get_at(0)); // g = g ^ (p & g_)
         }
@@ -114,14 +114,14 @@ where
         let s = Self::xor_many(x1.to_owned(), x2x3.to_owned()).expect("Same length");
         let x1x3 = Self::xor_many(x1, x3.to_owned()).expect("Same length");
 
-        let mut c = self.and_many(x1x3, x2x3).await?;
+        let mut c = self.and_many(&x1x3, &x2x3).await?;
         c.xor_assign_many(x3).expect("Same length");
         c.shl_assign_many(1); // c= 2*c;
 
         // Add 2c + s via a packed Kogge-Stone adder
 
         let mut p = Self::xor_many(s.to_owned(), c.to_owned()).expect("Same length");
-        let mut g = self.and_many(s, c).await?;
+        let mut g = self.and_many(&s, &c).await?;
         let s_ = p.to_owned();
         for i in 0..logk {
             let mut p_ = p.to_owned();
@@ -137,7 +137,7 @@ where
             let mut b = g_.to_owned();
             b.extend(p_);
 
-            let res = self.and_many(a, b).await?;
+            let res = self.and_many(&a, &b).await?;
             let (tmp_g, tmp_p) = res.split_at(len);
             p = tmp_p; // p = p & p_
             g.xor_assign_many(tmp_g).expect("Same length"); // g = g ^ (p & g_)

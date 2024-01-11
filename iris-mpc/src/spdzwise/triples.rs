@@ -87,16 +87,16 @@ impl Triples {
         self.c.extend(other.c);
     }
 
-    fn push_t<T: Sharable>(a: Aby3Share<T>, buffer: &mut Vec<Aby3Share<u128>>) {
-        let (aa, ab) = a.get_ab();
+    fn push_t<T: Sharable>(a: &Aby3Share<T>, buffer: &mut Vec<Aby3Share<u128>>) {
+        let (aa, ab) = a.clone().get_ab();
         let aa = aa.upgrade_to_128();
         let ab = ab.upgrade_to_128();
         buffer.push(Aby3Share::new(aa, ab));
     }
 
-    fn add_all_t<T: Sharable>(a: Aby3Share<T>, buffer: &mut [Aby3Share<u128>]) {
+    fn add_all_t<T: Sharable>(a: &Aby3Share<T>, buffer: &mut [Aby3Share<u128>]) {
         let a_ = buffer.last_mut().expect("Is present");
-        let (aa, ab) = a.get_ab();
+        let (aa, ab) = a.clone().get_ab();
         let aa = aa.upgrade_to_128();
         let ab = ab.upgrade_to_128();
 
@@ -107,12 +107,12 @@ impl Triples {
     }
 
     fn split_and_add_t<T: Sharable>(
-        a: Aby3Share<T>,
+        a: &Aby3Share<T>,
         buffer: &mut Vec<Aby3Share<u128>>,
         open: usize,
     ) {
         let a_ = buffer.last_mut().expect("Is present");
-        let (aa, ab) = a.get_ab();
+        let (aa, ab) = a.clone().get_ab();
         let mut aa = aa.upgrade_to_128();
         let mut ab = ab.upgrade_to_128();
 
@@ -127,7 +127,7 @@ impl Triples {
         buffer.push(Aby3Share::new(aa, ab));
     }
 
-    pub fn add_t<T: Sharable>(&mut self, a: Aby3Share<T>, b: Aby3Share<T>, c: Aby3Share<T>) {
+    pub fn add_t<T: Sharable>(&mut self, a: &Aby3Share<T>, b: &Aby3Share<T>, c: &Aby3Share<T>) {
         let open = 128 - self.bits_in_last;
         if open == 0 {
             // put all into a new element
@@ -158,15 +158,15 @@ impl Triples {
 
     pub fn add_many_t<T: Sharable>(
         &mut self,
-        a: Vec<Aby3Share<T>>,
-        b: Vec<Aby3Share<T>>,
-        c: Vec<Aby3Share<T>>,
+        a: &Vec<Aby3Share<T>>,
+        b: &Vec<Aby3Share<T>>,
+        c: &Vec<Aby3Share<T>>,
     ) {
         debug_assert_eq!(a.len(), b.len());
         debug_assert_eq!(a.len(), c.len());
 
         // TODO maybe optimize this
-        for ((a_, b_), c_) in a.into_iter().zip(b).zip(c) {
+        for ((a_, b_), c_) in a.iter().zip(b).zip(c) {
             self.add_t(a_, b_, c_);
         }
     }
