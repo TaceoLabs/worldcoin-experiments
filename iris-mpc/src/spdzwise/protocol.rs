@@ -484,7 +484,6 @@ where
     {
         // We consume precomputed triples always as multiples of 128 bit
         let len = self.triple_buffer.len();
-        println!("len: {}", len * 128);
         if len == 0 {
             return Ok(());
         }
@@ -674,7 +673,8 @@ where
         }
 
         let res = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(a_msb, b_msb)?;
-        let res = <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(res, c)?;
+        let res: Vec<Aby3Share<u128>> =
+            <Self as BinaryMpcTrait<u128, Aby3Share<u128>>>::xor_many(res, c)?;
 
         // Extract bits for outputs
         let mut res = res
