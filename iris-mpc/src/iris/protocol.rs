@@ -241,6 +241,16 @@ where
         self.compare_threshold_many(hwds, mask_lens).await
     }
 
+    pub(crate) fn msb_and_gates(&self, mut amount: usize, chunk_size: usize) -> usize {
+        // packed kogge stone, i.e. full a2b: K (2 + 2 * (log_2(K)))
+        // let logk = ceil_log2(T::Share::K);
+        // amount * T::Share::K * (2 + 2 * logk)
+
+        // ripple carry adder: 2 * K - 2
+        amount = (amount + chunk_size - 1) / chunk_size;
+        amount * chunk_size * (T::Share::K * 2 - 3)
+    }
+
     pub async fn iris_in_db(
         &mut self,
         iris: &Ashare::VecShare,
@@ -254,11 +264,10 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        // Get enough and triples
-        // amount - 1 for or_reduce
-        // amount * a2b, with K (2 + 2 * (log_2(K))) each
-        let logk = ceil_log2(T::Share::K);
-        let num_and_triples = amount * T::Share::K * (2 + 2 * logk) + amount - 1;
+        // Get enough and triples. So far only relevant for SpdzWise
+        // amount - 1 for or_reduce, but padded for chunk size + msb_extract
+        let num_and_triples = self.msb_and_gates(amount, chunk_size)
+            + ((amount + chunk_size - 2) / chunk_size) * chunk_size;
         self.mpc.precompute_and_triples(num_and_triples).await?;
 
         let mut bool_shares = Bshare::VecShare::with_capacity(amount);

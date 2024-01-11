@@ -1,7 +1,7 @@
 use super::random::prf::PrfSeed;
 use crate::{
     error::Error,
-    prelude::Sharable,
+    prelude::{Aby3Share, Sharable},
     traits::{
         binary_trait::BinaryMpcTrait,
         network_trait::NetworkTrait,
@@ -13,7 +13,7 @@ use crate::{
     },
 };
 use bytes::{Buf, Bytes, BytesMut};
-use num_traits::{AsPrimitive, Zero};
+use num_traits::{AsPrimitive, One, Zero};
 use std::{
     io::Error as IOError,
     ops::{BitXor, BitXorAssign},
@@ -361,4 +361,71 @@ where
     let a2 = RingElement((a.0 >> shift).as_());
 
     (a1, a2)
+}
+
+pub(crate) fn transpose_shared_input<T: Sharable, U: Sharable>(
+    inputs: Vec<Aby3Share<T>>,
+) -> Vec<Aby3Share<U>> {
+    // Inputs are packed binary sharings!
+    let len = inputs.len();
+    debug_assert!(len <= U::Share::K);
+    let mut state = vec![Aby3Share::zero(); T::Share::K];
+    for (i, mut inp) in inputs.into_iter().enumerate() {
+        for s in state.iter_mut() {
+            let a_bit = inp.a.to_owned() & T::Share::one() == T::Share::one();
+            let b_bit = inp.b.to_owned() & T::Share::one() == T::Share::one();
+            inp.a >>= 1;
+            inp.b >>= 1;
+            s.a |= U::Share::from(a_bit) << i as u32;
+            s.b |= U::Share::from(b_bit) << i as u32;
+        }
+    }
+    state
+}
+
+pub(crate) fn transpose_pack_u128<T: Sharable>(x: Vec<Aby3Share<T>>) -> Vec<Vec<Aby3Share<u128>>> {
+    let mut res = vec![Vec::new(); T::Share::K];
+
+    for x in x.chunks(128) {
+        let x = transpose_shared_input::<T, u128>(x);
+
+        for (src, des) in x.into_iter().zip(res.iter_mut()) {
+            des.push(src);
+        }
+    }
+    res
+}
+
+pub(crate) fn transposed_pack_xor(
+    x1: &[Vec<Aby3Share<u128>>],
+    x2: &[Vec<Aby3Share<u128>>],
+) -> Vec<Vec<Aby3Share<u128>>> {
+    let len = x1.len();
+    debug_assert_eq!(len, x2.len());
+
+    let mut res = Vec::with_capacity(len);
+    for (x1, x2) in x1.iter().zip(x2.iter()) {
+        debug_assert_eq!(x1.len(), x2.len());
+        let mut v = Vec::with_capacity(x1.len());
+        for (x1, x2) in x1.iter().cloned().zip(x2.iter()) {
+            v.push(x1 ^ x2);
+        }
+        res.push(v);
+    }
+    res
+}
+
+pub(crate) fn transposed_pack_xor_assign(
+    x1: &mut [Vec<Aby3Share<u128>>],
+    x2: &[Vec<Aby3Share<u128>>],
+) {
+    let len = x1.len();
+    debug_assert_eq!(len, x2.len());
+
+    for (x1, x2) in x1.iter_mut().zip(x2.iter()) {
+        debug_assert_eq!(x1.len(), x2.len());
+        for (x1, x2) in x1.iter_mut().zip(x2.iter()) {
+            *x1 ^= x2;
+        }
+    }
 }

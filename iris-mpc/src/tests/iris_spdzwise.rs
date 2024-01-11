@@ -1,6 +1,5 @@
 mod iris_mpc_test {
     use crate::{
-        aby3::utils,
         iris::protocol::{IrisProtocol, IrisSpdzWise},
         prelude::{Aby3Share, Bit, MpcTrait, PartyTestNetwork, Sharable, TestNetwork3p},
         spdzwise::{
@@ -9,7 +8,6 @@ mod iris_mpc_test {
         },
         tests::iris_config::iris_config::create_database,
         traits::{mpc_trait::Plain, share_trait::VecShareTrait},
-        types::ring_element::RingImpl,
     };
     use plain_reference::IrisCode;
     use rand::{
@@ -21,7 +19,7 @@ mod iris_mpc_test {
 
     const NUM_PARTIES: usize = PartyTestNetwork::NUM_PARTIES;
     const DB_SIZE: usize = 128;
-    const CHUNK_SIZE: usize = 32;
+    const CHUNK_SIZE: usize = 128;
     const TESTRUNS: usize = 5;
 
     fn iris_code_plain_type<T: Sharable>(code: &IrisCode) -> Vec<T> {
@@ -280,8 +278,7 @@ mod iris_mpc_test {
                 .to_owned();
 
         // Get enough and triples
-        let logk = utils::ceil_log2(T::Share::K);
-        let num_and_triples = T::Share::K * (2 + 2 * logk);
+        let num_and_triples = protocol.msb_and_gates(1, CHUNK_SIZE);
         protocol
             .precompute_and_triples(num_and_triples)
             .await
@@ -564,8 +561,7 @@ mod iris_mpc_test {
         let mut rng = R::from_seed(seed);
         for _ in 0..TESTRUNS {
             // Get enough and triples
-            let logk = utils::ceil_log2(T::Share::K);
-            let num_and_triples = T::Share::K * (2 + 2 * logk);
+            let num_and_triples = iris.msb_and_gates(1, CHUNK_SIZE);
             iris.precompute_and_triples(num_and_triples).await.unwrap();
 
             let code1 = IrisCode::random_rng(&mut iris_rng);
