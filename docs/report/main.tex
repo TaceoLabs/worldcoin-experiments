@@ -34,6 +34,7 @@
 
 %--- THIRD PARTY PACKAGES ------------------------------------------------------
 
+\usepackage{amsthm}
 \usepackage{float}
 \usepackage{color}
 \usepackage{graphicx}
@@ -115,6 +116,8 @@
 \usepackage{hyperref}
 \usepackage{cleveref}
 \crefformat{footnote}{#2\footnotemark[#1]#3}
+
+\newtheorem{remark}{Remark}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -236,13 +239,32 @@ When computing a dot-product $\shared{z} = \langle\shared{\vec{x}}, \shared{\vec
 
 Many publications following ABY3's blueprint have been proposed in the literatures, which mainly differ on how to get malicious security in different security models. We discuss the main methods in this section, limiting ourselves to the 3-party setting and malicious security with abort.
 
-\subsubsection{Joint Message Sharing}
+\subsubsection{Joint Message Passing}
 
 Since ABY3 is a replicated secret sharing protocol each party has access to two out of three shares. Consequently, whenever one of the two shares is transmitted to another party (e.g., when reconstructing the output from the shares), two parties potentially can send the missing share. As example, when the value $\shared{x} = (x_1, x_2, x_3)$ needs to be reconstructed, party $i$ already has access to the shares $x_i$ and $x_{i-1}$ and can potentially send $x_i$ to party $i-1$ or $x_{i-1}$ to party $i+1$. Thus, when each party sends both shares to the correct other parties, the parties can check whether the received shares match and abort otherwise. Furthermore, one can delay sending one out of the two shares to the end of the protocol and only send a hash of all messages to reduce communication.
 
 This simple and powerful technique allows to detect malicious behavior for all linear operations performed on the shares. However, it does not work for multiplications and dot products, since they involve a subprotocol translating the replicated share to just an additive one. So only one party knows the resulting share and the other parties cannot be used to verify correctness. Thus, multiplications need an additional way of checking correctness, which we investigate in the next sections.
 
-% SPDZ Wise arithmetic does not require joint message sharing due to having the MAC
+\subsubsection{Distributed Zero Knowledge Proofs} \label{sec:dzkp}
+
+The (asymptotically) most efficient way in terms of communication complexity to verify correctness of multiplications and dot products is via distributed zero knowledge proofs \cite{DBLP:conf/ccs/BoyleGIN19}, as employed by, e.g., the SWIFT \cite{DBLP:conf/uss/KotiPPS21} MPC protocol.
+
+This method involves performing the semi-honest multiplication (and dot product) protocol of ABY3, and in the end, creating a zero-knowledge proof to proof to the other parties that you were following the protocol honestly. The advantages of the distributed zero knowledge proof is, that the two verifiers together know all involved data (due to replicated secret sharing) and can thus verify the proof more efficiently compared to non-distributed zero knowledge proof systems.
+
+The main drawback of this method is, that the zero knowledge proof requires a large amount of polynomial interpolations, hence its computational overhead is large. Using this method in the use case would thus lead to a huge runtime increase compared to the semi-honest protocol, which is why we do not recommend to use it.
+
+\begin{remark}
+    In our implementation of the SWIFT protocol, we use the zero knowledge proofs for dot products and AND gate evaluations. A more efficient technique would be to just use it for the dot products, while leveraging cut-and-choose (\Cref{sed::cutandchoose}) for verifying AND gates, since the computational overhead is significantly smaller. However, the computational overhead of the dot product proof is still very expensive, hence, our recommendation of using different protocols still stands.
+\end{remark}
+
+\subsubsection{Triple Sacrifice over Larger Rings} \label{sec:sacrifice}
+
+
+\subsubsection{Triple Verification using Cut-And-Choose} \label{sec:cutandchoose}
+
+\subsubsection{SpdzWise MACs} \label{sec:spdzwise}
+
+% SPDZ Wise arithmetic does not require joint message passing due to having the MAC
 
 \subsubsection{Protocol Choices}
 
