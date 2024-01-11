@@ -254,10 +254,19 @@ This method involves performing the semi-honest multiplication (and dot product)
 The main drawback of this method is, that the zero knowledge proof requires a large amount of polynomial interpolations, hence its computational overhead is large. Using this method in the use case would thus lead to a huge runtime increase compared to the semi-honest protocol, which is why we do not recommend to use it.
 
 \begin{remark}
-    In our implementation of the SWIFT protocol, we use the zero knowledge proofs for dot products and AND gate evaluations. A more efficient technique would be to just use it for the dot products, while leveraging cut-and-choose (\Cref{sed::cutandchoose}) for verifying AND gates, since the computational overhead is significantly smaller. However, the computational overhead of the dot product proof is still very expensive, hence, our recommendation of using different protocols still stands.
+    In our implementation of the SWIFT protocol, we use the zero knowledge proofs for dot products and AND gate evaluations. A more efficient technique would be to just use it for the dot products, while leveraging cut-and-choose (\Cref{sec::cutandchoose}) for verifying AND gates, since the computational overhead is significantly smaller. However, the computational overhead of the dot product proof is still very expensive, hence, our recommendation of using different protocols still stands.
 \end{remark}
 
 \subsubsection{Triple Sacrifice over Larger Rings} \label{sec:sacrifice}
+
+Another approach to verify the correctness of a semi-honest multiplication $\shared{z} = \shared{x} \cdot \shared{y}$ is by performing an additional, correlated multiplication $\shared{z'} = \shared{x} \cdot \shared{y'}$ and \textit{sacrifice} it to verify the validity of the first multiplication \cite{DBLP:conf/acns/AbspoelD0N21}. This sacrifice can be packed for many multiplications and requires to sample a random coin after all multiplications are done plus an additional communication round which requires to transmit a message with the size being linear in the number of multiplications.
+
+This approach has the following drawbacks. First, to provide a statistical security of $\sigma$ bits, one needs to perform both multiplications in a large ring $\Z_{2^{k+\sigma}}$ increasing communication complexity. Second, when computing dot products, the size of the communication again depends on the size of the vectors resulting in infeasibly huge communication when applied to our use case. While the size-dependant communication could be outsourced to an input-independent offline phase, there exist more efficient verification protocols, which is why we do not recommend to use triple sacrificing in this use case.
+
+
+\begin{remark}
+    In our implementation, dubbed Malicious ABY3, we use triple sacrificing for both dot products and AND gates. This, however, requires at least a ring size of 41 bits for enough statistical security, increasing communication complexity per AND gate by a factor of at least 80 compared to semi-honest ABY3. Thus, using a different protocol, e.g., cut-and-choose (\Cref{sec::cutandchoose}), for verifying AND gates is the preferred choice. However, replacing the AND gate verification does not compensate for the size-dependant dot products, which is why we still would not recommend this protocol in our use case.
+\end{remark}
 
 
 \subsubsection{Triple Verification using Cut-And-Choose} \label{sec:cutandchoose}
