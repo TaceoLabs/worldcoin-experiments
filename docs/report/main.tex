@@ -230,6 +230,7 @@ $$
 where $r_i$ is a freshly generated random share of 0 required for re-randomization which can be produced without communication in ABY3.
 To translate the additive share $z_i$ to a replicated share $(z_i, z_{i-1})$ it suffices that party $i$ sends its share to party $i+1$.
 
+When computing a dot-product $\shared{z} = \langle\shared{\vec{x}}, \shared{\vec{y}}\rangle = \sum \shared{x_i} \cdot \shared{y_i}$, one does not have to reshare after each individual multiplication $\shared{x_i} \cdot \shared{y_i}$, but can perform the summation on additive shares and reshare just the result. Consequently, a dot product requires the same amount of communication as a multiplication in ABY3, i.e., it is independent to the length of the vectors $|\shared{\vec{x}}| = |\shared{\vec{y}}|$.
 
 \section{Iris Code Membership Protocol}
 
