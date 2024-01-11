@@ -113,15 +113,17 @@ impl<T: Sharable> VecShareTrait for Vec<T> {
         if a.is_empty() || a.len() != b.len() || a.len() != IrisCodeArray::IRIS_CODE_SIZE {
             return Err(Error::InvalidCodeSizeError);
         }
-
-        let (sum_a, sum_b) = a
+        let sum_a = a
             .iter()
-            .zip(b)
             .zip(mask.bits())
             .filter(|(_, b)| *b)
-            .map(|((a_, b_), _)| (a_.to_owned(), b_.to_owned()))
-            .reduce(|(aa, ab), (ba, bb)| (aa + ba, ab + bb))
-            .expect("Size is not zero");
+            .fold(T::zero(), |a, (b, _)| a + *b);
+        let sum_b = b
+            .iter()
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .fold(T::zero(), |a, (b, _)| a + *b);
+
         Ok((sum_a, sum_b))
     }
 

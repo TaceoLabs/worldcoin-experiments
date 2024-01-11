@@ -2,6 +2,7 @@ use crate::{
     prelude::{Aby3Share, Error, Sharable},
     traits::share_trait::VecShareTrait,
 };
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use super::share::Share;
@@ -53,26 +54,30 @@ impl<T: Sharable> VecShareTrait for VecShare<T> {
         if a.is_empty() || a.len() != b.len() {
             return Err(Error::InvalidCodeSizeError);
         }
-
-        let (sum_a, sum_amac, sum_b, sum_bmac) = a
+        let sum_a = a
             .values
             .iter()
-            .zip(a.macs.iter())
-            .zip(b.values.iter().zip(b.macs.iter()))
             .zip(mask.bits())
             .filter(|(_, b)| *b)
-            .map(|(((aval, amac), (bval, bmac)), _)| {
-                (
-                    aval.to_owned(),
-                    amac.to_owned(),
-                    bval.to_owned(),
-                    bmac.to_owned(),
-                )
-            })
-            .reduce(|(aa, ab, ba, bb), (aa_, ab_, ba_, bb_)| {
-                (aa + aa_, ab + ab_, ba + ba_, bb + bb_)
-            })
-            .expect("Size is not zero");
+            .fold(Aby3Share::<T>::zero(), |a, (b, _)| a + b);
+        let sum_amac = a
+            .macs
+            .iter()
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .fold(Aby3Share::<T>::zero(), |a, (b, _)| a + b);
+        let sum_b = b
+            .values
+            .iter()
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .fold(Aby3Share::<T>::zero(), |a, (b, _)| a + b);
+        let sum_bmac = b
+            .macs
+            .iter()
+            .zip(mask.bits())
+            .filter(|(_, b)| *b)
+            .fold(Aby3Share::<T>::zero(), |a, (b, _)| a + b);
 
         let sum_a = Share::new(sum_a, sum_amac);
         let sum_b = Share::new(sum_b, sum_bmac);
