@@ -158,6 +158,8 @@
 \newcommand{\acc}{\ensuremath{\mathsf{acc}}}
 \newcommand{\aux}{\ensuremath{\mathsf{aux}}}
 \newcommand{\mask}{\ensuremath{\mathsf{mask}}}
+\newcommand{\shared}[1]{\ensuremath{[\![{#1}]\!]}}
+\newcommand{\sharedB}[1]{\ensuremath{[\![{#1}]\!]^B}}
 
 %\newcommand{\bin}{\{0,1\}}
 
@@ -228,7 +230,15 @@ The calculation of this dot-product dominates the complexity of the hamming-dist
 In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
 The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
 
-\subsection{Core Building Block: Arithmetic to Binary Conversion}
+\subsection{Core Building Block: MSB Extraction}
+
+Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec:prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as a trivial boolean share. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
+Finally, since the use case operates on a huge amount of data, $k$ being small, and reducing communication complexity being the primary optimization point, we opt for using a ripple-carry-adder instead of a depth-optimized carry-lookahead adder for computing $2 \cdot \sharedB{c} + \sharedB{s}$.
+
+
+\subsection{Core Building Block: Or-tree}
+
+After all hamming distances are compared to the thresholds, one needs to accumulate all resulting bits. Since the result should be zero iff all bits are zero, the accumulation is equivalent to an boolean Or operation. In MPC, one can compute an $x \vee y = x \xor y \xor (x \wedge y)$. To reduce the number of communication rounds, we evaluate the accumulation of all bits as a binary tree.
 
 \section{Experiments}
 
