@@ -482,9 +482,9 @@ where
             if a.len() != b_.len() {
                 return Err(Error::InvalidSizeError);
             }
-            for (i, (a__, b__)) in a.iter().zip(b_.iter()).enumerate() {
+            for ((a__, b__), bit) in a.iter().zip(b_.iter()).zip(mask_.bits()) {
                 // only aggregate if mask is set
-                if mask_.get_bit(i) {
+                if bit {
                     rand += (a__.clone() * b__).a; // TODO: check if we can allow ref * ref ops in RingImpl
                 }
             }
