@@ -328,8 +328,8 @@ where
     {
         // https://www.ieee-security.org/TC/SP2017/papers/96.pdf
         // Assumes B=2 buckets (Secure when generating 2^20 triples)
-        const N: usize = (1usize << 20) / 128; // # of 128 bit registers, corresponds to 2^20 AND GATES
-                                               // Here we have C=128 which is significantly more than required for security
+        const N: usize = 1usize << (20 - 7); // # of 128 bit registers, corresponds to 2^20 AND GATES
+                                             // Here we have C=128 which is significantly more than required for security
         let n = std::cmp::max(num, N);
         let a = (0..2 * n + 1)
             .map(|_| self.aby3.prf.gen_rand::<u128>())
@@ -403,7 +403,7 @@ where
             pq.push(y ^ b_);
         }
 
-        let pq_open = self.aby3_open_bin_many::<u128>(pq).await?;
+        let pq_open = self.aby3_jmp_open_bin_many::<u128>(pq).await?;
         let p = &pq_open[..n];
         let q = &pq_open[n..];
 
@@ -488,10 +488,17 @@ where
             return Ok(());
         }
         let (a, b, c) = self.triple_buffer.get_all();
-        let (mut x, mut y, mut z) = self.prec_triples.get(len)?;
+        let len_ = std::cmp::max(len, 1usize << (20 - 7)); // Permute at least 2^(20) triples, as required for security
+        let (mut x, mut y, mut z) = self.prec_triples.get(len_)?;
 
         // Permute the precomputed triples again
         self.permute::<R>(&mut x, &mut y, &mut z).await?;
+
+        if len_ > len {
+            x.truncate(len);
+            y.truncate(len);
+            z.truncate(len);
+        }
 
         // Finally verify
         self.verify_triples(&a, &b, &c, x, y, z).await?;
@@ -539,6 +546,39 @@ where
             .iter()
             .zip(shares_c)
             .map(|(s, c)| c ^ &s.a ^ &s.b)
+            .collect();
+        Ok(res)
+    }
+
+    async fn aby3_jmp_open_bin_many<T: Sharable>(
+        &mut self,
+        shares: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<T::Share>, Error>
+    where
+        Standard: Distribution<T::Share>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    {
+        // self.jmp_verify().await?; // Not necessary how we use it now
+
+        let len = shares.len();
+        let mut shares_a = Vec::with_capacity(len);
+        let mut shares_b = Vec::with_capacity(len);
+
+        for share in shares.iter().cloned() {
+            let (a, b) = share.get_ab();
+            shares_a.push(a);
+            shares_b.push(b);
+        }
+
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
+        self.jmp_verify().await?;
+
+        let res = shares
+            .iter()
+            .zip(shares_c.into_iter())
+            .map(|(s, c)| (c ^ &s.a ^ &s.b))
             .collect();
         Ok(res)
     }

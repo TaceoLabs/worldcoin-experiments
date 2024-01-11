@@ -576,6 +576,7 @@ mod iris_mpc_test {
                 r,
             )
             .await;
+            iris.precompute_and_triples(num_and_triples).await.unwrap();
             let c2 = cmp_iris_tester_spdzwise::<T, _, _>(
                 &mut iris,
                 &mut rng,
@@ -584,6 +585,9 @@ mod iris_mpc_test {
                 r,
             )
             .await;
+            iris.precompute_and_triples(2 * num_and_triples)
+                .await
+                .unwrap();
             let c3 = cmp_many_iris_tester_spdzwise::<T, _, _>(
                 &mut iris,
                 &mut rng,
