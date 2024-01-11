@@ -384,7 +384,8 @@ pub(crate) fn transpose_shared_input<T: Sharable, U: Sharable>(
 }
 
 pub(crate) fn transpose_pack_u128<T: Sharable>(x: Vec<Aby3Share<T>>) -> Vec<Vec<Aby3Share<u128>>> {
-    let mut res = vec![Vec::new(); T::Share::K];
+    let len = (x.len() + 127) / 128;
+    let mut res = vec![Vec::with_capacity(len); T::Share::K];
 
     for x in x.chunks(128) {
         let x = transpose_shared_input::<T, u128>(x);
