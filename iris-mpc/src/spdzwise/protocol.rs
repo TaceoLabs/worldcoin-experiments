@@ -403,7 +403,7 @@ where
             pq.push(y ^ b_);
         }
 
-        let pq_open = self.aby3_open_bin_many::<u128>(pq).await?;
+        let pq_open = self.aby3_jmp_open_bin_many::<u128>(pq).await?;
         let p = &pq_open[..n];
         let q = &pq_open[n..];
 
@@ -546,6 +546,39 @@ where
             .iter()
             .zip(shares_c)
             .map(|(s, c)| c ^ &s.a ^ &s.b)
+            .collect();
+        Ok(res)
+    }
+
+    async fn aby3_jmp_open_bin_many<T: Sharable>(
+        &mut self,
+        shares: Vec<Aby3Share<T>>,
+    ) -> Result<Vec<T::Share>, Error>
+    where
+        Standard: Distribution<T::Share>,
+        Aby3Share<T>: Mul<T::Share, Output = Aby3Share<T>>,
+    {
+        // self.jmp_verify().await?; // Not necessary how we use it now
+
+        let len = shares.len();
+        let mut shares_a = Vec::with_capacity(len);
+        let mut shares_b = Vec::with_capacity(len);
+
+        for share in shares.iter().cloned() {
+            let (a, b) = share.get_ab();
+            shares_a.push(a);
+            shares_b.push(b);
+        }
+
+        let shares_c = self
+            .jmp_send_receive_many::<T>(&shares_b, &shares_a)
+            .await?;
+        self.jmp_verify().await?;
+
+        let res = shares
+            .iter()
+            .zip(shares_c.into_iter())
+            .map(|(s, c)| (c ^ &s.a ^ &s.b))
             .collect();
         Ok(res)
     }
