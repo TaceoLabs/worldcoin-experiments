@@ -182,8 +182,8 @@ impl<N: NetworkTrait> Aby3<N> {
 
         let x3 = <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(
             self,
-            x1.into_iter().flatten().collect_vec(),
-            x2.into_iter().flatten().collect_vec(),
+            &x1.into_iter().flatten().collect_vec(),
+            &x2.into_iter().flatten().collect_vec(),
         )
         .await?;
 
@@ -218,17 +218,13 @@ impl<N: NetworkTrait> Aby3<N> {
 
         // Add 2c + s via a ripple carry adder
         // LSB of c is 0
-        // First round: half adder can be skipped due to LSB of c beign 0
+        // First round: half adder can be skipped due to LSB of c being 0
         let mut a = s;
         let mut b = c;
 
         // First full adder
-        let mut c = <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(
-            self,
-            a[1].to_owned(),
-            b[0].to_owned(),
-        )
-        .await?;
+        let mut c =
+            <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(self, &a[1], &b[0]).await?;
 
         // For last round
         let a_msb = a.pop().expect("Enough elements present");
@@ -239,7 +235,7 @@ impl<N: NetworkTrait> Aby3<N> {
             let tmp_a = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(a_, c.to_owned())?;
             let tmp_b = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(b_, c.to_owned())?;
             let tmp_c =
-                <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(self, tmp_a, tmp_b).await?;
+                <Self as BinaryMpcTrait<u128, Share<u128>>>::and_many(self, &tmp_a, &tmp_b).await?;
             c = <Self as BinaryMpcTrait<u128, Share<u128>>>::xor_many(tmp_c, c)?;
         }
 
