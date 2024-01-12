@@ -21,14 +21,14 @@ impl<T: Sharable> VecShareTrait for Vec<Share<T>> {
 
         let sum_a = a
             .iter()
-            .zip(mask.bits())
-            .filter(|(_, b)| *b)
-            .fold(Share::<T>::zero(), |a, (b, _)| a + b);
+            .enumerate()
+            .filter(|(i, _)| mask.get_bit(*i))
+            .fold(Share::<T>::zero(), |a, (_, b)| a + b);
         let sum_b = b
             .iter()
-            .zip(mask.bits())
-            .filter(|(_, b)| *b)
-            .fold(Share::<T>::zero(), |a, (b, _)| a + b);
+            .enumerate()
+            .filter(|(i, _)| mask.get_bit(*i))
+            .fold(Share::<T>::zero(), |a, (_, b)| a + b);
         Ok((sum_a, sum_b))
     }
 
