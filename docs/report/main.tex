@@ -380,7 +380,7 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on the same machine, with each party having one individual computing thread. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on the same machine, with each party having one individual computing thread. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_machine}
     \begin{tabular}{lrcrr}
         \toprule
@@ -395,7 +395,7 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties are singlethreaded, but run on different machines in the same city (network speed $6.6\,\text{bit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties are singlethreaded, but run on different machines in the same city (network speed $6.6\,\text{bit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network}
     \begin{tabular}{lrcrr}
         \toprule
@@ -408,6 +408,8 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
         \bottomrule
     \end{tabular}
 \end{table}
+
+\todo[inline]{Add all benchmarks and discuss!}
 
 \section{Conclusion and Open Problems}
 
