@@ -65,8 +65,7 @@ pub trait RingImpl:
     const K: usize;
 
     fn get_msb(&self) -> RingElement<Bit>;
-    fn get_bit(&self, index: usize) -> RingElement<Bit>;
-    fn set_bit(&mut self, index: usize, bit: RingElement<Bit>);
+    fn get_bit(&self, index: usize) -> Self;
     fn to_bits(&self) -> Vec<RingElement<Bit>>;
     fn from_bits(bits: &[RingElement<Bit>]) -> Result<Self, Error>;
 
@@ -89,13 +88,8 @@ impl<T: IntRing2k> RingImpl for RingElement<T> {
         RingElement(Bit(self.0 >> (Self::K - 1) == T::one()))
     }
 
-    fn get_bit(&self, index: usize) -> RingElement<Bit> {
-        RingElement(Bit((self.0 >> index) & T::one() == T::one()))
-    }
-
-    fn set_bit(&mut self, index: usize, bit: RingElement<Bit>) {
-        self.0 &= !(T::one() << index); // Reset first
-        self.0 |= T::from(bit.0.convert()) << index;
+    fn get_bit(&self, index: usize) -> Self {
+        RingElement((self.0 >> index) & T::one())
     }
 
     fn to_bits(&self) -> Vec<RingElement<Bit>> {
