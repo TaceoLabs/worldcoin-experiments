@@ -382,15 +382,13 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
     \centering
     \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on the same machine, with each party having individual computing threads. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_machine_100k}
-    \begin{tabular}{lrcrr}
+    \begin{tabular}{lrrcrr}
         \toprule
-        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                & \multicolumn{1}{c}{$s$}       & \multicolumn{1}{c}{$MB$}                               \\
         \midrule
-        \multicolumn{5}{l}{1 Thread:}                                                                                                                          \\
-        \midrule
-        Plain                        & -                              & -                             & $0.165$                     & -                        \\
-        ABY3                         & 1024                           & \xmark                        & $4.896$                     & $0.649$                  \\
+        Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
+        ABY3                         & 1                           & 1024                           & \xmark                        & $4.896$                     & $0.649$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -399,21 +397,21 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
     \centering
     \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_100k}
-    \begin{tabular}{lrcrr}
+    \begin{tabular}{lrrcrr}
         \toprule
-        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                & \multicolumn{1}{c}{$s$}       & \multicolumn{1}{c}{$MB$}                               \\
         \midrule
-        \multicolumn{5}{l}{1 Thread:}                                                                                                                          \\
+        Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
+        ABY3                         & 1                           & 128                            & \xmark                        & $11.971$                    & $1.048$                  \\
+        ABY3                         & 1                           & 1024                           & \xmark                        & $5.825$                     & $0.649$                  \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $4.980$                     & $0.598$                  \\
         \midrule
-        Plain                        & -                              & -                             & $0.165$                     & -                        \\
-        ABY3                         & 128                            & \xmark                        & $11.971$                    & $1.048$                  \\
-        ABY3                         & 1024                           & \xmark                        & $5.825$                     & $0.649$                  \\
-        ABY3                         & 10240                          & \xmark                        & $4.980$                     & $0.598$                  \\
-        \midrule
-        \multicolumn{5}{l}{32 Threads:}                                                                                                                        \\
-        \midrule
-        ABY3                         & 10240                          & \xmark                        & $0.475$                     & $0.598$                  \\
+        ABY3                         & 2                           & 10240                          & \xmark                        & $2.510$                     & $0.598$                  \\
+        ABY3                         & 4                           & 10240                          & \xmark                        & $1.367$                     & $0.598$                  \\
+        ABY3                         & 8                           & 10240                          & \xmark                        & $0.789$                     & $0.598$                  \\
+        ABY3                         & 16                          & 10240                          & \xmark                        & $0.525$                     & $0.598$                  \\
+        ABY3                         & 32                          & 10240                          & \xmark                        & $0.475$                     & $0.598$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -422,15 +420,13 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
     \centering
     \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 1\,000\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_1m}
-    \begin{tabular}{lrcrr}
+    \begin{tabular}{lrrcrr}
         \toprule
-        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                & \multicolumn{1}{c}{$s$}       & \multicolumn{1}{c}{$MB$}                               \\
         \midrule
-        \multicolumn{5}{l}{1 Thread:}                                                                                                                          \\
-        \midrule
-        Plain                        & -                              & -                             & $1.649$                     & -                        \\
-        ABY3                         & 10240                          & \xmark                        & $49.699$                    & $5.925$                  \\
+        Plain                        & 1                           & -                              & -                             & $1.649$                     & -                        \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $49.699$                    & $5.925$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
