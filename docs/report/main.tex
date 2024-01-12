@@ -380,7 +380,12 @@ First, in \Cref{tab::bench_machine_100k} we give some benchmarks where all parti
 
 Next, in \Cref{tab::bench_network_100k} we perform the benchmarks for the same sizes on individual computing servers, where each party is connected to each other with a network speed of $6.6\,\text{Gbit}/s$, and a latency of $1.5\,ms$.
 
-We continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}. We want to note, that we do not give benchmarks for the SPDZWise protocol here since the database unfortunately does not fit into 64 GB of RAM.
+We continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}.
+
+
+\begin{remark}
+    We want to note, that we do not give benchmarks for the SPDZWise protocol in \Cref{tab::bench_machine_100k} and \Cref{tab::bench_network_1m} since the database unfortunately does not fit into the RAM which has only 64 GB.
+\end{remark}
 
 \begin{table}[ht]
     \centering
@@ -389,7 +394,7 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
         ABY3                         & 1                           & 1024                           & \xmark                        & $4.896$                     & $0.649$                  \\
@@ -404,7 +409,7 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
         ABY3                         & 1                           & 128                            & \xmark                        & $11.971$                    & $1.048$                  \\
@@ -417,6 +422,8 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
         ABY3                         & 16                          & 10240                          & \xmark                        & $0.525$                     & $0.598$                  \\ ABY3                         & 16                          & 100096                          & \xmark                        & $0.438$                     & $0.598$                  \\
         ABY3                         & 32                          & 10240                          & \xmark                        & $0.475$                     & $0.598$                  \\
         ABY3                         & 32                          & 100096                         & \xmark                        & $0.361$                     & $0.598$                  \\
+        \midrule
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $7.351$                     & $4.957$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -428,7 +435,7 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $1.649$                     & -                        \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $49.699$                    & $5.925$                  \\
