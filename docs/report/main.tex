@@ -214,9 +214,34 @@
 
 \section{Introduction}
 
-\section{Preliminaries}
 
-\subsection{MPC Protocols}\label{sec:prelim:mpc}
+\section{Iris Code Membership Protocol}
+
+\subsection{Core Building Block: Efficient Dot Product}
+
+One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
+
+\[
+    \mathsf{hd}(\vec{a}, \vec{b}) = \sum_i a_i - 2\sum_i a_i \cdot b_i + \sum_i b_i\,.
+\]
+
+This reduces the calculation of the hamming distance to two sums (which can be computed without party interaction in most MPC protocols), as well as a dot-product of two vectors.
+The calculation of this dot-product dominates the complexity of the hamming-distance operation, and we therefore want to use MPC protocols that support a very efficient dot-product operation.
+In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
+The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
+
+\subsection{Core Building Block: MSB Extraction}
+
+Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec:prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as a trivial boolean share. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
+Finally, since the use case operates on a huge amount of data, $k$ being small, and reducing communication complexity being the primary optimization point, we opt for using a ripple-carry-adder instead of a depth-optimized carry-lookahead adder for computing $2 \cdot \sharedB{c} + \sharedB{s}$.
+
+
+\subsection{Core Building Block: OR-tree}
+
+After all hamming distances are compared to the thresholds, one needs to accumulate all resulting bits. Since the result should be zero iff all bits are zero, the accumulation is equivalent to an boolean OR operation. In MPC, one can compute an $x \vee y = x \xor y \xor (x \wedge y)$. To reduce the number of communication rounds, we evaluate the accumulation of all bits as a binary tree.
+
+
+\section{MPC Protocols}\label{sec:prelim:mpc}
 
 To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$. The protocols we discuss achieve either semi-honest security, or malicious security with abort against one corrupted party.
 
@@ -289,30 +314,13 @@ However, since the communication of dot products is independent to their input s
 
 \subsubsection{Protocol Choices}
 
-\section{Iris Code Membership Protocol}
+For the semi-honest version of the protocol, we choose semi-honest ABY3, since it is amongst the fastest MPC protocols in this setting.
 
-\subsection{Core Building Block: Efficient Dot Product}
+For the malicious setting, as outlined in this section, we recommend using SPDZWise MACs \Cref{sec:spdzwise} for the arithmetic part of the protocol, while using cut-and-choose \Cref{sec:cutandchoose} for the binary parts. Concretely, the workflow is the following. When the protocol is started, the parties together produce enough precomputed AND triples using cut-and-choose which are in the end used to verify the correctness of all AND gates.
 
-One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
+Then, each party gets the shares of the inputs shared over $\Z_{2^k}$ and lifts them to $\Z_{2^k + \sigma}$. The next step is authenticating the inputs by multiplying them with the MAC-key, requiring the communication of $n$ ring elements, where $n$ is the input size (i.e., the bit length of the iris code in the use case).
 
-\[
-    \mathsf{hd}(\vec{a}, \vec{b}) = \sum_i a_i - 2\sum_i a_i \cdot b_i + \sum_i b_i\,.
-\]
-
-This reduces the calculation of the hamming distance to two sums (which can be computed without party interaction in most MPC protocols), as well as a dot-product of two vectors.
-The calculation of this dot-product dominates the complexity of the hamming-distance operation, and we therefore want to use MPC protocols that support a very efficient dot-product operation.
-In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
-The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
-
-\subsection{Core Building Block: MSB Extraction}
-
-Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec:prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as a trivial boolean share. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
-Finally, since the use case operates on a huge amount of data, $k$ being small, and reducing communication complexity being the primary optimization point, we opt for using a ripple-carry-adder instead of a depth-optimized carry-lookahead adder for computing $2 \cdot \sharedB{c} + \sharedB{s}$.
-
-
-\subsection{Core Building Block: Or-tree}
-
-After all hamming distances are compared to the thresholds, one needs to accumulate all resulting bits. Since the result should be zero iff all bits are zero, the accumulation is equivalent to an boolean Or operation. In MPC, one can compute an $x \vee y = x \xor y \xor (x \wedge y)$. To reduce the number of communication rounds, we evaluate the accumulation of all bits as a binary tree.
+Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^k + \sigma}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
 
 \section{Experiments}
 
@@ -326,6 +334,9 @@ After all hamming distances are compared to the thresholds, one needs to accumul
 Due to the requirements for the efficient dot-product operation, the iris database needs to be shared over a ring of size $2^k$ for some $k$, such that the summations do not overflow the ring.
 For the example parameters of an iris code length of 12800, this means that $k$ is at least 14, and for simplicity we choose $k=16$.
 %% + replicated sharing + macs
+
+%% update MAC add some points
+%% option: Store database without mac and have a loadup cost where whole database is authenticated (Lots of communication)
 
 \printbibliography
 
