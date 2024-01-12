@@ -19,4 +19,5 @@ pub use super::traits::share_trait::VecShareTrait;
 pub use super::traits::test_network::PartyTestNetwork;
 pub use super::traits::test_network::TestNetwork3p;
 pub use super::types::bit::Bit;
+pub use super::types::ring_element::RingImpl;
 pub use super::types::sharable::Sharable;
