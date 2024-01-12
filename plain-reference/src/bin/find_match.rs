@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
 use color_eyre::eyre::Result;
@@ -74,9 +74,11 @@ fn main() -> Result<()> {
 
     let mut result = false;
 
+    let start = Instant::now();
     for code in codes {
         result |= code?.is_close(&code_to_compare_to);
     }
+    println!("Matching took: {} sec", start.elapsed().as_secs_f64());
 
     if result {
         println!("Found a match!");
