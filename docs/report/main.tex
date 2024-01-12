@@ -469,7 +469,7 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in different cities (slowest network speed $477\,\text{Mbit}/s$, slowest latency $8\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in different cities (slowest network speed $477\,\text{Mbit}/s$, slowest latency $32\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_100k_city}
     \begin{tabular}{lrrcrr}
         \toprule
@@ -477,11 +477,13 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $0.598$                  \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $5.294$                     & $0.598$                  \\
         SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $4.643$                  \\
-        \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $$                          & $0.598$                  \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & $4.643$                  \\
+            \midrule
+        ABY3                         & 32                          & 10240                          & \xmark                        & $2.543$                     & \multirow{2}{*}{$0.598$} \\
+        ABY3                         & 32                          & 100096                         & \xmark                        & $$                          &                          \\
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & \multirow{2}{*}{$4.643$} \\
+        SPDZWise                     & 32                          & 100096                         & \cmark                        & $$                          &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
