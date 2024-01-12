@@ -415,15 +415,16 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
         ABY3                         & 1                           & 128                            & \xmark                        & $$                          & $1.048$                  \\
         ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $3.084$                     & $0.598$                  \\
-            \midrule
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $7.834$                     & $4.643$                  \\
+        \midrule
         ABY3                         & 2                           & 10240                          & \xmark                        & $1.660$                     & \multirow{6}{*}{$0.598$} \\
         ABY3                         & 4                           & 10240                          & \xmark                        & $0.942$                     &                          \\
         ABY3                         & 8                           & 10240                          & \xmark                        & $0.572$                     &                          \\
         ABY3                         & 16                          & 10240                          & \xmark                        & $0.414$                     &                          \\
         ABY3                         & 32                          & 10240                          & \xmark                        & $0.360$                     &                          \\
         ABY3                         & 32                          & 100096                         & \xmark                        & $0.234$                     &                          \\
-            \midrule
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $4.957$                  \\
+        \midrule
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $1.159$                     & $4.643$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
