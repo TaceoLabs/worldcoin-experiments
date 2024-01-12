@@ -227,15 +227,15 @@ We depict the desired matching algorithm (without MPC) in \Cref{alg:iris_plain}.
         \Ensure \texttt{true} if $\vec{c}$ is similar to a entry in the DB, \texttt{false} otherwise.
         \For{$i$ in $0 .. s$}
         \State $\vec{m}' \gets \vec{m} \wedge M_\texttt{DB}[i]$
-        \Comment Combine masks
+        \Comment Combine masks.
         \State $\texttt{ml} \gets \texttt{CountOnes}(\vec{m}')$
         \If{$\texttt{ml} < \texttt{MASK\_THRESHOLD}$}
         \State \Return \texttt{abort} \Comment Not enough iris bits present...
         \EndIf
 
         \State $\vec{c}' \gets (\vec{c} \oplus C_\texttt{DB}[i]) \wedge \vec{m}'$
-        \Comment Hamming distance.
         \State $\texttt{hd} \gets \texttt{CountOnes}(\vec{c}')$
+        \Comment Hamming distance.
         \If{$\texttt{hd} < \texttt{MATCH\_RATIO} \cdot \texttt{ml}$}
         \State \Return \texttt{true}
         \Comment Iris is similar!
