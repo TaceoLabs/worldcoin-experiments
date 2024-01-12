@@ -318,9 +318,9 @@ For the semi-honest version of the protocol, we choose semi-honest ABY3, since i
 
 For the malicious setting, as outlined in this section, we recommend using SPDZWise MACs \Cref{sec:spdzwise} for the arithmetic part of the protocol, while using cut-and-choose \Cref{sec:cutandchoose} for the binary parts. Concretely, the workflow is the following. When the protocol is started, the parties together produce enough precomputed AND triples using cut-and-choose which are in the end used to verify the correctness of all AND gates.
 
-Then, each party gets the shares of the inputs shared over $\Z_{2^k}$ and lifts them to $\Z_{2^k + \sigma}$. The next step is authenticating the inputs by multiplying them with the MAC-key, requiring the communication of $n$ ring elements, where $n$ is the input size (i.e., the bit length of the iris code in the use case).
+Then, each party gets the shares of the inputs shared over $\Z_{2^{k + \sigma}}$. The next step is authenticating the inputs by multiplying them with the MAC-key, requiring the communication of $n$ ring elements, where $n$ is the input size (i.e., the bit length of the iris code in the use case).
 
-Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^k + \sigma}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
+Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^{k + \sigma}}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
 
 \section{Experiments}
 
@@ -330,13 +330,19 @@ Then, the parties perform the protocol using SPDZWise until the MSB-extraction s
 
 \subsection{Open Problems and Bottlenecks}
 
-\paragraph{Size of the Shared Iris Database}
+\paragraph{Size of the Shared Iris Database.}
 Due to the requirements for the efficient dot-product operation, the iris database needs to be shared over a ring of size $2^k$ for some $k$, such that the summations do not overflow the ring.
 For the example parameters of an iris code length of 12800, this means that $k$ is at least 14, and for simplicity we choose $k=16$.
-%% + replicated sharing + macs
+Furthermore, every part has access to two out of three shares of the ring elements due to using replicated secret sharing, hence each party stores two
 
-%% update MAC add some points
-%% option: Store database without mac and have a loadup cost where whole database is authenticated (Lots of communication)
+\paragraph{SPDZWise MACs and the effects on the Database.}
+Since we recommend to use SPDZWise MACs (\Cref{sec:spdzwise}), which operate over larger rings $\Z_{2^{k + \sigma}}$, the shared database gets further increased. Concretely, to get at least $40$ bits of statistical security, each bit of the iris codes is stored as at least 108 bits (two shares of 54 bits), where we choose 128 bits for simplicity. Furthermore, to accommodate for the MACs, the database size has to be doubled.
+
+Alternatively, one can skip storing the MACs at the cost of computing them in a setup phase at the cost of communicating $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
+
+\paragraph{Renewal of MACs.}
+To further strengthen security and prevent parties from cheating by knowing the MAC keys we propose periodically renewing the MAC keys (maybe once a month). This entails recomputing the MACs for each share in the database, requiring to communicate $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
+
 
 \printbibliography
 
