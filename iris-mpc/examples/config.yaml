@@ -5,11 +5,11 @@
   cert_path: "data/cert0.der"
 - id: 1
   dns_name: "party1"
-  bind_addr: "127.0.0.1:10001"
-  public_addr: "127.0.0.1:10001"
+  bind_addr: "127.0.0.1:11000"
+  public_addr: "127.0.0.1:11000"
   cert_path: "data/cert1.der"
 - id: 2
   dns_name: "party2"
-  bind_addr: "127.0.0.1:10002"
-  public_addr: "127.0.0.1:10002"
+  bind_addr: "127.0.0.1:12000"
+  public_addr: "127.0.0.1:12000"
   cert_path: "data/cert2.der"

@@ -156,6 +156,16 @@ impl NetworkTrait for Aby3Network {
     }
 
     async fn shutdown(self) -> io::Result<()> {
+        let Self {
+            channel_send,
+            channel_recv,
+            handler,
+            ..
+        } = self;
+        drop(channel_recv);
+        drop(channel_send);
+
+        handler.shutdown().await;
         Ok(())
     }
 }

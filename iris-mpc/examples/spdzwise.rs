@@ -88,11 +88,15 @@ where
     Ok(())
 }
 
-async fn setup_network(args: Args) -> Result<Aby3Network> {
-    let parties: Vec<NetworkParty> =
+async fn setup_network(args: Args, port_offset: u16) -> Result<Aby3Network> {
+    let mut parties: Vec<NetworkParty> =
         serde_yaml::from_reader(File::open(args.config_file).context("opening config file")?)
             .context("parsing config file")?;
 
+    parties.iter_mut().for_each(|p| {
+        p.bind_addr.set_port(p.bind_addr.port() + port_offset);
+        p.public_addr.set_port(p.public_addr.port() + port_offset);
+    });
     let config = NetworkConfig {
         parties,
         my_id: args.party,
@@ -273,7 +277,7 @@ async fn main() -> Result<()> {
         println0!(id, "Run {}:", i);
         println0!(id, "Setting up network:");
         let start = Instant::now();
-        let network = setup_network(args.to_owned()).await?;
+        let network = setup_network(args.to_owned(), i as u16).await?;
         let duration = start.elapsed();
         println0!(id, "...done, took {} ms\n", duration.as_millis());
 
