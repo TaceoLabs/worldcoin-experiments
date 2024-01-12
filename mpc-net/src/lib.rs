@@ -77,7 +77,7 @@ impl MpcNetworkHandler {
             .parties
             .iter()
             .find(|p| p.id == config.my_id)
-            .map(|p| p.socket_addr)
+            .map(|p| p.bind_addr)
             .expect("we are in the list of parties, so we should have a socket address");
 
         let mut endpoints = Vec::new();
@@ -95,7 +95,7 @@ impl MpcNetworkHandler {
                 let endpoint = quinn::Endpoint::client(local_client_socket)
                     .with_context(|| format!("creating client endpoint to party {}", party.id))?;
                 let conn = endpoint
-                    .connect_with(client_config.clone(), party.socket_addr, &party.dns_name)
+                    .connect_with(client_config.clone(), party.public_addr, &party.dns_name)
                     .with_context(|| {
                         format!("setting up client connection with party {}", party.id)
                     })?
