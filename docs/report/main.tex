@@ -55,6 +55,7 @@
 \usepackage{pdfpages}
 \usepackage{xspace}
 \usepackage{placeins}
+\usepackage{pifont}
 \usepackage{setspace}
 \usepackage[n, advantage , operators ,
     sets ,
@@ -163,6 +164,9 @@
 \newcommand{\mask}{\ensuremath{\mathsf{mask}}}
 \newcommand{\shared}[1]{\ensuremath{[{#1}]}}
 \newcommand{\sharedB}[1]{\ensuremath{[{#1}]^B}}
+
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
 
 %\newcommand{\bin}{\{0,1\}}
 
@@ -371,6 +375,23 @@ Then, the parties perform the protocol using SPDZWise until the MSB-extraction s
 \section{Experiments}
 
 \subsection{Benchmarks}
+
+\begin{table}[ht]
+    \centering
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on the same machine, with each party having one individual computing thread. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products batched per communication round.}
+    \label{tab::bench}
+    \begin{tabular}{lrcrr}
+        \toprule
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{$MB$} \\
+        \midrule
+        % \multicolumn{4}{l}{Local (1 thread per party), $|\texttt{iris}| = 12800, |\texttt{DB}| = 100\,000$:}                  \\
+        % \midrule
+        Plain                        &                                & -                             & $1.649$                     & -                        \\
+        ABY3                         & 1024                           & \xmark                        & $4.896$                     & $0.649$                  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 \section{Conclusion and Open Problems}
 
