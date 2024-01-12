@@ -376,31 +376,15 @@ Then, the parties perform the protocol using SPDZWise until the MSB-extraction s
 
 In this section, we give some benchmarks for our protocols, concretely a plain evaluation baseline, a semi-honest ABY3, as well as a SPDZWise protocol (with cut-and-choose for binary computations) according to \Cref{sec::choice}. All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM. For all benchmark, we compute, whether on iris code is present in a database and do not additionally perform the same computation on rotations of the input code.
 
-First, in \Cref{tab::bench_machine_100k} we give some benchmarks where all parties are run in individual threads on the same machine to establish a common baseline. These benchmarks are performed for a iris code size of $12800$ bits and a database size of $100\,000$ iris codes.
+First, in \Cref{tab::bench_network_100k} we perform benchmarks when each computing party is an individual server located in the same city. These servers are connected to each other with a network speed of $6.6\,\text{Gbit}/s$, and a latency of $1.5\,ms$. We perform these benchmarks for an iris code size of $12800$ bits and a database size of $100\,000$ iris codes.
 
-Next, in \Cref{tab::bench_network_100k} we perform the benchmarks for the same sizes on individual computing servers, where each party is connected to each other with a network speed of $6.6\,\text{Gbit}/s$, and a latency of $1.5\,ms$.
-
-We continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}.
+Next, we continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}. Since we cannot benchmark SPDZWise for this database size due to RAM constraints, we benchmark this protocol for a smaller size of $10\,000$ in \Cref{tab::bench_network_10k} to get an idea of scaling.
 
 
 \begin{remark}
-    We want to note, that we do not give benchmarks for the SPDZWise protocol in \Cref{tab::bench_machine_100k} and \Cref{tab::bench_network_1m} since the database unfortunately does not fit into the RAM which has only 64 GB.
+    We want to note, that we do not give benchmarks for the SPDZWise protocol in \Cref{tab::bench_network_1m} since the database unfortunately does not fit into the RAM which has only 64 GB.
 \end{remark}
 
-\begin{table}[ht]
-    \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on the same machine, with each party having individual computing threads. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
-    \label{tab::bench_machine_100k}
-    \begin{tabular}{lrrcrr}
-        \toprule
-        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
-                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
-        \midrule
-        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
-        ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
-        \bottomrule
-    \end{tabular}
-\end{table}
 
 \begin{table}[ht]
     \centering
@@ -411,7 +395,7 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
         ABY3                         & 1                           & 128                            & \xmark                        & $$                          & $1.048$                  \\
         ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $3.084$                     & $0.598$                  \\
@@ -439,11 +423,27 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        Plain                        & 1                           & -                              & -                             & $1.343$                     & -                        \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $5.925$                  \\
         \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $3.386$                     & $5.925$                  \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $2.566$                     & $5.925$                  \\
+        ABY3                         & 32                          & 10240                          & \xmark                        & $3.386$                     & \multirow{2}{*}{$5.925$} \\
+        ABY3                         & 32                          & 100096                         & \xmark                        & $2.566$                     &                          \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\begin{table}[ht]
+    \centering
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 10\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \label{tab::bench_network_10k}
+    \begin{tabular}{lrrcrr}
+        \toprule
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
+        \midrule
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $0.847$                     & \multirow{2}{*}{$0.825$} \\
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.178$                     &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
