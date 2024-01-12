@@ -477,16 +477,21 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $5.294$                     & $0.598$                  \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $4.643$                  \\
-            \midrule
+        ABY3                         & 1                           & 10240                          & \xmark                        & $5.294$                     & \multirow{2}{*}{$0.598$} \\
+        ABY3                         & 1                           & 100096                         & \xmark                        & $3.575$                     &                          \\
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & \multirow{2}{*}{$4.643$} \\
+        SPDZWise                     & 1                           & 100096                         & \cmark                        & $$                          &                          \\
+        \midrule
         ABY3                         & 32                          & 10240                          & \xmark                        & $2.543$                     & \multirow{2}{*}{$0.598$} \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $$                          &                          \\
+        ABY3                         & 32                          & 100096                         & \xmark                        & $1.142$                     &                          \\
         SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & \multirow{2}{*}{$4.643$} \\
         SPDZWise                     & 32                          & 100096                         & \cmark                        & $$                          &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
+
+
+As can be seen \Cref{tab::bench_network_100k_city}, network speed plays a huge role in the resulting performance. When sending smaller packages (i.e., small chunk sizes in the table) more communication rounds are required, which when having a slow latency, dominate the overall performance of the use case.
 
 \section{Conclusion and Open Problems}
 
@@ -516,6 +521,9 @@ If this is undesired, an extension of our protocol would allow to share the inpu
 
 \paragraph{Precomputing Triples.}
 In \Cref{sec::bench} we benchmark the whole SPDZWise protocol, including generating triples to verify the AND gates. This triple generation, however, can be performed independently to the actual protocol execution. Thus, when computing servers  do not respond to an actual query, they can precompute many of those triples, removing the runtime and communication from the actual execution. This can lead to a significant runtime increase, since triple generation requires bit-permutation which can not be parallelized using multithreading. Since this permutation is also part of verifying semi-honest AND gates, another future research direction could be to find a parallelizable permutation, similar to discussed in \cite{DBLP:conf/sp/ArakiBFLLNOWW17}.
+
+\paragraph{Different Adder Circuits for MSB-extraction}
+As can be seen in \Cref{tab::bench_network_100k_city}, in network connection with high latency runtime is dominated by the communication rounds. Hence, in these networks replacing the ripple-carry adder with depth-optimized carry-lookahead header, which require smaller communication rounds, but larger total communication, can lead to significant performance gains in these networks.
 
 \printbibliography
 
