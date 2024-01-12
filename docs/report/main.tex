@@ -396,19 +396,19 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
         ABY3                         & 1                           & 128                            & \xmark                        & $10.460$                    & $1.048$                  \\
-        ABY3                         & 1                           & 1024                           & \xmark                        & $4.665$                     & $0.649$                  \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $3.084$                     & $0.598$                  \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $7.834$                     & $4.643$                  \\
+        ABY3                         & 1                           & 1\,024                         & \xmark                        & $4.665$                     & $0.649$                  \\
+        ABY3                         & 1                           & 10\,240                        & \xmark                        & $3.084$                     & $0.598$                  \\
+        SPDZWise                     & 1                           & 10\,240                        & \cmark                        & $7.834$                     & $4.643$                  \\
         \midrule
-        ABY3                         & 2                           & 10240                          & \xmark                        & $1.660$                     & \multirow{6}{*}{$0.598$} \\
-        ABY3                         & 4                           & 10240                          & \xmark                        & $0.942$                     &                          \\
-        ABY3                         & 8                           & 10240                          & \xmark                        & $0.572$                     &                          \\
-        ABY3                         & 16                          & 10240                          & \xmark                        & $0.414$                     &                          \\
-        ABY3                         & 32                          & 10240                          & \xmark                        & $0.360$                     &                          \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $0.234$                     &                          \\
+        ABY3                         & 2                           & 10\,240                        & \xmark                        & $1.660$                     & \multirow{6}{*}{$0.598$} \\
+        ABY3                         & 4                           & 10\,240                        & \xmark                        & $0.942$                     &                          \\
+        ABY3                         & 8                           & 10\,240                        & \xmark                        & $0.572$                     &                          \\
+        ABY3                         & 16                          & 10\,240                        & \xmark                        & $0.414$                     &                          \\
+        ABY3                         & 32                          & 10\,240                        & \xmark                        & $0.360$                     &                          \\
+        ABY3                         & 32                          & 100\,096                       & \xmark                        & $0.234$                     &                          \\
         \midrule
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $1.159$                     & \multirow{2}{*}{$4.643$} \\
-        SPDZWise                     & 32                          & 100096                         & \cmark                        & $1.034$                     &                          \\
+        SPDZWise                     & 32                          & 10\,240                        & \cmark                        & $1.159$                     & \multirow{2}{*}{$4.643$} \\
+        SPDZWise                     & 32                          & 100\,096                       & \cmark                        & $1.034$                     &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -423,10 +423,10 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $1.343$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $30.801$                    & $5.925$                  \\
+        ABY3                         & 1                           & 10\,240                        & \xmark                        & $30.801$                    & $5.925$                  \\
         \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $3.386$                     & \multirow{2}{*}{$5.925$} \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $2.566$                     &                          \\
+        ABY3                         & 32                          & 10\,240                        & \xmark                        & $3.386$                     & \multirow{2}{*}{$5.925$} \\
+        ABY3                         & 32                          & 100\,096                       & \xmark                        & $2.566$                     &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -441,8 +441,8 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $0.847$                     & \multirow{2}{*}{$0.825$} \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.178$                     &                          \\
+        SPDZWise                     & 1                           & 10\,240                        & \cmark                        & $0.847$                     & \multirow{2}{*}{$0.825$} \\
+        SPDZWise                     & 32                          & 10\,240                        & \cmark                        & $0.178$                     &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -458,11 +458,11 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.023$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $0.392$                     & $0.598$                  \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $1.101$                     & $4.643$                  \\
+        ABY3                         & 1                           & 10\,240                        & \xmark                        & $0.392$                     & $0.598$                  \\
+        SPDZWise                     & 1                           & 10\,240                        & \cmark                        & $1.101$                     & $4.643$                  \\
         \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $0.149$                     & $0.598$                  \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.548$                     & $4.643$                  \\
+        ABY3                         & 32                          & 10\,240                        & \xmark                        & $0.149$                     & $0.598$                  \\
+        SPDZWise                     & 32                          & 10\,240                        & \cmark                        & $0.548$                     & $4.643$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -477,15 +477,15 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $5.294$                     & \multirow{2}{*}{$0.598$} \\
-        ABY3                         & 1                           & 100096                         & \xmark                        & $3.575$                     &                          \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & \multirow{2}{*}{$4.643$} \\
-        SPDZWise                     & 1                           & 100096                         & \cmark                        & $$                          &                          \\
+        ABY3                         & 1                           & 10\,240                        & \xmark                        & $5.294$                     & \multirow{2}{*}{$0.598$} \\
+        ABY3                         & 1                           & 100\,096                       & \xmark                        & $3.575$                     &                          \\
+        SPDZWise                     & 1                           & 10\,240                        & \cmark                        & $11.071$                    & \multirow{2}{*}{$4.643$} \\
+        SPDZWise                     & 1                           & 100\,096                       & \cmark                        & $9.238$                     &                          \\
         \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $2.543$                     & \multirow{2}{*}{$0.598$} \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $1.142$                     &                          \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $4.099$                     & \multirow{2}{*}{$4.643$} \\
-        SPDZWise                     & 32                          & 100096                         & \cmark                        & $$                          &                          \\
+        ABY3                         & 32                          & 10\,240                        & \xmark                        & $2.543$                     & \multirow{2}{*}{$0.598$} \\
+        ABY3                         & 32                          & 100\,096                       & \xmark                        & $1.142$                     &                          \\
+        SPDZWise                     & 32                          & 10\,240                        & \cmark                        & $4.099$                     & \multirow{2}{*}{$4.643$} \\
+        SPDZWise                     & 32                          & 100\,096                       & \cmark                        & $$                          &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
