@@ -255,7 +255,9 @@ In this section, we summarize the core building blocks of the protocol and the c
 
 \subsection{Core Building Block: Efficient Dot Product}
 
-One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in MPC in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
+One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. The main issue with this computation in MPC is that the hamming distance requires an XOR operation, i.e., MPC over $\F_2$, followed by counting the ones to get a result in $\Z_{2^k}$. Finally, after the comparison with the threshold, the result will be a boolean value again.
+
+Calculating the hamming weight of a binary vector in MPC in a trivial fashion would thus require communication that is linear in the length of the vector, either for the binary-to-arithmetic conversion for each bit or for the binary-circuit to count the ones. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
 
 \[
     \mathsf{hd}(\vec{a}, \vec{b}) = \sum_i a_i - 2\sum_i a_i \cdot b_i + \sum_i b_i\,.
