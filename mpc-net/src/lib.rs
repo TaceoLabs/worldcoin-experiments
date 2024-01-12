@@ -12,6 +12,7 @@ use color_eyre::eyre::{self, Context, Report};
 use config::NetworkConfig;
 use quinn::{
     ClientConfig, Connection, Endpoint, IdleTimeout, RecvStream, SendStream, TransportConfig,
+    VarInt,
 };
 use rustls::{Certificate, PrivateKey};
 use serde::{de::DeserializeOwned, Serialize};
@@ -214,6 +215,7 @@ impl MpcNetworkHandler {
         }
         for endpoint in self.endpoints {
             endpoint.wait_idle().await;
+            endpoint.close(VarInt::from_u32(0), &[]);
         }
     }
 }
