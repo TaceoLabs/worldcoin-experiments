@@ -14,6 +14,9 @@ use rand::{
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use sha2::{digest::Output, Digest, Sha512};
 use std::ops::Mul;
 
@@ -1153,27 +1156,43 @@ where
             return Err(Error::InvalidSizeError);
         }
 
-        let mut shares_a = Vec::with_capacity(len);
+        let rands = (0..b.len())
+            .map(|_| self.aby3.prf.gen_zero_share::<T::VerificationShare>())
+            .collect::<Vec<_>>();
+        let rands2 = (0..b.len())
+            .map(|_| self.aby3.prf.gen_zero_share::<T::VerificationShare>())
+            .collect::<Vec<_>>();
+        let mut shares_a = Vec::with_capacity(a.len());
         let mut mac_shares_a = Vec::with_capacity(len);
 
-        for (b, mask) in b.iter().zip(masks.iter()) {
-            let mut rand = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
-            let mut rand2 = self.aby3.prf.gen_zero_share::<T::VerificationShare>();
-
-            for (bit, ((a_, b_), am)) in mask
-                .bits()
-                .zip(a.values.iter().zip(b.values.iter()).zip(a.macs.iter()))
-            {
-                // only aggregate if mask is set
-                if bit {
-                    rand += (a_.clone() * b_).a;
-                    rand2 += (am.clone() * b_).a;
-                    // TODO: check if we can allow ref * ref ops in RingImpl
+        rands
+            .into_par_iter()
+            .zip(b.par_iter())
+            .zip(masks.par_iter())
+            .map(|((mut rand, b_), mask_)| {
+                for (bit, (a_, b__)) in mask_.bits().zip(a.values.iter().zip(b_.values.iter())) {
+                    // only aggregate if mask is set
+                    if bit {
+                        rand += (a_.clone() * b__).a;
+                    }
                 }
-            }
-            shares_a.push(rand);
-            mac_shares_a.push(rand2);
-        }
+                rand
+            })
+            .collect_into_vec(&mut shares_a);
+        rands2
+            .into_par_iter()
+            .zip(b.par_iter())
+            .zip(masks.par_iter())
+            .map(|((mut rand, b_), mask_)| {
+                for (bit, (a_, b__)) in mask_.bits().zip(a.macs.iter().zip(b_.values.iter())) {
+                    // only aggregate if mask is set
+                    if bit {
+                        rand += (a_.clone() * b__).a;
+                    }
+                }
+                rand
+            })
+            .collect_into_vec(&mut mac_shares_a);
 
         // Network: reshare
         let (shares_b, mac_shares_b) =
