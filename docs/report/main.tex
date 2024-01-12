@@ -380,6 +380,9 @@ First, in \Cref{tab::bench_network_100k} we perform benchmarks when each computi
 
 Next, we continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}. Since we cannot benchmark SPDZWise for this database size due to RAM constraints, we benchmark this protocol for a smaller size of $10\,000$ in \Cref{tab::bench_network_10k} to get an idea of scaling.
 
+After varying the database sizes, we next give benchmarks for smaller iris code sizes of only $1024$ bits. These benchmarks are given for a database size of $100\,000$ iris codes and can be found in \Cref{tab::bench_network_100k_iris_small}.
+
+Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris codes of size $12800$ bits in \Cref{tab::bench_network_100k_city} when executing the protocol when the servers are located in different cities. Concretely, one server ... \todo{here}
 
 \begin{remark}
     We want to note, that we do not give benchmarks for the SPDZWise protocol in \Cref{tab::bench_network_1m} since the database unfortunately does not fit into the RAM which has only 64 GB.
@@ -424,7 +427,7 @@ Next, we continue by varying the database size and give benchmarks for $1\,000\,
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $1.343$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $5.925$                  \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $30.801$                    & $5.925$                  \\
         \midrule
         ABY3                         & 32                          & 10240                          & \xmark                        & $3.386$                     & \multirow{2}{*}{$5.925$} \\
         ABY3                         & 32                          & 100096                         & \xmark                        & $2.566$                     &                          \\
@@ -448,7 +451,44 @@ Next, we continue by varying the database size and give benchmarks for $1\,000\,
     \end{tabular}
 \end{table}
 
-\todo[inline]{Add all benchmarks and discuss!}
+
+\begin{table}[ht]
+    \centering
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 1024$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \label{tab::bench_network_100k_iris_small}
+    \begin{tabular}{lrrcrr}
+        \toprule
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
+        \midrule
+        Plain                        & 1                           & -                              & -                             & $0.023$                     & -                        \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $0.392$                     & $0.598$                  \\
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $1.101$                     & $4.492$                  \\
+        \midrule
+        ABY3                         & 32                          & 10240                          & \xmark                        & $0.149$                     & $0.598$                  \\
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.548$                     & $4.492$                  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[ht]
+    \centering
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in different cities (network speed $??\,\text{Gbit}/s$, latency $??\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \label{tab::bench_network_100k_city}
+    \begin{tabular}{lrrcrr}
+        \toprule
+        \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
+                                     &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
+        \midrule
+        % Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        % ABY3                         & 1                           & 10240                          & \xmark                        & $0.392$                     & $0.598$                  \\
+        % SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $$                       \\
+        %     \midrule
+        % ABY3                         & 32                          & 10240                          & \xmark                        & $0.149$                     & $0.598$                  \\
+        % SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & $$                       \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 \section{Conclusion and Open Problems}
 
