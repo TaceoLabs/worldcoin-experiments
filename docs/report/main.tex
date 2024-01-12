@@ -485,7 +485,7 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
         ABY3                         & 32                          & 10\,240                        & \xmark                        & $2.543$                     & \multirow{2}{*}{$0.598$} \\
         ABY3                         & 32                          & 100\,096                       & \xmark                        & $1.142$                     &                          \\
         SPDZWise                     & 32                          & 10\,240                        & \cmark                        & $4.099$                     & \multirow{2}{*}{$4.643$} \\
-        SPDZWise                     & 32                          & 100\,096                       & \cmark                        & $$                          &                          \\
+        SPDZWise                     & 32                          & 100\,096                       & \cmark                        & $2.155$                     &                          \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -524,6 +524,7 @@ In \Cref{sec::bench} we benchmark the whole SPDZWise protocol, including generat
 
 \paragraph{Different Adder Circuits for MSB-extraction.}
 As can be seen in \Cref{tab::bench_network_100k_city}, in network connection with high latency runtime is dominated by the communication rounds. Hence, in these networks replacing the ripple-carry adder with depth-optimized carry-lookahead header, which require smaller communication rounds, but larger total communication, can lead to significant performance gains in these networks.
+
 \paragraph{Using solely protocols over binary fields.}
 The main optimization used in the protocols makes the communication independent of the size of the iris code by using arithmetic operations over $\Z_{2^k}$ instead of binary operations over $\F_2$. However, this comes at the cost of a large expansion factor of 16 for datatypes, which makes memory size and contention a potential bottleneck. Thus, future work could investigate if this tradeoff is worth it if the network conditions are very good (e.g., when the servers are located in the same data region or data center). There one could use the full Gbps bandwidths of the network to facilitate protocols that operate over $\F_2$, but do not have the dot-product optimization.
 
