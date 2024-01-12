@@ -220,6 +220,8 @@ Another party, dubbed the orb, is able to create a iris code (and mask) and send
 
 \section{Iris Code Membership Protocol}
 
+In this section, we summarize the core building blocks of the protocol and the challenges involved in realizing them in MPC.
+
 \subsection{Core Building Block: Efficient Dot Product}
 
 One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
