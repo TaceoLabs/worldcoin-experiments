@@ -469,7 +469,7 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in different cities (slowest network speed $477\,\text{Mbit}/s$, slowest latency $32\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in different cities (slowest network speed $477\,\text{Mbit}/s$, highest latency $32\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_100k_city}
     \begin{tabular}{lrrcrr}
         \toprule
@@ -522,7 +522,7 @@ If this is undesired, an extension of our protocol would allow to share the inpu
 \paragraph{Precomputing Triples.}
 In \Cref{sec::bench} we benchmark the whole SPDZWise protocol, including generating triples to verify the AND gates. This triple generation, however, can be performed independently to the actual protocol execution. Thus, when computing servers  do not respond to an actual query, they can precompute many of those triples, removing the runtime and communication from the actual execution. This can lead to a significant runtime increase, since triple generation requires bit-permutation which can not be parallelized using multithreading. Since this permutation is also part of verifying semi-honest AND gates, another future research direction could be to find a parallelizable permutation, similar to discussed in \cite{DBLP:conf/sp/ArakiBFLLNOWW17}.
 
-\paragraph{Different Adder Circuits for MSB-extraction}
+\paragraph{Different Adder Circuits for MSB-extraction.}
 As can be seen in \Cref{tab::bench_network_100k_city}, in network connection with high latency runtime is dominated by the communication rounds. Hence, in these networks replacing the ripple-carry adder with depth-optimized carry-lookahead header, which require smaller communication rounds, but larger total communication, can lead to significant performance gains in these networks.
 
 \printbibliography
