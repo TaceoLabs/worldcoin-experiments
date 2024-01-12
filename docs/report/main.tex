@@ -278,7 +278,14 @@ Due to its efficiency in checking correctness of AND gates, we recommend using i
 
 \subsubsection{SPDZWise MACs} \label{sec:spdzwise}
 
-% SPDZ Wise arithmetic does not require joint message passing due to having the MAC
+Another method to extend ABY3 to malicious security is by using authenticated sharing, similar to the SPDZ \cite{DBLP:conf/crypto/DamgardPSZ12} protocol. In this setting, each party has a share of a global MAC key $\alpha$, while the actual value of $\alpha$ remains secret. The parties then use this key to authenticate each shared value $\shared{x}$ with a MAC $\shared{\delta_x} = \shared{\alpha} \cdot \shared{x}$. Each operation, such as addition and multiplication, of the semi-honest version of the protocol is then extended to also perform operations on the MACs such that the invariant $\shared{\delta_x} = \shared{\alpha} \cdot \shared{x}$ is always fulfilled for each share. Furthermore, the result of each multiplication and dot-product, as well as values which are used as outputs of the protocol, are stored for a batched MAC-check protocol, in which the consistency of all MACs are checked, requiring the communication of on element and a hash value.
+
+The advantage MAC-based authentication is that it preserves the property of dot-products requiring only to reshare the result, keeping communication complexity independent to the size of the vectors. However, each value is extended by a MAC, resulting in doubling the required computations and communications.
+
+Furthermore, SPDZ was proposed to work over prime fields $\F_p$. However, to get $\sigma$ bits of statistical security in rings $\Z_{2^k}$ one has to operate over a larger ring $\Z_{2^{k+\sigma}}$ \cite{DBLP:conf/acns/AbspoelD0N21, DBLP:conf/uss/Dalskov0K21}, further increasing communication complexity.
+
+However, since the communication of dot products is independent to their input size, the overhead of the MAC and larger ring is significantly smaller for our use case compared to the techniques discussed in this section. Hence, we recommend to use authentication MACs for the arithmetic parts of the use case. For the binary part though, the communication overhead (similar to \Cref{sec:sacrifice}) is too large, which is why we do not recommend MACs here.
+
 
 \subsubsection{Protocol Choices}
 
