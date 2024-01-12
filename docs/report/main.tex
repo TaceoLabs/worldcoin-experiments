@@ -208,12 +208,13 @@
 
 \maketitle
 
-\begin{abstract}
-    This report
-\end{abstract}
+% \begin{abstract}
+%     This report
+% \end{abstract}
 
 \section{Introduction}
 
+The goal of the project is to construct an efficient MPC protocol computing an iris code membership check in a MPC-shared databases. Concretely, three parties ..
 
 \section{Iris Code Membership Protocol}
 
@@ -230,7 +231,7 @@ The calculation of this dot-product dominates the complexity of the hamming-dist
 In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
 The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
 
-\subsection{Core Building Block: MSB Extraction}
+\subsection{Core Building Block: MSB Extraction} \label{sec:a2b}
 
 Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec:prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as a trivial boolean share. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
 Finally, since the use case operates on a huge amount of data, $k$ being small, and reducing communication complexity being the primary optimization point, we opt for using a ripple-carry-adder instead of a depth-optimized carry-lookahead adder for computing $2 \cdot \sharedB{c} + \sharedB{s}$.
@@ -244,6 +245,15 @@ After all hamming distances are compared to the thresholds, one needs to accumul
 \section{MPC Protocols}\label{sec:prelim:mpc}
 
 To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$. The protocols we discuss achieve either semi-honest security, or malicious security with abort against one corrupted party.
+
+\subsection{Assumptions}
+
+To achieve a sufficiently fast performance for this specific use case, we make two assumptions:
+\begin{itemize}
+    \item \textbf{Honest majority} of parties, i.e., only $t$ of $n$ parties are allowed to collude or deviate of the protocol, with $t < n/2$. In our concrete case we are working with 3 parties, the protocols are secure if at most one party is cheating and no two parties are colluding.
+    \item The iris \textbf{masks} are allowed to be \textbf{known} to all of the involved MPC parties, both the mask for the iris code already in the database, as well as the mask for the new iris code sent by the orb.
+\end{itemize}
+Note that both assumptions are essential to constructing an MPC protocol where the communication is \textbf{independent of the length of the iris code}, saving a factor of $12800$ in many parts of the communication.
 
 \subsection{Semi-honest ABY3: Our baseline protocol}
 
@@ -312,7 +322,7 @@ Furthermore, SPDZ was proposed to work over prime fields $\F_p$. However, to get
 However, since the communication of dot products is independent to their input size, the overhead of the MAC and larger ring is significantly smaller for our use case compared to the techniques discussed in this section. Hence, we recommend to use authentication MACs for the arithmetic parts of the use case. For the binary part though, the communication overhead (similar to \Cref{sec:sacrifice}) is too large, which is why we do not recommend MACs here.
 
 
-\subsubsection{Protocol Choices}
+\subsection{Protocol Choices}
 
 For the semi-honest version of the protocol, we choose semi-honest ABY3, since it is amongst the fastest MPC protocols in this setting.
 
@@ -321,6 +331,7 @@ For the malicious setting, as outlined in this section, we recommend using SPDZW
 Then, each party gets the shares of the inputs shared over $\Z_{2^{k + \sigma}}$. The next step is authenticating the inputs by multiplying them with the MAC-key, requiring the communication of $n$ ring elements, where $n$ is the input size (i.e., the bit length of the iris code in the use case).
 
 Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^{k + \sigma}}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
+
 
 \section{Experiments}
 
@@ -343,6 +354,9 @@ Alternatively, one can skip storing the MACs at the cost of computing them in a 
 \paragraph{Renewal of MACs.}
 To further strengthen security and prevent parties from cheating by knowing the MAC keys we propose periodically renewing the MAC keys (maybe once a month). This entails recomputing the MACs for each share in the database, requiring to communicate $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
 
+\paragraph{Inputs are Bits shared over Larger Rings.}
+For efficiency we let the orbs share each bit of the input iris code over $\Z_{2^k}$ instead of $\F_2$. The reason for that is that the orb would be able to share wrong bits anyways, hence it has to be trusted to follow the protocol already. Second, the computing parties need to store the shares over $\Z_{2^k}$ for efficiency anyways.
+If this is undesired, an extension of our protocol would allow to share the inputs as bits. The workflow changes as follows. First, the input is interpreted as three trivial sharings $\shared{x_1}, \shared{x_2}, \shared{x_2}$ in $\Z_{2^{k + \sigma}}$ (similar to \Cref{sec:a2b}) and authenticated using the shares of the MAC. Then, the three shares are combined using two arithmetic XOR gates, i.e., by computing $\shared{y} = \shared{x_1}+ \shared{x_2} + \shared{x_1} \cdot \shared{x_2}$ and $\shared{z} = \shared{x_3} + \shared{y} + \shared{x_3} \cdot \shared{y}$. This results in authenticated shared bits over $\Z_{2^{k + \sigma}}$, as required for the rest of the protocol.
 
 \printbibliography
 
