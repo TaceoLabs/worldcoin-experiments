@@ -55,6 +55,10 @@ struct Args {
     /// Size of the chunks that are handled at once to batch networking
     #[arg(short, long, default_value = "1024")]
     chunk_size: usize,
+
+    /// Number of protocol runs
+    #[arg(short, long, default_value = "1")]
+    num_runs: usize,
 }
 
 fn print_stats<T: Sharable>(iris: &IrisAby3<T, Aby3<Aby3Network>>) -> Result<()>
@@ -209,48 +213,51 @@ async fn main() -> Result<()> {
     let duration = start.elapsed();
     println0!(id, "...done, took {} ms\n", duration.as_millis());
 
-    println0!(id, "Setting up network:");
-    let start = Instant::now();
-    let network = setup_network(args.to_owned()).await?;
-    let duration = start.elapsed();
-    println0!(id, "...done, took {} ms\n", duration.as_millis());
+    for i in 0..args.num_runs {
+        println0!(id, "Run {}:", i);
+        println0!(id, "Setting up network:");
+        let start = Instant::now();
+        let network = setup_network(args.to_owned()).await?;
+        let duration = start.elapsed();
+        println0!(id, "...done, took {} ms\n", duration.as_millis());
 
-    println0!(id, "\nInitialize protocol:");
-    let start = Instant::now();
-    let protocol = Aby3::new(network);
-    let mut iris = IrisAby3::<u16, _>::new(protocol)?;
-    let duration = start.elapsed();
-    println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+        println0!(id, "\nInitialize protocol:");
+        let start = Instant::now();
+        let protocol = Aby3::new(network);
+        let mut iris = IrisAby3::<u16, _>::new(protocol)?;
+        let duration = start.elapsed();
+        println0!(id, "...done, took {} ms\n", duration.as_millis());
+        print_stats(&iris)?;
 
-    println0!(id, "\nPreprocessing:");
-    let start = Instant::now();
-    iris.preprocessing().await?;
-    let duration = start.elapsed();
-    println0!(id, "...done, took {} ms\n", duration.as_millis());
-    print_stats(&iris)?;
+        println0!(id, "\nPreprocessing:");
+        let start = Instant::now();
+        iris.preprocessing().await?;
+        let duration = start.elapsed();
+        println0!(id, "...done, took {} ms\n", duration.as_millis());
+        print_stats(&iris)?;
 
-    println0!(id, "\nMPC matching:");
-    let start = Instant::now();
-    let res = iris
-        .iris_in_db(
-            &shares.shares,
-            &db.shares,
-            &shares.mask,
-            &db.masks,
-            args.chunk_size,
-        )
-        .await?;
-    let duration = start.elapsed();
-    println0!(id, "...done, took {} ms", duration.as_millis());
-    println0!(id, "Result is {res}\n");
-    print_stats(&iris)?;
+        println0!(id, "\nMPC matching:");
+        let start = Instant::now();
+        let res = iris
+            .iris_in_db(
+                &shares.shares,
+                &db.shares,
+                &shares.mask,
+                &db.masks,
+                args.chunk_size,
+            )
+            .await?;
+        let duration = start.elapsed();
+        println0!(id, "...done, took {} ms", duration.as_millis());
+        println0!(id, "Result is {res}\n");
+        print_stats(&iris)?;
 
-    if args.should_match && !res {
-        println0!(id, "ERROR: should match but doesn't");
+        if args.should_match && !res {
+            println0!(id, "ERROR: should match but doesn't");
+        }
+
+        iris.finish().await?;
     }
-
-    iris.finish().await?;
 
     Ok(())
 }
