@@ -374,7 +374,7 @@ Then, the parties perform the protocol using SPDZWise until the MSB-extraction s
 
 \section{Benchmarks} \label{sec::bench}
 
-In this section, we give some benchmarks for our protocols, concretely a plain evaluation baseline, a semi-honest ABY3, as well as a SPDZWise protocol (with cut-and-choose for binary computations) according to \Cref{sec::choice}. All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM. For all benchmark, we compute, whether on iris code is present in a database and do not additionally perform the same computation on rotations of the input code.
+In this section, we give some benchmarks for our protocols, concretely a plain evaluation baseline, a semi-honest ABY3, as well as a SPDZWise protocol (with cut-and-choose for binary computations) according to \Cref{sec::choice}. All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM. For all benchmark, we compute only whether an iris code is present in a database and do not additionally perform the same computation on rotations of the input code.
 
 First, in \Cref{tab::bench_network_100k} we perform benchmarks when each computing party is an individual server located in the same city. These servers are connected to each other with a network speed of $6.6\,\text{Gbit}/s$, and a latency of $1.5\,ms$. We perform these benchmarks for an iris code size of $12800$ bits and a database size of $100\,000$ iris codes.
 
