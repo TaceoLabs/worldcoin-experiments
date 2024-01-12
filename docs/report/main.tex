@@ -459,10 +459,10 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.023$                     & -                        \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $0.392$                     & $0.598$                  \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $1.101$                     & $4.492$                  \\
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $1.101$                     & $4.643$                  \\
         \midrule
         ABY3                         & 32                          & 10240                          & \xmark                        & $0.149$                     & $0.598$                  \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.548$                     & $4.492$                  \\
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $0.548$                     & $4.643$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -476,12 +476,12 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $$                       \\
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $$                       \\
-            \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $$                          & $$                       \\
-        SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & $$                       \\
+        Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $0.598$                  \\
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $4.643$                  \\
+        \midrule
+        ABY3                         & 32                          & 10240                          & \xmark                        & $$                          & $0.598$                  \\
+        SPDZWise                     & 32                          & 10240                          & \cmark                        & $$                          & $4.643$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
