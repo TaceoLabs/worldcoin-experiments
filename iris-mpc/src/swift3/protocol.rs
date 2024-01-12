@@ -2295,11 +2295,8 @@ where
     }
 
     async fn verify(&mut self) -> Result<(), Error> {
-        {
-            // We do this here seperately since it is only active during testing
-            if self.mul_proof.get_muls() != 0 {
-                self.mul_verify().await?;
-            }
+        if self.mul_proof.get_muls() != 0 {
+            self.mul_verify().await?;
         }
 
         if self.and_proof.get_muls() != 0 {

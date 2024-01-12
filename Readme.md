@@ -27,7 +27,7 @@ The repository consists of 3 crates.
 
 - [`iris-mpc`](iris-mpc): Implementation of various base MPC protocol functionalities, as well as implementations of iris code membership checks using said protocols.
 - [`plain-reference`](plain-reference): Implementation of the Iris Code Matching functionality in plain Rust, to serve as a comparison point for the MPC functionality.
-  - Also contains a binary for genration of test data, which is stored in a SQlite DB for uses in tests/examples.
+  - Also contains a binary for generation of test data, which is stored in a SQlite DB for uses in tests/examples.
 - [`mpc-net`](mpc-net): Implementation of networking used in the MPC protocols
   - Uses QUIC as the underlying transport protocol, which also captures the overhead of TLS for connections between parties.
   - Also contains a binary for generation of the required self-signed TLS certificates for testing.
