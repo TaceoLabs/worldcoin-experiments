@@ -282,13 +282,15 @@ where
 
         let aa_i = a[i_].a.get_bit(i_mod);
         let aa_j = a[j_].a.get_bit(j_mod);
-        a[i_].a.set_bit(i_mod, aa_j);
-        a[j_].a.set_bit(j_mod, aa_i);
+        let xor = aa_i ^ aa_j;
+        a[i_].a ^= xor.to_owned() << i_mod as u32;
+        a[j_].a ^= xor << j_mod as u32;
 
         let ab_i = a[i_].b.get_bit(i_mod);
         let ab_j = a[j_].b.get_bit(j_mod);
-        a[i_].b.set_bit(i_mod, ab_j);
-        a[j_].b.set_bit(j_mod, ab_i);
+        let xor = ab_i ^ ab_j;
+        a[i_].b ^= xor.to_owned() << i_mod as u32;
+        a[j_].b ^= xor << j_mod as u32;
     }
 
     async fn permute<R: Rng + SeedableRng>(
