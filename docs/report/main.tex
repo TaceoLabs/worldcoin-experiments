@@ -214,7 +214,9 @@
 
 \section{Introduction}
 
-The goal of the project is to construct an efficient MPC protocol computing an iris code membership check in a MPC-shared databases. Concretely, three parties ..
+The goal of the project is to construct an efficient MPC protocol computing an iris code membership check of a MPC-shared databases. Concretely, a database containing known iris code, each consisting of multiple thousand bits (approximately $12800$ at the time of writing), is shared amongst three computing parties. Furthermore, each iris code is connected to a mask of the same size, which is known by all parties.
+
+Another party, dubbed the orb, is able to create a iris code (and mask) and sends it in a shared form to the computing parties. The parties then check if the iris code is already present in the database by computing a similarity check, implemented as comparing the hamming distance to a threshold, between the iris code and each element in the database. Finally, all comparisons are aggregated into one output bit, which is 0 if the new iris code is not found in the database, 1 otherwise.
 
 \section{Iris Code Membership Protocol}
 
