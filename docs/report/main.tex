@@ -228,7 +228,7 @@ We depict the desired matching algorithm (without MPC) in \Cref{alg:iris_plain}.
     \caption{The Iris Code Membership Protocol without MPC. It checks, whether the iris code $\vec{c}$, und the mask $\vec{m}$ is similar to any iris in the database $C_\texttt{DB}$ under masks $M_\texttt{DB}$. $l$ is the size of the iris codes in bits, $s$ is the number of codes in the database. \label{alg:iris_plain}}
     \begin{algorithmic}[l]
         \Require $\vec{c}, \vec{m} \in \F_2^l, C_\texttt{DB}, M_\texttt{DB} \in \F_2^{s \times l}$
-        \Ensure \texttt{true} if $\vec{c}$ is similar to a entry in the DB, \texttt{false} otherwise.
+        \Ensure \texttt{true} if $\vec{c}$ is similar to an entry in the DB, \texttt{false} otherwise.
         \For{$i$ in $0 .. s$}
         \State $\vec{m}' \gets \vec{m} \wedge M_\texttt{DB}[i]$
         \Comment Combine masks.
@@ -399,8 +399,8 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
         Plain                        & 1                           & -                              & -                             & $0.134$                     & -                        \\
-        ABY3                         & 1                           & 128                            & \xmark                        & $$                          & $1.048$                  \\
-        ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
+        ABY3                         & 1                           & 128                            & \xmark                        & $10.460$                    & $1.048$                  \\
+        ABY3                         & 1                           & 1024                           & \xmark                        & $4.665$                     & $0.649$                  \\
         ABY3                         & 1                           & 10240                          & \xmark                        & $3.084$                     & $0.598$                  \\
         SPDZWise                     & 1                           & 10240                          & \cmark                        & $7.834$                     & $4.643$                  \\
         \midrule
@@ -498,7 +498,7 @@ Finally, we vary the network speed and give benchmarks for $1\,000\,000$ iris co
 Due to the requirements for the efficient dot-product operation, the iris database needs to be shared over a ring of size $2^k$ for some $k$, such that the summations do not overflow the ring.
 For the example parameters of an iris code length of 12800, this means that $k$ is at least 14, and for simplicity we choose $k=16$.
 Furthermore, every part has access to two out of three shares of the ring elements due to using replicated secret sharing, hence each party stores two ring elements of size $k=16$ for each bit in an iris code.
-This expansion factor of 32 is a big reason for the slowdowns compared to the plain execution of the protocol, and also limits the loading of the full database into memory. As an example, the database for 1 million iris codes would require $2 \cdot 16 \cdot 12800 \cdot 1\,000\,000 \text{ bits } = 51 GB$ of memory.
+This expansion factor of 32 is a big reason for the slowdowns compared to the plain execution of the protocol, and also limits the loading of the full database into memory. As an example, the database for 1 million iris codes would require $2 \cdot 16 \cdot 12800 \cdot 1\,000\,000 \text{ bits } = 51$ GB of memory.
 
 \paragraph{Multithreading}
 Currently, multithreading is only enabled for the computationally intensive parts of the protocol. Further optimizations could be achieved by also allowing the communication of the protocol to be multithreaded. However, especially for protocols with malicious security, the communication ordering is crucial for consistency checks, which makes multithreaded communication more difficult to implement. Implementing this could bring the multithreaded scaling closer to linear, however, the effects of memory contention are already noticeable for a large number of threads in the current implementation, so we do not expect to reach fully linear speedups from multithreading.
@@ -507,7 +507,7 @@ Currently, multithreading is only enabled for the computationally intensive part
 Since we recommend to use SPDZWise MACs (\Cref{sec::spdzwise}), which operate over larger rings $\Z_{2^{k + \sigma}}$, the shared database gets further increased. Concretely, to get at least $40$ bits of statistical security, each bit of the iris codes is stored as at least 108 bits (two shares of 54 bits), where we choose 128 bits for simplicity. Furthermore, to accommodate for the MACs, the database size has to be doubled again.
 
 Alternatively, one can skip storing the MACs at the cost of computing them in a setup phase at the cost of communicating $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
-As an example, the database for 100k iris codes would require $2 \cdot 128 \cdot 12800 \cdot 100\,000 \text{ bits } = 40.9 GB$ of memory.
+As an example, the database for 100k iris codes would require $2 \cdot 128 \cdot 12800 \cdot 100\,000 \text{ bits } = 40.9$ GB of memory.
 
 \paragraph{Renewal of MACs.}
 To further strengthen security and prevent parties from cheating by knowing the MAC keys we propose periodically renewing the MAC keys (maybe once a month). This entails recomputing the MACs for each share in the database, requiring to communicate $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
