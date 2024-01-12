@@ -268,11 +268,11 @@ Calculating the hamming weight of a binary vector in MPC in a trivial fashion wo
 This reduces the calculation of the hamming distance to two sums (which can be computed without party interaction in most MPC protocols), as well as a dot-product of two vectors.
 The calculation of this dot-product dominates the complexity of the hamming-distance operation, and we therefore want to use MPC protocols that support a very efficient dot-product operation.
 In general, protocols that have a honest-majority security assumption can support dot-products that require communication which is independent of the size of the vectors, which is optimal.
-The protocols we discuss in \Cref{sec:prelim:mpc} all support such efficient dot-products.
+The protocols we discuss in \Cref{sec::prelim:mpc} all support such efficient dot-products.
 
-\subsection{Core Building Block: MSB Extraction} \label{sec:a2b}
+\subsection{Core Building Block: MSB Extraction} \label{sec::a2b}
 
-Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec:prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as trivial boolean shares. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
+Since a comparison $a < b$ is equal to an MSB-extraction $\texttt{msb}(a-b)$ (if the sizes of $a,b$ are chosen to not produce an overflow), a core building block is an MSB-extraction protocol. This subprotocol requires to change the sharing type of additive shares over $\Z_{2^k}$ to boolean shares over $\F_2^k$. In the targeted honest-majority MPC protocols (\Cref{sec::prelim:mpc}) this is usually done by interpreting each additive share $x_i \in \Z_{2^k}$ of $\shared{x}=(x_1, x_2, x_3)$ as trivial boolean shares. In other words, the shares are translated to $\sharedB{x_1} = (x_1, 0, 0)$, $\sharedB{x_2} = (0, x_2, 0)$, and $\sharedB{x_3} = (0, 0, x_3)$. Finally, these three shares are  combined to the target share by computing $\sharedB{x_1} + \sharedB{x_2} + \sharedB{x_3}$ using a binary adder circuit in MPC. Thereby, one can use the following optimization: If one first computes a full adder $\texttt{FA}(\sharedB{x_1[i]}, \sharedB{x_2[i]}, \sharedB{x_3[i]}) = (\sharedB{c[i]}, \sharedB{s[i]})$ for each bit $i$ ($k$ And gates and depth of only one), the final result can be obtained by adding $2 \cdot \sharedB{c} + \sharedB{s}$. This drastically reduces the total number of communication rounds required for the binary circuit.
 Finally, since the use case operates on a huge amount of data, $k$ being small, and reducing communication complexity being the primary optimization point, we opt for using a ripple-carry-adder instead of a depth-optimized carry-lookahead adder for computing $2 \cdot \sharedB{c} + \sharedB{s}$.
 
 
@@ -281,7 +281,7 @@ Finally, since the use case operates on a huge amount of data, $k$ being small, 
 After all hamming distances are compared to the thresholds, one needs to accumulate all resulting bits. Since the result should be zero iff all bits are zero, the accumulation is equivalent to an boolean OR operation. In MPC, one can compute an $x \vee y = x \xor y \xor (x \wedge y)$. To reduce the number of communication rounds, we evaluate the accumulation of all bits as a binary tree.
 
 
-\section{MPC Protocols}\label{sec:prelim:mpc}
+\section{MPC Protocols}\label{sec::prelim:mpc}
 
 To efficiently evaluate the use case we opt for 3-party, ring-based, honest majority protocols, which use replicated secret sharing. This choice is crucial, since they provide a dot-product subprotocol with communication being independent to the size of the vectors, they do not operate over prime fields hence computational overhead is minimized, and they provide efficient protocols to switch between arithmetic sharings over $\Z_{2^k}$ and binary sharings over $\F_2^k$. The protocols we discuss achieve either semi-honest security, or malicious security with abort against one corrupted party.
 
@@ -313,13 +313,13 @@ When computing a dot-product $\shared{z} = \langle\shared{\vec{x}}, \shared{\vec
 
 Many publications following ABY3's blueprint have been proposed in the literatures, which mainly differ on how to get malicious security in different security models. We discuss the main methods in this section, limiting ourselves to the 3-party setting and malicious security with abort.
 
-\subsubsection{Joint Message Passing} \label{sec:jmp}
+\subsubsection{Joint Message Passing} \label{sec::jmp}
 
 Since ABY3 is a replicated secret sharing protocol each party has access to two out of three shares. Consequently, whenever one of the two shares is transmitted to another party (e.g., when reconstructing the output from the shares), two parties potentially can send the missing share. As example, when the value $\shared{x} = (x_1, x_2, x_3)$ needs to be reconstructed, party $i$ already has access to the shares $x_i$ and $x_{i-1}$ and can potentially send $x_i$ to party $i-1$ or $x_{i-1}$ to party $i+1$. Thus, when each party sends both shares to the correct other parties, the parties can check whether the received shares match and abort otherwise. Furthermore, one can delay sending one out of the two shares to the end of the protocol and only send a hash of all messages to reduce communication.
 
 This simple and powerful technique allows to detect malicious behavior for all linear operations performed on the shares. However, it does not work for multiplications and dot products, since they involve a subprotocol translating the replicated share to just an additive one. So only one party knows the resulting share and the other parties cannot be used to verify correctness. Thus, multiplications need an additional way of checking correctness, which we investigate in the next sections.
 
-\subsubsection{Distributed Zero Knowledge Proofs} \label{sec:dzkp}
+\subsubsection{Distributed Zero Knowledge Proofs} \label{sec::dzkp}
 
 The (asymptotically) most efficient way in terms of communication complexity to verify correctness of multiplications and dot products is via distributed zero knowledge proofs \cite{DBLP:conf/ccs/BoyleGIN19}, as employed by, e.g., the SWIFT \cite{DBLP:conf/uss/KotiPPS21} MPC protocol.
 
@@ -328,29 +328,29 @@ This method involves performing the semi-honest multiplication (and dot product)
 The main drawback of this method is, that the zero knowledge proof requires a large amount of polynomial interpolations, hence its computational overhead is large. Using this method in the use case would thus lead to a huge runtime increase compared to the semi-honest protocol, which is why we do not recommend to use it.
 
 \begin{remark}
-    In our implementation of the SWIFT protocol, we use the zero knowledge proofs for dot products and AND gate evaluations. A more efficient technique would be to just use it for the dot products, while leveraging cut-and-choose (\Cref{sec:cutandchoose}) for verifying AND gates, since the computational overhead is significantly smaller. However, the computational overhead of the dot product proof is still very expensive, hence, our recommendation of using different protocols still stands.
+    In our implementation of the SWIFT protocol, we use the zero knowledge proofs for dot products and AND gate evaluations. A more efficient technique would be to just use it for the dot products, while leveraging cut-and-choose (\Cref{sec::cutandchoose}) for verifying AND gates, since the computational overhead is significantly smaller. However, the computational overhead of the dot product proof is still very expensive, hence, our recommendation of using different protocols still stands.
 \end{remark}
 
-\subsubsection{Triple Sacrifice over Larger Rings} \label{sec:sacrifice}
+\subsubsection{Triple Sacrifice over Larger Rings} \label{sec::sacrifice}
 
 Another approach to verify the correctness of a semi-honest multiplication $\shared{z} = \shared{x} \cdot \shared{y}$ is by performing an additional, correlated multiplication $\shared{z'} = \shared{x} \cdot \shared{y'}$ and \textit{sacrifice} it to verify the validity of the first multiplication \cite{DBLP:conf/acns/AbspoelD0N21}. This sacrifice can be packed for many multiplications and requires to sample a random coin after all multiplications are done plus an additional communication round which requires to transmit a message with the size being linear in the number of multiplications.
 
 This approach has the following drawbacks. First, to provide a statistical security of $\sigma$ bits, one needs to perform both multiplications in a large ring $\Z_{2^{k+\sigma}}$ increasing communication complexity. Second, when computing dot products, the size of the communication again depends on the size of the vectors resulting in infeasibly huge communication when applied to our use case. While the size-dependant communication could be outsourced to an input-independent offline phase, there exist more efficient verification protocols, which is why we do not recommend to use triple sacrificing in this use case.
 
 \begin{remark}
-    In our implementation, dubbed Malicious ABY3, we use triple sacrificing for both dot products and AND gates. This, however, requires at least a ring size of 41 bits for enough statistical security, increasing communication complexity per AND gate by a factor of at least 80 compared to semi-honest ABY3. Thus, using a different protocol, e.g., cut-and-choose (\Cref{sec:cutandchoose}), for verifying AND gates is the preferred choice. However, replacing the AND gate verification does not compensate for the size-dependant dot products, which is why we still would not recommend this protocol in our use case.
+    In our implementation, dubbed Malicious ABY3, we use triple sacrificing for both dot products and AND gates. This, however, requires at least a ring size of 41 bits for enough statistical security, increasing communication complexity per AND gate by a factor of at least 80 compared to semi-honest ABY3. Thus, using a different protocol, e.g., cut-and-choose (\Cref{sec::cutandchoose}), for verifying AND gates is the preferred choice. However, replacing the AND gate verification does not compensate for the size-dependant dot products, which is why we still would not recommend this protocol in our use case.
 \end{remark}
 
 
-\subsubsection{Triple Verification using Cut-And-Choose} \label{sec:cutandchoose}
+\subsubsection{Triple Verification using Cut-And-Choose} \label{sec::cutandchoose}
 
-Since triple sacrificing (\Cref{sec:sacrifice}) is not well suited for verifying AND gates, a different method is required for verifying their correctness. One such approach is called cut-and-choose \cite{DBLP:conf/sp/ArakiBFLLNOWW17}. This approach builds on the fact that many AND gates can be verified in a batched manner efficiently by having the same amount of correct precomputed shared AND gate triples $\sharedB{z} = \sharedB{x} \wedge \sharedB{y} \in \F_2$.
+Since triple sacrificing (\Cref{sec::sacrifice}) is not well suited for verifying AND gates, a different method is required for verifying their correctness. One such approach is called cut-and-choose \cite{DBLP:conf/sp/ArakiBFLLNOWW17}. This approach builds on the fact that many AND gates can be verified in a batched manner efficiently by having the same amount of correct precomputed shared AND gate triples $\sharedB{z} = \sharedB{x} \wedge \sharedB{y} \in \F_2$.
 
 To get $N$ correct triples, one needs to precompute $N\cdot B + (B-1)\cdot C$ semi-honest AND triples. These triples are then split into $B$ buckets, where the first bucket consists of $N$ triples, while the remaining ones consist of $N+C$ ones. Now all buckets, except the first one, are pseudorandomly permuted, requiring to jointly sample a random permutation. Then, the first $C$ triples of each bucket (except the first one) are published and checked for correctness. Finally, the first bucket is checked for correctness by sacrificing the remaining buckets. This results in the first bucket being correct shared AND triples with a soundness error of $\frac{1}{N^{B-1}}$. Furthermore, when permuting the $N$ precomputed triples \textit{after} all semi-honest AND gates are computed during protocol execution, one less bucket is required, i.e., the soundness error becomes $\frac{1}{N^B}$. Consequently, when pre-computing more than $2^{20}$ AND gates (which is easily the case for the data sizes of this use case), only a second bucket is required for enough statistical security, leading to a communication increase of just a factor of 2. Finally, in the triple verification protocol (performed during triple generation and the final triple verification), 2 bits per AND gate are communicated, leading to a total communication overhead of factor 6 per AND gate.
 
-Due to its efficiency in checking correctness of AND gates, we recommend using it in combination with the \Cref{sec:jmp} to get malicious security.
+Due to its efficiency in checking correctness of AND gates, we recommend using it in combination with the \Cref{sec::jmp} to get malicious security.
 
-\subsubsection{SPDZWise MACs} \label{sec:spdzwise}
+\subsubsection{SPDZWise MACs} \label{sec::spdzwise}
 
 Another method to extend ABY3 to malicious security is by using authenticated sharing, similar to the SPDZ \cite{DBLP:conf/crypto/DamgardPSZ12} protocol. In this setting, each party has a share of a global MAC key $\alpha$, while the actual value of $\alpha$ remains secret. The parties then use this key to authenticate each shared value $\shared{x}$ with a MAC $\shared{\delta_x} = \shared{\alpha} \cdot \shared{x}$. Each operation, such as addition and multiplication, of the semi-honest version of the protocol is then extended to also perform operations on the MACs such that the invariant $\shared{\delta_x} = \shared{\alpha} \cdot \shared{x}$ is always fulfilled for each share. Furthermore, the result of each multiplication and dot-product, as well as values which are used as outputs of the protocol, are stored for a batched MAC-check protocol, in which the consistency of all MACs are checked, requiring the communication of on element and a hash value.
 
@@ -358,25 +358,29 @@ The advantage MAC-based authentication is that it preserves the property of dot-
 
 Furthermore, SPDZ was proposed to work over prime fields $\F_p$. However, to get $\sigma$ bits of statistical security in rings $\Z_{2^k}$ one has to operate over a larger ring $\Z_{2^{k+\sigma}}$ \cite{DBLP:conf/acns/AbspoelD0N21, DBLP:conf/uss/Dalskov0K21}, further increasing communication complexity.
 
-However, since the communication of dot products is independent to their input size, the overhead of the MAC and larger ring is significantly smaller for our use case compared to the techniques discussed in this section. Hence, we recommend to use authentication MACs for the arithmetic parts of the use case. For the binary part though, the communication overhead (similar to \Cref{sec:sacrifice}) is too large, which is why we do not recommend MACs here.
+However, since the communication of dot products is independent to their input size, the overhead of the MAC and larger ring is significantly smaller for our use case compared to the techniques discussed in this section. Hence, we recommend to use authentication MACs for the arithmetic parts of the use case. For the binary part though, the communication overhead (similar to \Cref{sec::sacrifice}) is too large, which is why we do not recommend MACs here.
 
 
-\subsection{Protocol Choices}
+\subsection{Protocol Choices} \label{sec::choice}
 
 For the semi-honest version of the protocol, we choose semi-honest ABY3, since it is amongst the fastest MPC protocols in this setting.
 
-For the malicious setting, as outlined in this section, we recommend using SPDZWise MACs \Cref{sec:spdzwise} for the arithmetic part of the protocol, while using cut-and-choose \Cref{sec:cutandchoose} for the binary parts. Concretely, the workflow is the following. When the protocol is started, the parties together produce enough precomputed AND triples using cut-and-choose which are in the end used to verify the correctness of all AND gates.
+For the malicious setting, as outlined in this section, we recommend using SPDZWise MACs \Cref{sec::spdzwise} for the arithmetic part of the protocol, while using cut-and-choose \Cref{sec::cutandchoose} for the binary parts. Concretely, the workflow is the following. When the protocol is started, the parties together produce enough precomputed AND triples using cut-and-choose which are in the end used to verify the correctness of all AND gates.
 
 Then, each party gets the shares of the inputs shared over $\Z_{2^{k + \sigma}}$. The next step is authenticating the inputs by multiplying them with the MAC-key, requiring the communication of $n$ ring elements, where $n$ is the input size (i.e., the bit length of the iris code in the use case).
 
 Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^{k + \sigma}}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
 
 
-\section{Experiments}
+\section{Benchmarks}
 
-\subsection{Benchmarks}
+In this section, we give some benchmarks for our protocols, concretely a plain evaluation baseline, a semi-honest ABY3, as well as a SPDZWise protocol (with cut-and-choose for binary computations) according to \Cref{sec::choice}. All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM. For all benchmark, we compute, whether on iris code is present in a database and do not additionally perform the same computation on rotations of the input code.
 
-All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM.
+First, in \Cref{tab::bench_machine_100k} we give some benchmarks where all parties are run in individual threads on the same machine to establish a common baseline. These benchmarks are performed for a iris code size of $12800$ bits and a database size of $100\,000$ iris codes.
+
+Next, in \Cref{tab::bench_network_100k} we perform the benchmarks for the same sizes on individual computing servers, where each party is connected to each other with a network speed of $6.6\,\text{Gbit}/s$, and a latency of $1.5\,ms$.
+
+We continue by varying the database size and give benchmarks for $1\,000\,000$ iris codes in \Cref{tab::bench_network_1m}. We want to note, that we do not give benchmarks for the SPDZWise protocol here since the database unfortunately does not fit into 64 GB of RAM.
 
 \begin{table}[ht]
     \centering
@@ -436,8 +440,6 @@ All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (3
 \end{table}
 
 \todo[inline]{Add all benchmarks and discuss!}
-\todo[inline]{We do not benchmark rotations, mention somewhere}
-\todo[inline]{SPDZWise no benchmarks with 1 000 000 since DB does not fit into 64 GB RAM}
 
 \section{Conclusion and Open Problems}
 
@@ -449,7 +451,7 @@ For the example parameters of an iris code length of 12800, this means that $k$ 
 Furthermore, every part has access to two out of three shares of the ring elements due to using replicated secret sharing, hence each party stores two
 
 \paragraph{SPDZWise MACs and the effects on the Database.}
-Since we recommend to use SPDZWise MACs (\Cref{sec:spdzwise}), which operate over larger rings $\Z_{2^{k + \sigma}}$, the shared database gets further increased. Concretely, to get at least $40$ bits of statistical security, each bit of the iris codes is stored as at least 108 bits (two shares of 54 bits), where we choose 128 bits for simplicity. Furthermore, to accommodate for the MACs, the database size has to be doubled.
+Since we recommend to use SPDZWise MACs (\Cref{sec::spdzwise}), which operate over larger rings $\Z_{2^{k + \sigma}}$, the shared database gets further increased. Concretely, to get at least $40$ bits of statistical security, each bit of the iris codes is stored as at least 108 bits (two shares of 54 bits), where we choose 128 bits for simplicity. Furthermore, to accommodate for the MACs, the database size has to be doubled.
 
 Alternatively, one can skip storing the MACs at the cost of computing them in a setup phase at the cost of communicating $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
 
@@ -458,7 +460,7 @@ To further strengthen security and prevent parties from cheating by knowing the 
 
 \paragraph{Inputs are Bits shared over Larger Rings.}
 For efficiency we let the orbs share each bit of the input iris code over $\Z_{2^k}$ instead of $\F_2$. The reason for that is that the orb would be able to share wrong bits anyways, hence it has to be trusted to follow the protocol already. Second, the computing parties need to store the shares over $\Z_{2^k}$ for efficiency anyways.
-If this is undesired, an extension of our protocol would allow to share the inputs as bits. The workflow changes as follows. First, the input is interpreted as three trivial sharings $\shared{x_1}, \shared{x_2}, \shared{x_2}$ in $\Z_{2^{k + \sigma}}$ (similar to \Cref{sec:a2b}) and authenticated using the shares of the MAC. Then, the three shares are combined using two arithmetic XOR gates, i.e., by computing $\shared{y} = \shared{x_1}+ \shared{x_2} + \shared{x_1} \cdot \shared{x_2}$ and $\shared{z} = \shared{x_3} + \shared{y} + \shared{x_3} \cdot \shared{y}$. This results in authenticated shared bits over $\Z_{2^{k + \sigma}}$, as required for the rest of the protocol.
+If this is undesired, an extension of our protocol would allow to share the inputs as bits. The workflow changes as follows. First, the input is interpreted as three trivial sharings $\shared{x_1}, \shared{x_2}, \shared{x_2}$ in $\Z_{2^{k + \sigma}}$ (similar to \Cref{sec::a2b}) and authenticated using the shares of the MAC. Then, the three shares are combined using two arithmetic XOR gates, i.e., by computing $\shared{y} = \shared{x_1}+ \shared{x_2} + \shared{x_1} \cdot \shared{x_2}$ and $\shared{z} = \shared{x_3} + \shared{y} + \shared{x_3} \cdot \shared{y}$. This results in authenticated shared bits over $\Z_{2^{k + \sigma}}$, as required for the rest of the protocol.
 
 \printbibliography
 
