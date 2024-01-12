@@ -218,13 +218,44 @@ The goal of the project is to construct an efficient MPC protocol computing an i
 
 Another party, dubbed the orb, is able to create a iris code (and mask) and sends it in a shared form to the computing parties. The parties then check if the iris code is already present in the database by computing a similarity check, implemented as comparing the hamming distance to a threshold, between the iris code and each element in the database. Finally, all comparisons are aggregated into one output bit, which is 0 if the new iris code is not found in the database, 1 otherwise.
 
+We depict the desired matching algorithm (without MPC) in \Cref{alg:iris_plain}.
+
+\begin{algorithm}[ht]
+    \caption{The Iris Code Membership Protocol without MPC. It checks, whether the iris code $\vec{c}$, und the mask $\vec{m}$ is similar to any iris in the database $C_\texttt{DB}$ under masks $M_\texttt{DB}$. $l$ is the size of the iris codes in bits, $s$ is the number of codes in the database. \label{alg:iris_plain}}
+    \begin{algorithmic}[l]
+        \Require $\vec{c}, \vec{m} \in \F_2^l, C_\texttt{DB}, M_\texttt{DB} \in \F_2^{s \times l}$
+        \Ensure \texttt{true} if $\vec{c}$ is similar to a entry in the DB, \texttt{false} otherwise.
+        \For{$i$ in $0 .. s$}
+        \State $\vec{m}' \gets \vec{m} \wedge M_\texttt{DB}[i]$
+        \Comment Combine masks
+        \State $\texttt{ml} \gets \langle\vec{m}', \vec{1}\rangle$
+        \Comment Count the ones.
+        \If{$\texttt{ml} < \texttt{MASK\_THRESHOLD}$}
+        \State \Return \texttt{abort} \Comment Not enough iris bits present...
+        \EndIf
+
+        \State $\vec{c}' \gets (\vec{c} \oplus C_\texttt{DB}[i]) \wedge \vec{m}'$
+        \Comment Hamming distance.
+        \State $\texttt{hd} \gets \langle\vec{c}', \vec{1}\rangle$
+        \Comment Count the ones.
+        \If{$\texttt{hd} < \texttt{MATCH\_RATIO} \cdot \texttt{ml}$}
+        \State \Return \texttt{true}
+        \Comment Iris is similar!
+        \EndIf
+        \EndFor
+
+        \State \Return \texttt{false}
+        \Comment No match found.
+    \end{algorithmic}
+\end{algorithm}
+
 \section{Iris Code Membership Protocol}
 
 In this section, we summarize the core building blocks of the protocol and the challenges involved in realizing them in MPC.
 
 \subsection{Core Building Block: Efficient Dot Product}
 
-One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
+One of the core operations of the Iris Code Membership protocol is the calculation of the hamming distance of the two binary iris code vectors. Calculating the hamming weight of a binary vector in MPC in a trivial fashion would require communication that is linear in the length of the vector. However, if we have the precondition that the input vector is already shared over a larger ring $\Z_{2^k}$ instead of $\F_2$, we can employ the following strategy:
 
 \[
     \mathsf{hd}(\vec{a}, \vec{b}) = \sum_i a_i - 2\sum_i a_i \cdot b_i + \sum_i b_i\,.
