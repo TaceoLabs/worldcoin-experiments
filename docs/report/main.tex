@@ -372,7 +372,7 @@ Then, each party gets the shares of the inputs shared over $\Z_{2^{k + \sigma}}$
 Then, the parties perform the protocol using SPDZWise until the MSB-extraction subprotocol needs to be evaluated. Since we are switching protocols add this point, this step is similar to the output protocol of SPDZWise, hence we perform the MAC-check. Afterwards, the shares are reduced from $\Z_{2^{k + \sigma}}$ to $\Z_{2^k}$, and the MSB-extraction subprotocol followed by the OR-tree for producing one bit as the output, is executed using the joint message passing protocol and semi-honest AND gates. Finally, before the resulting bit is opened, all semi-honest AND gates are verified using the precomputed AND triples.
 
 
-\section{Benchmarks}
+\section{Benchmarks} \label{sec::bench}
 
 In this section, we give some benchmarks for our protocols, concretely a plain evaluation baseline, a semi-honest ABY3, as well as a SPDZWise protocol (with cut-and-choose for binary computations) according to \Cref{sec::choice}. All benchmarks where performed on machines with an \textit{AMD EPYC 7543} CPU (32 threads, 2795 MHz) and 64 GB RAM. For all benchmark, we compute, whether on iris code is present in a database and do not additionally perform the same computation on rotations of the input code.
 
@@ -389,59 +389,59 @@ We continue by varying the database size and give benchmarks for $1\,000\,000$ i
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on the same machine, with each party having individual computing threads. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on the same machine, with each party having individual computing threads. Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_machine_100k}
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
-        ABY3                         & 1                           & 1024                           & \xmark                        & $4.896$                     & $0.649$                  \\
+        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 100\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_100k}
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $0.165$                     & -                        \\
-        ABY3                         & 1                           & 128                            & \xmark                        & $11.971$                    & $1.048$                  \\
-        ABY3                         & 1                           & 1024                           & \xmark                        & $5.825$                     & $0.649$                  \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $4.980$                     & $0.598$                  \\
-        \midrule
-        ABY3                         & 2                           & 10240                          & \xmark                        & $2.510$                     & $0.598$                  \\
-        ABY3                         & 4                           & 10240                          & \xmark                        & $1.367$                     & $0.598$                  \\
-        ABY3                         & 8                           & 10240                          & \xmark                        & $0.789$                     & $0.598$                  \\
-        ABY3                         & 16                          & 10240                          & \xmark                        & $0.525$                     & $0.598$                  \\ ABY3                         & 16                          & 100096                          & \xmark                        & $0.438$                     & $0.598$                  \\
-        ABY3                         & 32                          & 10240                          & \xmark                        & $0.475$                     & $0.598$                  \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $0.361$                     & $0.598$                  \\
-        \midrule
-        SPDZWise                     & 1                           & 10240                          & \cmark                        & $7.351$                     & $4.957$                  \\
+        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        ABY3                         & 1                           & 128                            & \xmark                        & $$                          & $1.048$                  \\
+        ABY3                         & 1                           & 1024                           & \xmark                        & $$                          & $0.649$                  \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $3.084$                     & $0.598$                  \\
+            \midrule
+        ABY3                         & 2                           & 10240                          & \xmark                        & $1.660$                     & \multirow{6}{*}{$0.598$} \\
+        ABY3                         & 4                           & 10240                          & \xmark                        & $0.942$                     &                          \\
+        ABY3                         & 8                           & 10240                          & \xmark                        & $0.572$                     &                          \\
+        ABY3                         & 16                          & 10240                          & \xmark                        & $0.414$                     &                          \\
+        ABY3                         & 32                          & 10240                          & \xmark                        & $0.360$                     &                          \\
+        ABY3                         & 32                          & 100096                         & \xmark                        & $0.234$                     &                          \\
+            \midrule
+        SPDZWise                     & 1                           & 10240                          & \cmark                        & $$                          & $4.957$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
 
 \begin{table}[ht]
     \centering
-    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 5 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 1\,000\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
+    \caption{Runtime and communication (in data sent per party) comparison of different MPC protocols, averaged over 3 runs. All parties run on different machines in the same city (network speed $6.6\,\text{Gbit}/s$, latency $1.5\,ms$). Benchmarks for code size $|\texttt{iris}| = 12800$ bits and database of size $|\texttt{DB}| = 1\,000\,000$ iris codes. Chunk Size refers to number of dot-products and MSB extraction operations batched per communication round.}
     \label{tab::bench_network_1m}
     \begin{tabular}{lrrcrr}
         \toprule
         \multicolumn{1}{c}{Protocol} & \multicolumn{1}{c}{Threads} & \multicolumn{1}{c}{Chunk Size} & \multicolumn{1}{c}{Malicious} & \multicolumn{1}{c}{Runtime} & \multicolumn{1}{c}{Data} \\
                                      &                             &                                &                               & \multicolumn{1}{c}{$s$}     & \multicolumn{1}{c}{MB}   \\
         \midrule
-        Plain                        & 1                           & -                              & -                             & $1.649$                     & -                        \\
-        ABY3                         & 1                           & 10240                          & \xmark                        & $49.699$                    & $5.925$                  \\
+        Plain                        & 1                           & -                              & -                             & $$                          & -                        \\
+        ABY3                         & 1                           & 10240                          & \xmark                        & $$                          & $5.925$                  \\
         \midrule
-        ABY3                         & 32                          & 10240                          & \xmark                        & $4.558$                     & $5.925$                  \\
-        ABY3                         & 32                          & 100096                         & \xmark                        & $3.940$                     & $5.925$                  \\
+        ABY3                         & 32                          & 10240                          & \xmark                        & $3.386$                     & $5.925$                  \\
+        ABY3                         & 32                          & 100096                         & \xmark                        & $2.566$                     & $5.925$                  \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -468,6 +468,9 @@ To further strengthen security and prevent parties from cheating by knowing the 
 \paragraph{Inputs are Bits shared over Larger Rings.}
 For efficiency we let the orbs share each bit of the input iris code over $\Z_{2^k}$ instead of $\F_2$. The reason for that is that the orb would be able to share wrong bits anyways, hence it has to be trusted to follow the protocol already. Second, the computing parties need to store the shares over $\Z_{2^k}$ for efficiency anyways.
 If this is undesired, an extension of our protocol would allow to share the inputs as bits. The workflow changes as follows. First, the input is interpreted as three trivial sharings $\shared{x_1}, \shared{x_2}, \shared{x_2}$ in $\Z_{2^{k + \sigma}}$ (similar to \Cref{sec::a2b}) and authenticated using the shares of the MAC. Then, the three shares are combined using two arithmetic XOR gates, i.e., by computing $\shared{y} = \shared{x_1}+ \shared{x_2} + \shared{x_1} \cdot \shared{x_2}$ and $\shared{z} = \shared{x_3} + \shared{y} + \shared{x_3} \cdot \shared{y}$. This results in authenticated shared bits over $\Z_{2^{k + \sigma}}$, as required for the rest of the protocol.
+
+\paragraph{Precomputing Triples.}
+In \Cref{sec::bench} we benchmark the whole SPDZWise protocol, including generating triples to verify the AND gates. This triple generation, however, can be performed independently to the actual protocol execution. Thus, when computing servers  do not respond to an actual query, they can precompute many of those triples, removing the runtime and communication from the actual execution. This can lead to a significant runtime increase, since triple generation requires bit-permutation which can not be parallelized using multithreading. Since this permutation is also part of verifying semi-honest AND gates, another future research direction could be to find a parallelizable permutation, similar to discussed in \cite{DBLP:conf/sp/ArakiBFLLNOWW17}.
 
 \printbibliography
 
