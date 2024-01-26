@@ -20,10 +20,8 @@ A report of the preliminary results of this project is located in ```docs/report
 
 ## Dependencies
 
-- `Rust 1.75` (currently in beta, will release on 28-12-2023)
+- `Rust 1.75`
   - We use this version because we are using `async fn` in traits, which is only stabilized in this version.
-  - If you are using cargo & rustup, the included rust-toolchain file will automatically download and use this version.
-  - Maybe because this is still in Beta, `rust-analyzer` gets a bit confused and your editor will sometimes report errors where there are none, hopefully this will be better in a few weeks, once it is stable.
 
 ## Repository Structure
 
