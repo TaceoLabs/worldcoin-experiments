@@ -8,11 +8,15 @@ This is the repository containing code and benchmarking harnesses for _decentral
 
 - [Experiments for Decentralized Iris Code Membership Protocols using MPC](#experiments-for-decentralized-iris-code-membership-protocols-using-mpc)
   - [Table of Contents](#table-of-contents)
+  - [Report](#report)
   - [Dependencies](#dependencies)
   - [Repository Structure](#repository-structure)
     - [Implemented MPC protocols](#implemented-mpc-protocols)
-  - [Examples \& Benchmarks](#examples--benchmarks)
-  - [TODOs](#todos)
+  - [Examples](#examples)
+
+## Report
+
+A report of the preliminary results of this project is located in ```docs/report/main.pdf```. This report includes a description of the protocol, the most challenging parts for efficient MPC evaluation, discussions of the MPC protocols, as well as benchmarks and potential future work.
 
 ## Dependencies
 
@@ -55,7 +59,9 @@ We are investigating several different MPC protocols:
   - We use a cut-and-choose protocol to get maliciously secure binary computations.
   - [Publication](https://www.ieee-security.org/TC/SP2017/papers/96.pdf)
 
-## Examples & Benchmarks
+As discussed in the report in ```docs/report/main.pdf```, we recommend using SPDZWise MACs in combination with cut-and-choose to achieve malicious security.
+
+## Examples
 
 In [`iris-mpc/examples`](iris-mpc/examples), there are a few end-to-end examples that run the iris code matching for a single incoming iris code with associated mask against a prepared database of iris codes of a certain size.
 
@@ -67,11 +73,3 @@ bash examples/run_aby3.sh
 ```
 
 You will see the output of a single party in the current terminal.
-
-## TODOs
-
-- [ ] Finish and clean up implementations
-- [ ] Code documentation
-- [ ] Performance optimizations for MPC protocols
-- [ ] Multithreading support for MPC protocols
-- [ ] Benchmark runs for all protocols in different networking scenarios
