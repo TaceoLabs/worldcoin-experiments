@@ -492,42 +492,43 @@ Finally, we vary the network speed and give benchmarks for $100\,000$ iris codes
 
 As can be seen \Cref{tab::bench_network_100k_city}, network speed plays a huge role in the resulting performance. When sending smaller packages (i.e., small chunk sizes in the table) more communication rounds are required, which when having a slow latency, dominate the overall performance of the use case.
 
-\section{Conclusion and Open Problems}
 
-\subsection{Open Problems and Bottlenecks}
+\section{Open Problems and Bottlenecks}
 
-\paragraph{Size of the Shared Iris Database.}
+In this section, we discuss some of the bottlenecks in our implementation, give some ideas on how to improve them and touch on other areas that could be improved in future work.
+
+\subsection{Size of the Shared Iris Database.}
 Due to the requirements for the efficient dot-product operation, the iris database needs to be shared over a ring of size $2^k$ for some $k$, such that the summations do not overflow the ring.
 For the example parameters of an iris code length of 12800, this means that $k$ is at least 14, and for simplicity we choose $k=16$.
 Furthermore, every part has access to two out of three shares of the ring elements due to using replicated secret sharing, hence each party stores two ring elements of size $k=16$ for each bit in an iris code.
 This expansion factor of 32 is a big reason for the slowdowns compared to the plain execution of the protocol, and also limits the loading of the full database into memory. As an example, the database for 1 million iris codes would require $2 \cdot 16 \cdot 12800 \cdot 1\,000\,000 \text{ bits } = 51$ GB of memory.
 
-\paragraph{Multithreading}
+\subsection{Multithreading}
 Currently, multithreading is only enabled for the computationally intensive parts of the protocol. Further optimizations could be achieved by also allowing the communication of the protocol to be multithreaded. However, especially for protocols with malicious security, the communication ordering is crucial for consistency checks, which makes multithreaded communication more difficult to implement. Implementing this could bring the multithreaded scaling closer to linear, however, the effects of memory contention are already noticeable for a large number of threads in the current implementation, so we do not expect to reach fully linear speedups from multithreading.
 
-\paragraph{SPDZWise MACs and the effects on the Database.}
+\subsection{SPDZWise MACs and the effects on the Database.}
 Since we recommend to use SPDZWise MACs (\Cref{sec::spdzwise}), which operate over larger rings $\Z_{2^{k + \sigma}}$, the shared database gets further increased. Concretely, to get at least $40$ bits of statistical security, each bit of the iris codes is stored as at least 108 bits (two shares of 54 bits), where we choose 128 bits for simplicity. Furthermore, to accommodate for the MACs, the database size has to be doubled again.
 
 Alternatively, one can skip storing the MACs at the cost of computing them in a setup phase at the cost of communicating $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
 As an example, the database for 100k iris codes would require $2 \cdot 128 \cdot 12800 \cdot 100\,000 \text{ bits } = 40.9$ GB of memory.
 
-\paragraph{Renewal of MACs.}
+\subsection{Renewal of MACs.}
 To further strengthen security and prevent parties from cheating by knowing the MAC keys we propose periodically renewing the MAC keys (maybe once a month). This entails recomputing the MACs for each share in the database, requiring to communicate $64 \cdot |\texttt{iris\_code}| \cdot |\texttt{db}|$ bits.
 
-\paragraph{Inputs are Bits shared over Larger Rings.}
+\subsection{Inputs are Bits shared over Larger Rings.}
 For efficiency we let the orbs share each bit of the input iris code over $\Z_{2^k}$ instead of $\F_2$. The reason for that is that the orb would be able to share wrong bits anyways, hence it has to be trusted to follow the protocol already. Second, the computing parties need to store the shares over $\Z_{2^k}$ for efficiency anyways.
 If this is undesired, an extension of our protocol would allow to share the inputs as bits. The workflow changes as follows. First, the input is interpreted as three trivial sharings $\shared{x_1}, \shared{x_2}, \shared{x_2}$ in $\Z_{2^{k + \sigma}}$ (similar to \Cref{sec::a2b}) and authenticated using the shares of the MAC. Then, the three shares are combined using two arithmetic XOR gates, i.e., by computing $\shared{y} = \shared{x_1} + \shared{x_2} - \shared{x_1} \cdot \shared{x_2}$ and $\shared{z} = \shared{x_3} + \shared{y} - \shared{x_3} \cdot \shared{y}$. This results in authenticated shared bits over $\Z_{2^{k + \sigma}}$, as required for the rest of the protocol.
 
-\paragraph{Precomputing Triples.}
+\subsection{Precomputing Triples.}
 In \Cref{sec::bench}, we benchmark the whole SPDZWise protocol, including generating triples to verify the AND gates. This triple generation, however, can be performed independently to the actual protocol execution. Thus, when computing servers  do not have to respond to an actual query, they can precompute many of those triples, removing the runtime and communication from the actual execution. This can lead to a significant runtime increase, since triple generation requires bit-permutations which can not be parallelized using multithreading. Since this permutation is also part of verifying semi-honest AND gates at the end of the protocol, another future research direction could be to find a parallelizable permutation, similar to discussed in \cite{DBLP:conf/sp/ArakiBFLLNOWW17}.
 
-\paragraph{Different Adder Circuits for MSB-extraction.}
+\subsection{Different Adder Circuits for MSB-extraction.}
 As can be seen in \Cref{tab::bench_network_100k_city}, in network connection with high latency the runtime is dominated by the communication rounds. Hence, replacing the ripple-carry adder with depth-optimized carry-lookahead header, which require fewer communication rounds, but larger total communication, can lead to significant performance gains in these networks.
 
-\paragraph{Using solely protocols over binary fields.}
+\subsection{Using solely protocols over binary fields.}
 The main optimizations used in the discussed protocols makes the communication independent to the size of the iris code by using arithmetic operations over $\Z_{2^k}$ instead of binary operations over $\F_2$. However, this comes at the cost of a large expansion factor of 16 for datatypes, which makes memory size and contention a potential bottleneck. Thus, future work could investigate if this tradeoff is worth it if the network conditions are very good (e.g., when the servers are located in the same data region or data center). There, one could use the full Gbps bandwidths of the network to facilitate protocols that operate over $\F_2$, but do not have the dot-product optimization.
 
-\paragraph{Dedicated SIMD implementation.}
+\subsection{Dedicated SIMD implementation.}
 While modern compilers are pretty good at autovectorization, a dedicated SIMD implementation could offer further speedups. The nightly version of Rust has support for the \texttt{portable-simd} API, which can serve as an underlying datatype for our shares. However, this API is still in development and not yet stable, so we did not use it in our implementation, but this could be investigated in the future.
 
 \printbibliography
