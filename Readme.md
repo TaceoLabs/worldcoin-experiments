@@ -1,6 +1,6 @@
 # Experiments for Decentralized Iris Code Membership Protocols using MPC
 
-**Disclaimer: This repository is a heavy work-in-progress and contains unfinished protocols, unoptimized code and minimal documentation.**
+**Disclaimer: This repository is intended for experiments only and may contain unfinished protocols, unoptimized code and minimal documentation.**
 
 This is the repository containing code and benchmarking harnesses for _decentralized iris code membership protocols_ using secure multiparty computation.
 
