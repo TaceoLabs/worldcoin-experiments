@@ -20,10 +20,59 @@ impl Default for IrisCodeArray {
 
 impl IrisCodeArray {
     pub const IRIS_CODE_SIZE: usize = 12800;
+    pub const COLS: usize = 200;
+    pub const ROWS: usize = 4 * 16;
+    const BYTES_PER_COL: usize = Self::COLS / 8;
     pub const IRIS_CODE_SIZE_BYTES: usize = (Self::IRIS_CODE_SIZE + 7) / 8;
     pub const IRIS_CODE_SIZE_U64: usize = (Self::IRIS_CODE_SIZE + 63) / 64;
     pub const ZERO: Self = IrisCodeArray([0; Self::IRIS_CODE_SIZE_U64]);
     pub const ONES: Self = IrisCodeArray([u64::MAX; Self::IRIS_CODE_SIZE_U64]);
+
+    fn rotate_row(a: &mut [u8; Self::BYTES_PER_COL], mut amount: i32) {
+        if amount <= -8 {
+            a.rotate_left((amount.unsigned_abs() as usize) / 8);
+            amount %= 8;
+        } else if amount >= 8 {
+            a.rotate_right((amount as usize) / 8);
+            amount %= 8;
+        }
+        match amount.cmp(&0) {
+            std::cmp::Ordering::Less => {
+                let r = amount.abs();
+                let l = 8 - r;
+                let mut carry = a[0] << l;
+                for b in a.iter_mut().rev() {
+                    let old = *b;
+                    *b = (old >> r) | carry;
+                    carry = old << l;
+                }
+            }
+            std::cmp::Ordering::Equal => (),
+            std::cmp::Ordering::Greater => {
+                let l = amount.abs();
+                let r = 8 - l;
+                let mut carry = a[24] >> r;
+                for b in a.iter_mut() {
+                    let old = *b;
+                    *b = (old << l) | carry;
+                    carry = old >> r;
+                }
+            }
+        }
+    }
+    pub fn rotate(&mut self, amount: i32) {
+        let bytes: &mut [u8] = bytemuck::try_cast_slice_mut(self.0.as_mut_slice()).unwrap();
+        for chunk in bytes.chunks_exact_mut(Self::BYTES_PER_COL) {
+            Self::rotate_row(chunk.try_into().unwrap(), amount)
+        }
+    }
+
+    pub fn rotated(&self, amount: i32) -> Self {
+        let mut copy = *self;
+        copy.rotate(amount);
+        copy
+    }
+
     #[inline]
     pub fn set_bit(&mut self, i: usize, val: bool) {
         let word = i / 64;
