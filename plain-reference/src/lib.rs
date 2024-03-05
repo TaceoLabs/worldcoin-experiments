@@ -28,9 +28,9 @@ impl IrisCodeArray {
     pub const ZERO: Self = IrisCodeArray([0; Self::IRIS_CODE_SIZE_U64]);
     pub const ONES: Self = IrisCodeArray([u64::MAX; Self::IRIS_CODE_SIZE_U64]);
 
-    fn rotate_row(a: &mut [u8; Self::BYTES_PER_COL], mut amount: i32) {
+    fn rotate_row(a: &mut [u8; Self::BYTES_PER_COL], mut amount: isize) {
         if amount <= -8 {
-            a.rotate_left((amount.unsigned_abs() as usize) / 8);
+            a.rotate_left(amount.unsigned_abs() / 8);
             amount %= 8;
         } else if amount >= 8 {
             a.rotate_right((amount as usize) / 8);
@@ -60,17 +60,13 @@ impl IrisCodeArray {
             }
         }
     }
-    pub fn rotate(&mut self, amount: i32) {
-        let bytes: &mut [u8] = bytemuck::try_cast_slice_mut(self.0.as_mut_slice()).unwrap();
+
+    pub fn rotate(mut iris_code: Self, amount: isize) -> Self {
+        let bytes: &mut [u8] = bytemuck::try_cast_slice_mut(iris_code.0.as_mut_slice()).unwrap();
         for chunk in bytes.chunks_exact_mut(Self::BYTES_PER_COL) {
             Self::rotate_row(chunk.try_into().unwrap(), amount)
         }
-    }
-
-    pub fn rotated(&self, amount: i32) -> Self {
-        let mut copy = *self;
-        copy.rotate(amount);
-        copy
+        iris_code
     }
 
     #[inline]
