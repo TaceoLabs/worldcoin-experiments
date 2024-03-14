@@ -150,6 +150,15 @@ impl MpcNetworkHandler {
         })
     }
 
+    pub fn get_send_receive(&self, i: usize) -> std::io::Result<(u64, u64)> {
+        let conn = self
+            .connections
+            .get(&i)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such connection"))?;
+        let stats = conn.stats();
+        Ok((stats.udp_tx.bytes, stats.udp_rx.bytes))
+    }
+
     pub fn print_connection_stats(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
         for (i, conn) in &self.connections {
             let stats = conn.stats();
